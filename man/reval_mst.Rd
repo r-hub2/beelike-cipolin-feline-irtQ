@@ -210,7 +210,9 @@ dynamic adaptation, tailoring the test path to individual performance levels.
 #    (c) IRT model: 3-parameter logistic model (3PLM)
 ## ------------------------------------------------------------------------------
 # Load the necessary library
-library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
 
 # Import item bank metadata
 x <- simMST$item_bank

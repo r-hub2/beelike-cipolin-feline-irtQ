@@ -11,11 +11,11 @@
 #'   \item{\code{module}}{A binary matrix that maps items from the item bank
 #'   to modules within the MST panel. This parameter enables precise
 #'   item-to-module assignments for MST configurations, analogous to
-#'   the \code{modules} argument in the \code{\link{randomMST}} function
+#'   the \code{modules} argument in the \code{randomMST} function
 #'   of the \pkg{mstR} package (Magis et al., 2017).}
 #'   \item{\code{route_map}}{A binary square matrix that defines the MST structure,
 #'   illustrating transitions between modules and stages. This concept is inspired
-#'   by the \code{transMatrix} argument in the \code{\link{randomMST}}
+#'   by the \code{transMatrix} argument in the \code{randomMST}
 #'   function from the \pkg{mstR} package (Magis et al., 2017).}
 #'   \item{\code{cut_score}}{A list defining cut scores for routing test takers
 #'   through MST stages. Each list element is a vector of cut scores for advancing
