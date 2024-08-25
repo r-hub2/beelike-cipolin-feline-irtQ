@@ -35,7 +35,7 @@ Authors@R: c(person("Hwanggyu", "Lim", email="hglim83@gmail.com", role=c("aut", 
     ) 
 RoxygenNote: 7.3.2
 NeedsCompilation: no
-Packaged: 2024-08-23 23:47:37 UTC; kijja
+Packaged: 2024-08-25 02:03:53 UTC; kijja
 Author: Hwanggyu Lim [aut, cre],
   Craig S. Wells [ctb],
   James Howard [ctb],
