@@ -63,7 +63,7 @@
 #' To determine an appropriate number of intervals (*K*), [irtQ::catsib()]
 #' automatically decreases *K* from a large starting value (e.g., 80) based on
 #' the rule proposed by Nandakumar and Roussos (2004). Specifically, if more
-#' than 7.5\% of examinees in either the reference or focal group would be
+#' than 7.5% of examinees in either the reference or focal group would be
 #' excluded due to small bin sizes, the number of bins is reduced by one and the
 #' process is repeated. This continues until the retained examinees in each
 #' group comprise at least 92.5\% of the total. However, to prevent having too
@@ -673,102 +673,130 @@ catsib_one <- function(data,
 catsib_item <- function(crscore_ref, crscore_foc, resp.ref, resp.foc,
                         max.bin, min.bin, min.binsize = 3, max.del = 0.075,
                         weight.group) {
-  # combine all corrected theta scores
-  crscore <- c(crscore_ref, crscore_foc)
 
-  # set the range of the ability scale
-  min.crscore <- min(crscore, na.rm = TRUE)
-  max.crscore <- max(crscore, na.rm = TRUE)
-
-  # decide the number of bins and create an initial frequency table
-  for (num.bin in max.bin:min.bin) {
-    # compute the cut-scores to divide the theta scale into the bins
-    cutscore <- seq(from = min.crscore, to = max.crscore, length.out = num.bin + 1)
-
-    # assign a group variable to each score
-    bin_ref <- cut(crscore_ref, breaks = cutscore, include.lowest = TRUE, dig.lab = 7)
-    bin_foc <- cut(crscore_foc, breaks = cutscore, include.lowest = TRUE, dig.lab = 7)
-
-    # exclude bins where candidates' responses are NAs
-    non.na.ref <- !is.na(resp.ref)
-    non.na.foc <- !is.na(resp.foc)
-    bin_ref <- bin_ref[non.na.ref]
-    bin_foc <- bin_foc[non.na.foc]
-
-    # create a temporary data frame of bin frequency for both groups
-    bin.n.ref <- stats::xtabs(~bin_ref, drop.unused.levels = FALSE)
-    bin.n.foc <- stats::xtabs(~bin_foc, drop.unused.levels = FALSE)
-
-    # check if the counts of remaining sample is greater than equal to minimum a criterion
-    isok_ref <- (sum(bin.n.ref[bin.n.ref >= min.binsize & bin.n.foc >= min.binsize]) /
-                   sum(bin.n.ref)) >= 1 - max.del
-    isok_foc <- (sum(bin.n.foc[bin.n.ref >= min.binsize & bin.n.foc >= min.binsize]) /
-                   sum(bin.n.foc)) >= 1 - max.del
-
-    # if the criterion is met, then break out the loop
-    if (all(isok_ref, isok_foc)) {
-      break
+  # check if all responses are NAs
+  all.na.ref <- all(is.na(resp.ref))
+  all.na.foc <- all(is.na(resp.foc))
+  
+  # when all responses are NAs for either group, return NAs
+  if(all.na.ref | all.na.foc) {
+    list(dif_stat = data.frame(
+      beta = NA, se = NA, z.beta = NA, p = NA,
+      n.ref = 0, n.foc = 0, n.total = 0
+    ),
+    contingency = data.frame(
+      bin = NA, n.ref = 0, prop.ref = NA, var.ref = NA,
+      n.foc = 0, prop.foc = NA, var.foc = NA,
+      n.total = 0, beta = NA, var.beta = NA
+    ))
+    
+  } else {
+    
+    # when not all responses are NAs, proceed to compute the beta statistic
+  
+    # combine all corrected theta scores
+    crscore <- c(crscore_ref, crscore_foc)
+    
+    # set the range of the ability scale
+    min.crscore <- min(crscore, na.rm = TRUE)
+    max.crscore <- max(crscore, na.rm = TRUE)
+    
+    # decide the number of bins and create an initial frequency table
+    for (num.bin in max.bin:min.bin) {
+      # compute the cut-scores to divide the theta scale into the bins
+      cutscore <- seq(from = min.crscore, to = max.crscore, length.out = num.bin + 1)
+      
+      # assign a group variable to each score
+      bin_ref <- cut(crscore_ref, breaks = cutscore, include.lowest = TRUE, dig.lab = 7)
+      bin_foc <- cut(crscore_foc, breaks = cutscore, include.lowest = TRUE, dig.lab = 7)
+      
+      # exclude bins where candidates' responses are NAs
+      non.na.ref <- !is.na(resp.ref)
+      non.na.foc <- !is.na(resp.foc)
+      bin_ref <- bin_ref[non.na.ref]
+      bin_foc <- bin_foc[non.na.foc]
+      
+      # create a temporary data frame of bin frequency for both groups
+      bin.n.ref <- stats::xtabs(~bin_ref, drop.unused.levels = FALSE)
+      bin.n.foc <- stats::xtabs(~bin_foc, drop.unused.levels = FALSE)
+      
+      # check if the counts of remaining sample is greater than equal to minimum a criterion
+      isok_ref <- (sum(bin.n.ref[bin.n.ref >= min.binsize & bin.n.foc >= min.binsize]) /
+                     sum(bin.n.ref)) >= 1 - max.del
+      isok_foc <- (sum(bin.n.foc[bin.n.ref >= min.binsize & bin.n.foc >= min.binsize]) /
+                     sum(bin.n.foc)) >= 1 - max.del
+      
+      # if the criterion is met, then break out the loop
+      if (all(isok_ref, isok_foc)) {
+        break
+      }
     }
-  }
-
-  # final data frame containing all components to compute the beta statistic
-  prop.ref <- as.numeric(table(bin_ref, resp.ref[non.na.ref])[, 2] / bin.n.ref)
-  prop.foc <- as.numeric(table(bin_foc, resp.foc[non.na.foc])[, 2] / bin.n.foc)
-  var.ref <- as.numeric(by(
-    data = resp.ref[non.na.ref],
-    INDICES = bin_ref,
-    FUN = stats::var, na.rm = TRUE
-  ))
-  var.foc <- as.numeric(by(
-    data = resp.foc[non.na.foc],
-    INDICES = bin_foc,
-    FUN = stats::var, na.rm = TRUE
-  ))
-  ref.df <-
-    as.data.frame(bin.n.ref, stringsAsFactors = FALSE) %>%
-    stats::setNames(nm = c("bin", "n.ref")) %>%
-    data.frame(prop.ref = prop.ref, var.ref = var.ref)
-  foc.df <-
-    as.data.frame(bin.n.foc, stringsAsFactors = FALSE) %>%
-    stats::setNames(nm = c("bin", "n.foc")) %>%
-    data.frame(prop.foc = prop.foc, var.foc = var.foc)
-  n.ref <- n.foc <- weight <- NULL
-  item_df <-
-    merge(x = ref.df, y = foc.df, by = "bin", all = TRUE, sort = FALSE) %>%
-    subset(n.ref >= 3 & n.foc >= 3) %>%
-    transform(n.total = n.ref + n.foc) %>%
-    dplyr::mutate(
-      weight = dplyr::case_when(
-        weight.group == "comb" ~ .data$n.total / sum(.data$n.total),
-        weight.group == "foc" ~ .data$n.foc / sum(.data$n.foc),
-        weight.group == "ref" ~ .data$n.ref / sum(.data$n.ref)
+    
+    # final data frame containing all components to compute the beta statistic
+    prop.ref <- 
+      as.numeric(table(bin_ref, 
+                       factor(resp.ref[non.na.ref], levels = c(0, 1)))[, 2] / bin.n.ref)
+    prop.foc <- 
+      as.numeric(table(bin_foc, 
+                       factor(resp.foc[non.na.foc], levels = c(0, 1)))[, 2] / bin.n.foc)
+    var.ref <- as.numeric(by(
+      data = resp.ref[non.na.ref],
+      INDICES = bin_ref,
+      FUN = stats::var, na.rm = TRUE
+    ))
+    var.foc <- as.numeric(by(
+      data = resp.foc[non.na.foc],
+      INDICES = bin_foc,
+      FUN = stats::var, na.rm = TRUE
+    ))
+    ref.df <-
+      as.data.frame(bin.n.ref, stringsAsFactors = FALSE) %>%
+      stats::setNames(nm = c("bin", "n.ref")) %>%
+      data.frame(prop.ref = prop.ref, var.ref = var.ref)
+    foc.df <-
+      as.data.frame(bin.n.foc, stringsAsFactors = FALSE) %>%
+      stats::setNames(nm = c("bin", "n.foc")) %>%
+      data.frame(prop.foc = prop.foc, var.foc = var.foc)
+    n.ref <- n.foc <- weight <- NULL
+    item_df <-
+      merge(x = ref.df, y = foc.df, by = "bin", all = TRUE, sort = FALSE) %>%
+      subset(n.ref >= 3 & n.foc >= 3) %>%
+      transform(n.total = n.ref + n.foc) %>%
+      dplyr::mutate(
+        weight = dplyr::case_when(
+          weight.group == "comb" ~ .data$n.total / sum(.data$n.total),
+          weight.group == "foc" ~ .data$n.foc / sum(.data$n.foc),
+          weight.group == "ref" ~ .data$n.ref / sum(.data$n.ref)
+        )
+      ) %>%
+      transform(
+        beta = ((prop.ref - prop.foc) * weight),
+        var.beta = ((var.ref / n.ref + var.foc / n.foc) * weight^2)
       )
-    ) %>%
-    transform(
-      beta = ((prop.ref - prop.foc) * weight),
-      var.beta = ((var.ref / n.ref + var.foc / n.foc) * weight^2)
+    
+    # compute the beta statistic and its SE
+    beta <- sum(item_df$beta)
+    se_beta <- sqrt(sum(item_df$var.beta))
+    z_beta <- beta / se_beta
+    pval_beta <- 2 * stats::pnorm(q = abs(z_beta), mean = 0, sd = 1, lower.tail = FALSE)
+    n.ref <- sum(item_df$n.ref)
+    n.foc <- sum(item_df$n.foc)
+    stat_df <- data.frame(
+      beta = beta, se = se_beta, z.beta = z_beta, p = pval_beta,
+      n.ref = n.ref, n.foc = n.foc, n.total = n.ref + n.foc
     )
-
-  # compute the beta statistic and its SE
-  beta <- sum(item_df$beta)
-  se_beta <- sqrt(sum(item_df$var.beta))
-  z_beta <- beta / se_beta
-  pval_beta <- 2 * stats::pnorm(q = abs(z_beta), mean = 0, sd = 1, lower.tail = FALSE)
-  n.ref <- sum(item_df$n.ref)
-  n.foc <- sum(item_df$n.foc)
-  stat_df <- data.frame(
-    beta = beta, se = se_beta, z.beta = z_beta, p = pval_beta,
-    n.ref = n.ref, n.foc = n.foc, n.total = n.ref + n.foc
-  )
-
-  # round the numbers of the data frame
-  item_df2 <-
-    janitor::adorn_totals(
-      dat = item_df, where = "row", fill = NA, , , "n.ref", "n.foc", "n.total",
-      "beta", "var.beta"
-    ) %>%
-    dplyr::mutate_at(.vars = c(3, 4, 6, 7), "round", digits = 4)
-
-  # return the results
-  list(dif_stat = stat_df, contingency = item_df2)
+    
+    # round the numbers of the data frame
+    item_df2 <-
+      janitor::adorn_totals(
+        dat = item_df, where = "row", fill = NA, , , "n.ref", "n.foc", "n.total",
+        "beta", "var.beta"
+      ) %>%
+      dplyr::mutate_at(.vars = c(3, 4, 6, 7), "round", digits = 4)
+    
+    # return the results
+    list(dif_stat = stat_df, contingency = item_df2)
+  
+  }
+  
 }

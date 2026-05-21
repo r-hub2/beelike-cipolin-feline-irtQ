@@ -223,7 +223,7 @@ bin size is 3, which can be controlled via the \code{min.binsize} argument.
 To determine an appropriate number of intervals (\emph{K}), \code{\link[=catsib]{catsib()}}
 automatically decreases \emph{K} from a large starting value (e.g., 80) based on
 the rule proposed by Nandakumar and Roussos (2004). Specifically, if more
-than 7.5\\% of examinees in either the reference or focal group would be
+than 7.5\% of examinees in either the reference or focal group would be
 excluded due to small bin sizes, the number of bins is reduced by one and the
 process is repeated. This continues until the retained examinees in each
 group comprise at least 92.5\\% of the total. However, to prevent having too

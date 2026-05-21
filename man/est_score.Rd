@@ -291,28 +291,40 @@ est_score(x, data, D = 1, method = "WL", range = c(-4, 4), se = TRUE)
 
 # Estimate abilities using MLF with default fences
 # based on the `range` argument
-est_score(x, data, D = 1, method = "MLF",
-  fence.a = 3.0, fence.b = NULL, se = TRUE)
+est_score(x, data,
+  D = 1, method = "MLF",
+  fence.a = 3.0, fence.b = NULL, se = TRUE
+)
 
 # Estimate abilities using MLF with user-specified fences
-est_score(x, data, D = 1, method = "MLF", fence.a = 3.0,
-  fence.b = c(-7, 7), se = TRUE)
+est_score(x, data,
+  D = 1, method = "MLF", fence.a = 3.0,
+  fence.b = c(-7, 7), se = TRUE
+)
 
 # Estimate abilities using maximum a posteriori (MAP)
-est_score(x, data, D = 1, method = "MAP", norm.prior = c(0, 1),
-  nquad = 30, se = TRUE)
+est_score(x, data,
+  D = 1, method = "MAP", norm.prior = c(0, 1),
+  nquad = 30, se = TRUE
+)
 
 # Estimate abilities using expected a posteriori (EAP)
-est_score(x, data, D = 1, method = "EAP", norm.prior = c(0, 1),
-  nquad = 30, se = TRUE)
+est_score(x, data,
+  D = 1, method = "EAP", norm.prior = c(0, 1),
+  nquad = 30, se = TRUE
+)
 
 # Estimate abilities using EAP summed scoring
-est_score(x, data, D = 1, method = "EAP.SUM", norm.prior = c(0, 1),
-  nquad = 30)
+est_score(x, data,
+  D = 1, method = "EAP.SUM", norm.prior = c(0, 1),
+  nquad = 30
+)
 
 # Estimate abilities using inverse TCC scoring
-est_score(x, data, D = 1, method = "INV.TCC", intpol = TRUE,
-  range.tcc = c(-7, 7))
+est_score(x, data,
+  D = 1, method = "INV.TCC", intpol = TRUE,
+  range.tcc = c(-7, 7)
+)
 }
 
 }
