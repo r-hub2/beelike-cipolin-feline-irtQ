@@ -3,26 +3,27 @@
 
 # irtQ 1.1.0
 
+## Major Improvements
+
+- Improved the speed and reduced memory usage of item parameter
+  estimation and standard error computation in `est_irt()`,
+  `est_item()`, and `est_mg()`.
+- Improved the computational speed of `est_score()` by up to 52% for
+  dichotomous items (N = 10,000) and up to 27% for mixed-format tests,
+  through a series of optimizations.
 - Improved the computational speed of `sx2_fit()` substantially by
   replacing the O(J²) Lord-Wingersky recursion with a forward-backward
   pass (up to 11× faster for mixed-format tests with J = 55 items) and
   vectorizing internal helper functions `expFreq()`, `obsFreq()`, and
   the PRM category-collapsing routine.
 
-- Improved the computational speed of `est_score()` by up to 52% for
-  dichotomous items (N = 10,000) and up to 27% for mixed-format tests,
-  through a series of optimizations.
-
-- Improved the speed and reduced memory usage of item parameter
-  estimation and standard error computation in `est_irt()`,
-  `est_item()`, and `est_mg()`.
+## New Features
 
 - Added a unit test suite using the **testthat** 3rd edition
   (`testthat >= 3.0.0`). Tests cover core functions including `drm()`,
   `prm()`, `est_irt()`, `est_score()`, `est_mg()`, `rdif()`, `crdif()`,
   and `catsib()`, with the relevant tests across dichotomous,
-  polytomous, and mixed-format item scenarios.
-
+  polytomous, and mixed-format item scenarios (355 tests total).
 - Added a new function, `ripd()`, which implements the Residual-based
   Item Parameter Drift (RIPD) detection framework. The function computes
   three RIPD statistics— $RIPD_R$, $RIPD_S$, and $RIPD_{RS}$—for each
@@ -32,21 +33,18 @@
   $RIPD_{RS}$ is a combined chi-square-based statistic sensitive to both
   types of drift. An optional purification procedure is also supported.
 
+## Bug Fixes
+
 - Fixed a minor bug in `sx2_fit()` that caused incorrect cell collapsing
   between two adjacent score categories for polytomous items when
   computing the S-$X^2$ item fit statistic.
-
 - Fixed minor bugs in `est_score()` and `info()`.
-
 - Resolved an issue in `catsib()` where the function failed when all
   responses were missing (NA) in either the reference or focal group.
-
 - Updated `cac_rud()` to include the `x` argument, allowing users to
-  pass item metadata data frames directly.
-
+  pass item metadata data frames directly.  
 - Revised default `control` parameters in `est_irt()`, `est_item()`, and
   `est_mg()`, and updated the documentation accordingly.
-
 - Fixed a minor bug in `est_score()` function in terms of Newton-Raphson
   method.
 
