@@ -33,6 +33,28 @@
   $RIPD_{RS}$ is a combined chi-square-based statistic sensitive to both
   types of drift. An optional purification procedure is also supported.
 
+## New Articles
+
+- Launched the irtQ documentation website at
+  <https://hwangQ.github.io/irtQ/>, built with **pkgdown**. The site
+  includes a full function reference index and the following vignettes
+  covering the complete irtQ workflow:
+  - *Getting Started with irtQ*: an end-to-end overview of the package
+    workflow.
+  - *Item Parameter Estimation*: detailed guidance on `est_irt()`,
+    `est_item()`, and `est_mg()`.
+  - *Ability Estimation*: scoring methods available in `est_score()`.
+  - *Model-Data Fit Evaluation*: using `irtfit()` and `sx2_fit()` to
+    assess model fit.
+  - *DIF Detection*: applying `rdif()`, `grdif()`, and `catsib()` to
+    detect item bias.
+  - *Classification Accuracy and Consistency*: computing indices via
+    `cac_lee()` and `cac_rud()`.
+  - *Utility Functions*: usage of `info()`, `traceline()`, `lwrc()`,
+    `simdat()`, and related helpers.
+  - *Evaluating MST Panels with `reval_mst()`*: measurement precision
+    and bias evaluation for multistage adaptive tests.
+
 ## Bug Fixes
 
 - Fixed a minor bug in `sx2_fit()` that caused incorrect cell collapsing
@@ -42,11 +64,33 @@
 - Resolved an issue in `catsib()` where the function failed when all
   responses were missing (NA) in either the reference or focal group.
 - Updated `cac_rud()` to include the `x` argument, allowing users to
-  pass item metadata data frames directly.  
+  pass item metadata data frames directly.
 - Revised default `control` parameters in `est_irt()`, `est_item()`, and
   `est_mg()`, and updated the documentation accordingly.
 - Fixed a minor bug in `est_score()` function in terms of Newton-Raphson
   method.
+- Fixed multiple stability issues in `catsib()`:
+  - The final bin exclusion step in `catsib_item()` used a hardcoded
+    threshold of 3 instead of the user-supplied `min.binsize` argument,
+    causing inconsistent bin filtering behavior.
+  - The reliability estimate `rho2` in `catsib_one()` was not clamped to
+    $[0, 1]$, so when `errvar > sigma2` (e.g., very few items or
+    purification cascade), a negative `rho2` reversed the regression
+    correction direction, inflating the Type I error rate.
+  - When `errvar >= sigma2` during purification, `rho2` collapsed to 0,
+    causing all corrected scores to converge to the group mean. With
+    group mean differences (impact), this produced empty bin data frames
+    and an invalid purification result. A minimum floor of 0.05 is now
+    enforced for `rho2` to preserve score spread.
+- Fixed a critical bug in `covirt()` where the guessing parameter
+  (`par[,3]`) was incorrectly passed as the difficulty parameter
+  (`par[,2]`) to the `integrand()` function for DRM items. This caused
+  the gradient computation to receive `c = b`, which zeroed out the
+  $\partial P/\partial a$ and $\partial P/\partial b$ gradient
+  components and produced a singular Fisher information matrix.
+  Additionally, `NA` values in `par.3` for 1PLM and 2PLM items are now
+  substituted with 0 prior to gradient evaluation to prevent `NA`
+  propagation.
 
 # irtQ 1.0.0
 

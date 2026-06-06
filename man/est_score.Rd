@@ -222,7 +222,7 @@ The second value in \code{range.tcc} is interpreted as \eqn{\theta_{max}}, which
 corresponds to the ability estimate for the maximum observed sum score.
 
 For the "INV.TCC" method, standard errors of ability estimates are computed
-using the approach proposed by Lim et al. (2020). The implementation of
+using the approach proposed by Lim et al. (2021). The implementation of
 inverse TCC scoring in this function is based on a modified version of the
 \code{SNSequate::irt.eq.tse()} function from the \pkg{SNSequate} package
 (González, 2014).
@@ -353,7 +353,7 @@ Kolen, M. J. & Tong, Y. (2010). Psychometric properties of IRT proficiency
 estimates.
 \emph{Educational Measurement: Issues and Practice, 29}(3), 8-14.
 
-Lim, H., Davey, T., & Wells, C. S. (2020). A recursion-based analytical
+Lim, H., Davey, T., & Wells, C. S. (2021). A recursion-based analytical
 approach to evaluate the performance of MST.
 \emph{Journal of Educational Measurement, 58}(2), 154-178.
 

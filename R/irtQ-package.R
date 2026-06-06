@@ -45,7 +45,7 @@
 #' \tabular{ll}{
 #' Package: \tab irtQ\cr
 #' Version: \tab 1.1.0\cr
-#' Date: \tab 2026-05-20\cr
+#' Date: \tab 2026-06-06\cr
 #' Depends: \tab R (>= 4.4)\cr
 #' License: \tab GPL (>= 2)\cr
 #' }
@@ -564,8 +564,7 @@
 #'
 #'   Li, Y. & Lissitz, R. (2004). Applications of the analytically derived
 #'   asymptotic standard errors of item response theory item parameter
-#'   estimates.
-#' *Journal of educational measurement, 41*(2), 85-117.
+#'   estimates. *Journal of educational measurement, 41*(2), 85-117.
 #'
 #'   Lim, H., & Choe, E. M. (2023). Detecting differential item
 #'   functioning in CAT using IRT residual DIF approach.
@@ -579,7 +578,7 @@
 #'   differential item functioning among multiple groups using IRT residual DIF
 #'   framework. *Journal of Educational Measurement, 61*(4), 656-681.
 #'
-#'   Lim, H., Davey, T., & Wells, C. S. (2020). A recursion-based analytical
+#'   Lim, H., Davey, T., & Wells, C. S. (2021). A recursion-based analytical
 #'   approach to evaluate the performance of MST.
 #' *Journal of Educational Measurement, 58*(2), 154-178.
 #'
@@ -646,6 +645,9 @@
 #'   Thissen, D. & Orlando, M. (2001). Item response theory for items scored in
 #'   two categories. In D. Thissen & H. Wainer (Eds.),
 #' *Test scoring* (pp.73-140). Mahwah, NJ: Lawrence Erlbaum.
+#'
+#'   Thissen, D. & Wainer, H. (1982). Some standard errors in item response theory. 
+#'   *Psychometrika, 47*, 397-412.
 #'
 #'   Wainer, H., & Mislevy, R. J. (1990). Item response theory, item
 #'   calibration, and proficiency estimation. In H. Wainer (Ed.),

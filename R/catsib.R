@@ -99,6 +99,36 @@
 #' CATSIB statistic computation. If `min.resp = NULL`, a score will be computed
 #' for any examinee with at least one valid item response.
 #'
+#' Note that the regression correction (Eq. 7 in Nandakumar & Roussos, 2004)
+#' assumes \eqn{\hat{\rho}^2} (the estimated reliability of ability estimates)
+#' lies in \eqn{[0, 1]}. In practice, however, \eqn{\hat{\rho}^2} can become
+#' negative when the mean squared standard error of ability estimates exceeds the
+#' observed variance of ability estimates — a situation that can arise when (a)
+#' the number of items is very small, (b) a purification procedure removes many
+#' items, or (c) items exhibiting nonuniform DIF inflate the standard errors of
+#' focal group examinees. A negative \eqn{\hat{\rho}^2} causes the regression
+#' correction to amplify rather than attenuate group differences, leading to
+#' inflated Type I error rates. Even a small positive \eqn{\hat{\rho}^2} (e.g.,
+#' 0.03) can collapse the corrected ability scores so tightly around each
+#' group's mean that, when ability impact exists between groups, the two groups'
+#' corrected score distributions no longer overlap. This leaves no bins
+#' containing examinees from both groups, resulting in
+#' \eqn{\hat{\beta} = 0} and \eqn{\text{SE}(\hat{\beta}) = 0} for every item,
+#' which causes the purification loop to terminate early with invalid
+#' statistics. To prevent this correction collapse, [irtQ::catsib()] enforces
+#' a floor of 0.05 on \eqn{\hat{\rho}^2} — i.e.,
+#' \eqn{\hat{\rho}^2 = \max(0.05, \min(1, 1 - \hat{\sigma}_e^2 / \hat{\sigma}_{\hat{\theta}}^2))}
+#' — so that a minimum degree of score spread is always preserved. When the
+#' unclamped \eqn{\hat{\rho}^2} falls below 0.05 for either group, a warning is
+#' issued and DIF results from that iteration should be interpreted with
+#' caution. This situation typically arises during purification when too few
+#' items remain to yield reliable ability estimates. Users should also be aware
+#' that CATSIB, like its predecessor SIBTEST (Shealy & Stout, 1993), was
+#' originally designed and validated for detecting uniform DIF. Its statistical
+#' behavior under nonuniform or mixed DIF conditions has not been formally
+#' evaluated, and caution is warranted when interpreting results for items
+#' suspected of nonuniform DIF.
+#'
 #' @return This function returns a list consisting of four elements:
 #'
 #' \item{no_purify}{A list containing the results of the DIF analysis without
@@ -618,9 +648,29 @@ catsib_one <- function(data,
   errvar_ref <- mean((se_ref^2)[score_ref > lb_score & score_ref < up_score], na.rm = TRUE)
   errvar_foc <- mean((se_foc^2)[score_foc > lb_score & score_foc < up_score], na.rm = TRUE)
 
-  # compute the squared correlation (a.k.a. reliability) between theta estimate and true theta
-  rho_ref2 <- suppressWarnings(1 - errvar_ref / sigma2_ref)
-  rho_foc2 <- suppressWarnings(1 - errvar_foc / sigma2_foc)
+  # compute the raw (unclamped) squared correlation (reliability) between theta estimate and true theta
+  rho_ref2_raw <- suppressWarnings(1 - errvar_ref / sigma2_ref)
+  rho_foc2_raw <- suppressWarnings(1 - errvar_foc / sigma2_foc)
+
+  # clamp rho2 to [0.05, 1]: floor of 0.05 prevents corrected scores from
+  # collapsing so tightly around each group's mean that the two groups'
+  # distributions no longer overlap (which produces n.ref=0, n.foc=0 for all
+  # items and prematurely terminates the purification loop with invalid results).
+  rho_ref2 <- max(0.05, min(1, rho_ref2_raw))
+  rho_foc2 <- max(0.05, min(1, rho_foc2_raw))
+
+  # warn when either raw rho2 fell below the 0.05 floor
+  if (rho_ref2_raw < 0.05 || rho_foc2_raw < 0.05) {
+    warning(
+      "The estimated reliability (rho^2) of ability estimates fell below 0.05 ",
+      "for one or more groups (rho^2_ref = ",
+      round(rho_ref2_raw, 3), ", rho^2_foc = ",
+      round(rho_foc2_raw, 3), ") and was floored at 0.05. ",
+      "This typically occurs when too few items remain after purification, ",
+      "leading to large standard errors. Interpret DIF results with caution.",
+      call. = FALSE
+    )
+  }
 
   # apply a regression correction to the ability estimates
   crscore_ref <- mu_ref + rho_ref2 * (score_ref - mu_ref)
@@ -760,7 +810,9 @@ catsib_item <- function(crscore_ref, crscore_foc, resp.ref, resp.foc,
     n.ref <- n.foc <- weight <- NULL
     item_df <-
       merge(x = ref.df, y = foc.df, by = "bin", all = TRUE, sort = FALSE) %>%
-      subset(n.ref >= 3 & n.foc >= 3) %>%
+      # keep only bins with at least 'min.binsize' examinees in BOTH groups,
+      # consistent with the bin-count selection loop above
+      subset(n.ref >= min.binsize & n.foc >= min.binsize) %>%
       transform(n.total = n.ref + n.foc) %>%
       dplyr::mutate(
         weight = dplyr::case_when(
