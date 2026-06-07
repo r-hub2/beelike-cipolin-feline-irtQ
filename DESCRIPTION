@@ -33,14 +33,14 @@ Authors@R: c(person("Hwanggyu", "Lim", email="hglim83@gmail.com", role=c("aut", 
     person("Jorge", "González", email="jgonzale@mat.puc.cl", role="ctb"), 
     person("David", "Magis", email="david.magis@uliege.be", role="ctb") 
     ) 
-Suggests: knitr, rmarkdown, testthat (>= 3.0.0), pkgdown
+Suggests: knitr, rmarkdown, testthat (>= 3.0.0), pkgdown, RhpcBLASctl
 Config/testthat/edition: 3
 RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)
 URL: https://hwangQ.github.io/irtQ/, https://github.com/hwangQ/irtQ
 BugReports: https://github.com/hwangQ/irtQ/issues
 NeedsCompilation: no
-Packaged: 2026-06-07 10:51:39 UTC; kijja
+Packaged: 2026-06-07 13:29:34 UTC; kijja
 Author: Hwanggyu Lim [aut, cre],
   Craig S. Wells [ctb],
   James Howard [ctb],
