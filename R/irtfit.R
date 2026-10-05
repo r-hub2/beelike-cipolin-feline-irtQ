@@ -138,23 +138,23 @@
 #' @seealso [irtQ::plot.irtfit()], [irtQ::shape_df()], [irtQ::est_irt()],
 #' [irtQ::est_item()]
 #'
-#' @references Ames, A. J., & Penfield, R. D. (2015). An NCME Instructional
-#' Module on Item-Fit Statistics for Item Response Theory Models.
-#' *Educational Measurement: Issues and Practice, 34*(3), 39-48.
+#' @references Ames, A. J., & Penfield, R. D. (2015). An NCME instructional
+#'   module on item-fit statistics for item response theory models. *Educational
+#'   Measurement: Issues and Practice, 34*(3), 39-48.
 #'
-#' Bock, R.D. (1960), *Methods and applications of optimal scaling*. Chapel
-#' Hill, NC: L.L. Thurstone Psychometric Laboratory.
+#'   Bock, R. D. (1960). *Methods and applications of optimal scaling*. Chapel
+#'   Hill, NC: L. L. Thurstone Psychometric Laboratory.
 #'
-#' Hambleton, R. K., Swaminathan, H., & Rogers, H. J. (1991).*Fundamentals of
-#' item response theory*. Newbury Park, CA: Sage.
+#'   Hambleton, R. K., Swaminathan, H., & Rogers, H. J. (1991). *Fundamentals of
+#'   item response theory*. Newbury Park, CA: Sage.
 #'
 #' McKinley, R., & Mills, C. (1985). A comparison of several goodness-of-fit
 #' statistics.
 #' *Applied Psychological Measurement, 9*, 49-57.
 #'
-#' Muraki, E. & Bock, R. D. (2003). PARSCALE 4: IRT item analysis and test
-#' scoring for rating scale data (Computer Software). Chicago, IL: Scientific
-#' Software International. URL http://www.ssicentral.com
+#'   Muraki, E., & Bock, R. D. (2003). PARSCALE 4: IRT item analysis and test
+#'   scoring for rating scale data (Computer software). Chicago, IL: Scientific
+#'   Software International. URL http://www.ssicentral.com
 #'
 #' Wells, C. S., & Bolt, D. M. (2008). Investigation of a nonparametric
 #' procedure for assessing goodness-of-fit in item response theory. *Applied

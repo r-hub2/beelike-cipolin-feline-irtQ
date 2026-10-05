@@ -21,7 +21,7 @@ The package enables:
 
 Item parameter estimation is conducted using marginal maximum likelihood
 estimation via the expectation-maximization (MMLE-EM) algorithm (Bock &
-Aitkin, 1981).  
+Aitkin, 1981).\
 For pretest item calibration, `irtQ` supports:
 
 - Fixed item parameter calibration (FIPC; Kim, 2006),
@@ -66,12 +66,20 @@ including:
 - Calculating item and test information and characteristic functions
 - Visualizing item and test characteristic and information curves
 - Importing item or ability parameters from popular IRT software (e.g.,
-  BILOG-MG, PARSCALE, flexMIRT, and the `mirt` R package)
+  BILOG-MG, PARSCALE, flexMIRT, and the `mirt` R package; the latter
+  requires the suggested **mirt** package)
 - Running flexMIRT (Cai, 2017) directly from R
 - Supporting additional tools for flexible and practical IRT analyses
 
+Beyond these IRT-based analyses, the package also provides a small set
+of classical test theory (CTT) functions (`ctt()`, `freq_score()`,
+`ctt_distr()`, and `score_resp()`) for computing traditional item- and
+test-level statistics and for scoring selected-response item data.
+
 For full documentation, including function references and tutorial
-articles, visit the package website: <https://hwangQ.github.io/irtQ/>.
+articles, visit the package website: <https://hwangQ.github.io/irtQ/>. A
+short introduction is available with
+`vignette("irtQ", package = "irtQ")`.
 
 ## Installation
 
@@ -132,8 +140,8 @@ involves two main steps:
       (e.g., `"1PLM"`, `"2PLM"`, `"3PLM"`, `"GRM"`, `"GPCM"`).
     - `cats`: A numeric vector indicating the number of score categories
       for each item. For dichotomous items, use 2.
-    - `D`: A scaling constant (typically 1.702) to align the logistic
-      function with the normal ogive model.
+    - `D`: A scaling constant; the default, 1, gives the logistic
+      metric, and 1.702 approximates the normal ogive.
 
     Optionally, you may incorporate prior distributions for item
     parameters:
@@ -282,8 +290,8 @@ In the `irtQ` package, FAPC can be conducted in two main steps:
       (e.g., `"1PLM"`, `"2PLM"`, `"3PLM"`, `"GRM"`, `"GPCM"`).
     - `cats`: A numeric vector indicating the number of score categories
       for each item. For dichotomous items, use 2.
-    - `D`: A scaling constant (typically 1.702) to align the logistic
-      function with the normal ogive model.
+    - `D`: A scaling constant; the default, 1, gives the logistic
+      metric, and 1.702 approximates the normal ogive.
 
     For additional details on implementing FAPC, refer to the
     documentation for `irtQ::est_item()`.
@@ -448,9 +456,9 @@ mod_ref <- irtQ::est_irt(data = data_ref, D = 1, model = c(rep("3PLM",
   EmpHist = TRUE, Etol = 0.001, MaxE = 500)
 #> Parsing input... 
 #> Estimating item parameters... 
-#>  EM iteration: 1, Loglike: -53907.8298, Max-Change: 1.476851 EM iteration: 2, Loglike: -47810.7610, Max-Change: 0.333348 EM iteration: 3, Loglike: -47780.1401, Max-Change: 0.130911 EM iteration: 4, Loglike: -47777.7493, Max-Change: 0.064179 EM iteration: 5, Loglike: -47776.9296, Max-Change: 0.038227 EM iteration: 6, Loglike: -47776.4542, Max-Change: 0.026209 EM iteration: 7, Loglike: -47776.1402, Max-Change: 0.019566 EM iteration: 8, Loglike: -47775.9185, Max-Change: 0.015306 EM iteration: 9, Loglike: -47775.7539, Max-Change: 0.012285 EM iteration: 10, Loglike: -47775.6263, Max-Change: 0.01001 EM iteration: 11, Loglike: -47775.5239, Max-Change: 0.008238 EM iteration: 12, Loglike: -47775.4394, Max-Change: 0.006834 EM iteration: 13, Loglike: -47775.3679, Max-Change: 0.005706 EM iteration: 14, Loglike: -47775.3064, Max-Change: 0.004795 EM iteration: 15, Loglike: -47775.2525, Max-Change: 0.004052 EM iteration: 16, Loglike: -47775.2048, Max-Change: 0.003444 EM iteration: 17, Loglike: -47775.1621, Max-Change: 0.002944 EM iteration: 18, Loglike: -47775.1234, Max-Change: 0.002529 EM iteration: 19, Loglike: -47775.0882, Max-Change: 0.002184 EM iteration: 20, Loglike: -47775.0558, Max-Change: 0.001895 EM iteration: 21, Loglike: -47775.0259, Max-Change: 0.001652 EM iteration: 22, Loglike: -47774.9980, Max-Change: 0.001446 EM iteration: 23, Loglike: -47774.9719, Max-Change: 0.001271 EM iteration: 24, Loglike: -47774.9473, Max-Change: 0.001121 EM iteration: 25, Loglike: -47774.9241, Max-Change: 0.000993 
+#>  EM iteration: 1, Loglike: -53907.8298, Max-Change: 1.917401 EM iteration: 2, Loglike: -47810.7610, Max-Change: 0.333348 EM iteration: 3, Loglike: -47780.1401, Max-Change: 0.130911 EM iteration: 4, Loglike: -47777.7493, Max-Change: 0.064179 EM iteration: 5, Loglike: -47776.9296, Max-Change: 0.038227 EM iteration: 6, Loglike: -47776.4542, Max-Change: 0.026209 EM iteration: 7, Loglike: -47776.1402, Max-Change: 0.019566 EM iteration: 8, Loglike: -47775.9185, Max-Change: 0.015306 EM iteration: 9, Loglike: -47775.7539, Max-Change: 0.012285 EM iteration: 10, Loglike: -47775.6263, Max-Change: 0.01001 EM iteration: 11, Loglike: -47775.5239, Max-Change: 0.008238 EM iteration: 12, Loglike: -47775.4394, Max-Change: 0.006834 EM iteration: 13, Loglike: -47775.3679, Max-Change: 0.005706 EM iteration: 14, Loglike: -47775.3064, Max-Change: 0.004795 EM iteration: 15, Loglike: -47775.2525, Max-Change: 0.004052 EM iteration: 16, Loglike: -47775.2048, Max-Change: 0.003444 EM iteration: 17, Loglike: -47775.1621, Max-Change: 0.002944 EM iteration: 18, Loglike: -47775.1234, Max-Change: 0.002529 EM iteration: 19, Loglike: -47775.0882, Max-Change: 0.002184 EM iteration: 20, Loglike: -47775.0558, Max-Change: 0.001895 EM iteration: 21, Loglike: -47775.0259, Max-Change: 0.001652 EM iteration: 22, Loglike: -47774.9980, Max-Change: 0.001446 EM iteration: 23, Loglike: -47774.9719, Max-Change: 0.001271 EM iteration: 24, Loglike: -47774.9473, Max-Change: 0.001121 EM iteration: 25, Loglike: -47774.9241, Max-Change: 0.000993 
 #> Computing item parameter var-covariance matrix... 
-#> Estimation is finished in 2.5 seconds.
+#> Estimation is finished in 1.21 seconds.
 
 # Summarize estimation results
 irtQ::summary(mod_ref)
@@ -477,9 +485,9 @@ irtQ::summary(mod_ref)
 #>  Maximum parameter change: 0.0009933655
 #> 
 #> Processing time (in seconds) 
-#>  EM algorithm: 2.24
-#>  Standard error computation: 0.15
-#>  Total computation: 2.5
+#>  EM algorithm: 1.11
+#>  Standard error computation: 0.05
+#>  Total computation: 1.21
 #> 
 #> Convergence and Stability of Solution 
 #>  First-order test: Convergence criteria are satisfied.
@@ -684,9 +692,9 @@ mod_fipc <- irtQ::est_irt(x = meta_fipc, data = data_new,
   fipc.method = "MEM", fix.loc = c(1:40))
 #> Parsing input... 
 #> Estimating item parameters... 
-#>  EM iteration: 1, Loglike: -41799.5018, Max-Change: 2.177366 EM iteration: 2, Loglike: -60177.8990, Max-Change: 0.660102 EM iteration: 3, Loglike: -60143.0624, Max-Change: 0.22625 EM iteration: 4, Loglike: -60141.1866, Max-Change: 0.082367 EM iteration: 5, Loglike: -60140.7281, Max-Change: 0.031397 EM iteration: 6, Loglike: -60140.4860, Max-Change: 0.012555 EM iteration: 7, Loglike: -60140.3168, Max-Change: 0.005361 EM iteration: 8, Loglike: -60140.1888, Max-Change: 0.002513 EM iteration: 9, Loglike: -60140.0888, Max-Change: 0.001326 EM iteration: 10, Loglike: -60140.0086, Max-Change: 0.000788 
+#>  EM iteration: 1, Loglike: -41799.5018, Max-Change: 2.177366 EM iteration: 2, Loglike: -60177.8990, Max-Change: 0.660102 EM iteration: 3, Loglike: -60143.0624, Max-Change: 0.22625 EM iteration: 4, Loglike: -60141.1866, Max-Change: 0.082367 EM iteration: 5, Loglike: -60140.7281, Max-Change: 0.031397 EM iteration: 6, Loglike: -60140.4860, Max-Change: 0.012555 EM iteration: 7, Loglike: -60140.3168, Max-Change: 0.005361 EM iteration: 8, Loglike: -60140.1888, Max-Change: 0.002513 EM iteration: 9, Loglike: -60140.0888, Max-Change: 0.001386 EM iteration: 10, Loglike: -60140.0086, Max-Change: 0.001119 EM iteration: 11, Loglike: -60139.9427, Max-Change: 0.000908 
 #> Computing item parameter var-covariance matrix... 
-#> Estimation is finished in 1.73 seconds.
+#> Estimation is finished in 0.47 seconds.
 
 # Summarize estimation results
 irtQ::summary(mod_fipc)
@@ -708,13 +716,13 @@ irtQ::summary(mod_fipc)
 #>  Minimum & Maximum quadrature points: -6, 6
 #>  Number of free parameters: 53
 #>  Number of fixed items: 40
-#>  Number of E-step cycles completed: 10
-#>  Maximum parameter change: 0.0007875969
+#>  Number of E-step cycles completed: 11
+#>  Maximum parameter change: 0.0009076875
 #> 
 #> Processing time (in seconds) 
-#>  EM algorithm: 1.55
-#>  Standard error computation: 0.05
-#>  Total computation: 1.73
+#>  EM algorithm: 0.3
+#>  Standard error computation: 0.02
+#>  Total computation: 0.47
 #> 
 #> Convergence and Stability of Solution 
 #>  First-order test: Convergence criteria are satisfied.
@@ -723,9 +731,9 @@ irtQ::summary(mod_fipc)
 #>   Variance-covariance matrix of item parameter estimates is obtainable.
 #> 
 #> Summary of Estimation Results 
-#>  -2loglikelihood: 120280
-#>  Akaike Information Criterion (AIC): 120386
-#>  Bayesian Information Criterion (BIC): 120682.9
+#>  -2loglikelihood: 120279.9
+#>  Akaike Information Criterion (AIC): 120385.9
+#>  Bayesian Information Criterion (BIC): 120682.7
 #>  Item Parameters: 
 #>          id  cats  model  par.1  se.1  par.2  se.2  par.3  se.3  par.4  se.4
 #> 1    Ref_I1     2   3PLM   0.69    NA   1.14    NA   0.19    NA     NA    NA
@@ -888,21 +896,21 @@ print(est_new_fipc)
 #> 38 Ref_I38    2  3PLM 0.7239630 -0.42947088  0.21019599         NA         NA
 #> 39 Ref_I39    5   GRM 1.9602130 -1.83262071 -1.16744768 -0.6208679 -0.1692025
 #> 40 Ref_I40    5   GRM 1.3329010 -0.72583244 -0.06982294  0.5783162  1.1047434
-#> 41  New_I1    2  3PLM 1.7544480  0.60773268  0.24514471         NA         NA
-#> 42  New_I2    2  3PLM 1.8504109 -1.20664264  0.20151190         NA         NA
-#> 43  New_I3    2  3PLM 1.6147606  0.49347600  0.13571997         NA         NA
-#> 44  New_I4    2  3PLM 1.0555607 -0.23825505  0.15300057         NA         NA
-#> 45  New_I5    2  3PLM 1.0904024  2.21167266  0.15226183         NA         NA
-#> 46  New_I6    2  3PLM 2.8516500  1.54044406  0.19668025         NA         NA
-#> 47  New_I7    2  3PLM 1.3790784  0.09572744  0.17329931         NA         NA
-#> 48  New_I8    2  3PLM 1.7223300  0.15449590  0.17624706         NA         NA
-#> 49  New_I9    2  3PLM 1.3362538  0.32062018  0.08717881         NA         NA
-#> 50 New_I10    2  3PLM 1.5311035  1.24203909  0.08670597         NA         NA
-#> 51 New_I11    2  3PLM 1.9026709 -0.98886361  0.21168998         NA         NA
-#> 52 New_I12    2  3PLM 1.3468728 -0.16146762  0.37836732         NA         NA
-#> 53 New_I13    5   GRM 1.2495401 -0.38606491  0.18902252  0.7711329  1.2171389
-#> 54 New_I14    5   GRM 1.2827773 -2.16768674 -1.45593517 -0.7442029 -0.1292640
-#> 55 New_I15    5   GRM 0.9146992 -0.76013553 -0.03738067  0.6086850  1.1283143
+#> 41  New_I1    2  3PLM 1.7543402  0.60768748  0.24512492         NA         NA
+#> 42  New_I2    2  3PLM 1.8507316 -1.20642098  0.20158480         NA         NA
+#> 43  New_I3    2  3PLM 1.6143166  0.49324431  0.13562223         NA         NA
+#> 44  New_I4    2  3PLM 1.0553544 -0.23865064  0.15287748         NA         NA
+#> 45  New_I5    2  3PLM 1.0900633  2.21190002  0.15223745         NA         NA
+#> 46  New_I6    2  3PLM 2.8521623  1.54040816  0.19668704         NA         NA
+#> 47  New_I7    2  3PLM 1.3791948  0.09594720  0.17338939         NA         NA
+#> 48  New_I8    2  3PLM 1.7222468  0.15443907  0.17622375         NA         NA
+#> 49  New_I9    2  3PLM 1.3362979  0.32068908  0.08720578         NA         NA
+#> 50 New_I10    2  3PLM 1.5308617  1.24212064  0.08671002         NA         NA
+#> 51 New_I11    2  3PLM 1.9021076 -0.98959007  0.21130200         NA         NA
+#> 52 New_I12    2  3PLM 1.3469003 -0.16129939  0.37842809         NA         NA
+#> 53 New_I13    5   GRM 1.2493662 -0.38617153  0.18897747  0.7711592  1.2172181
+#> 54 New_I14    5   GRM 1.2823294 -2.16859443 -1.45652159 -0.7445505 -0.1294246
+#> 55 New_I15    5   GRM 0.9145699 -0.76032211 -0.03746317  0.6086947  1.1283965
 
 # Plot estimated empirical distribution of
 # ability
@@ -998,7 +1006,7 @@ irtQ::summary(mod_fapc)
 #> 15  New_I15  2000
 #> 
 #> Processing time (in seconds) 
-#>  Total computation: 2.14
+#>  Total computation: 0.48
 #> 
 #> Convergence of Solution 
 #>  All item parameters were successfully converged.
