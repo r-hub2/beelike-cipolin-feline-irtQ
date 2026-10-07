@@ -216,9 +216,9 @@ MST configuration, the list \code{cut_score = list(c(-0.5, 0.5), c(-0.6, 0.6))}
 operates as a decision guide at each stage. Initially, all test takers
 start in the first module. Upon completion, their scores determine their
 next stage module: scores below -0.5 route to the first module of the next
-stage, between -0.5 and 0.5 to the second, and above 0.5 to the third. This
-pattern allows for dynamic adaptation, tailoring the test path to
-individual performance levels.
+stage, scores from -0.5 up to but not including 0.5 to the second, and
+scores of 0.5 or above to the third. This pattern allows for dynamic
+adaptation, tailoring the test path to individual performance levels.
 }
 \examples{
 \donttest{

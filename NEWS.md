@@ -25,10 +25,29 @@
   used the parameters of other items instead of those of the observed
   items.
 
+- `score_resp()` and `ctt_distr()` now match a data frame `key` to the
+  item columns by item number when its `item` column is character or
+  factor. Before, keys for tests with 10 or more items could be assigned
+  to the wrong items.
+
 ## Minor Improvements
 
 - `reval_mst()` now stops with an informative message when the modules
   in a stage differ in maximum sum score.
+
+- In `run_mst()` and `reval_mst()`, an ability estimate equal to a cut
+  score is now routed to the higher module, as in the classification
+  rule of `cac_lee()` and `cac_rud()`. Results change only when an
+  estimate equals a cut score exactly.
+
+- `ctt()`, `ctt_distr()` (scored-category mode), and the CTT helper
+  functions now stop with an informative error when an item score is not
+  a whole number between 0 and `cats - 1`. When `cats` is inferred,
+  every item has at least two categories, so an item that every examinee
+  scores 0 on gets a difficulty of 0 and is flagged.
+
+- `ctt()` reports the listwise deletion of incomplete rows once, and the
+  item table has default row names.
 
 ## Documentation
 
@@ -39,7 +58,11 @@
   of the returned list.
 
 - In `?run_mst`, described the cumulative routing estimate and the
-  relation to `reval_mst()`.
+  relation to `reval_mst()`, and stated that `"EAP.SUM"` and `"INV.TCC"`
+  count a missing response as 0 in the final sum score.
+
+- Corrected the interpretation of alpha with the item removed in `?ctt`.
+  The `ctt()` examples and the CTT article now use simulated IRT data.
 
 - Corrected the description of the expected frequencies in `pcd2()` and
   stated that `crit.val = NULL` flags no items.

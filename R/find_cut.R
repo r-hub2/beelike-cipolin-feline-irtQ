@@ -499,7 +499,8 @@ find_cut <- function(x,
 
     # -- 3f. Store stage-level results -----------------------------------------
     # Cut scores must be sorted ascending: give_path() uses them as breaks in
-    # cut(x, breaks = c(-Inf, cut_sc, Inf)), so ascending order is required.
+    # cut(x, breaks = c(-Inf, cut_sc, Inf), right = FALSE), so ascending order
+    # is required.
     cut_list[[s - 1L]] <- sort(pair_cuts)
 
     # Collect diagnostic information for this stage

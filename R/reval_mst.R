@@ -110,9 +110,9 @@
 #'   operates as a decision guide at each stage. Initially, all test takers
 #'   start in the first module. Upon completion, their scores determine their
 #'   next stage module: scores below -0.5 route to the first module of the next
-#'   stage, between -0.5 and 0.5 to the second, and above 0.5 to the third. This
-#'   pattern allows for dynamic adaptation, tailoring the test path to
-#'   individual performance levels.
+#'   stage, scores from -0.5 up to but not including 0.5 to the second, and
+#'   scores of 0.5 or above to the third. This pattern allows for dynamic
+#'   adaptation, tailoring the test path to individual performance levels.
 #'
 #' @return This function returns a list of seven internal objects. These are:
 #'
@@ -658,9 +658,12 @@ give_path <- function(score, cut_sc) {
   # A vector of labels to be given to each test taker
   labels <- 1:ncats
 
-  # Create pathway vectors
+  # Create pathway vectors; intervals are closed on the left, [c_k, c_(k+1)),
+  # so a score equal to a cut score goes to the higher module, and the last
+  # interval includes Inf
   path <-
-    cut(x = score, breaks = c(-Inf, cut_sc, Inf), labels = labels) %>%
+    cut(x = score, breaks = c(-Inf, cut_sc, Inf), labels = labels,
+        right = FALSE, include.lowest = TRUE) %>%
     as.numeric()
 
   # Return the results

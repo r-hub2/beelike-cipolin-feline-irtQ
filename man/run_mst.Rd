@@ -105,9 +105,9 @@ used when \code{route_method = NULL}. The list should have
 contains the cut scores for routing from stage \emph{s} to stage
 \emph{s}+1. For example, in a 1-3-3 MST, \code{cut_score = list(c(-0.5,
 0.5), c(-0.6, 0.6))} routes examinees whose stage-1 score is below
-\eqn{-0.5} to the easiest stage-2 module, between \eqn{-0.5} and
-\eqn{0.5} to the medium module, and above \eqn{0.5} to the hardest
-module. Ignored when \code{route_method} is \code{"bmat"} or
+\eqn{-0.5} to the easiest stage-2 module, from \eqn{-0.5} up to but not
+including \eqn{0.5} to the medium module, and \eqn{0.5} or above to the
+hardest module. Ignored when \code{route_method} is \code{"bmat"} or
 \code{"mfi"}. Default is \code{NULL}.}
 
 \item{route_score}{A named list specifying the scoring method and options
@@ -294,13 +294,15 @@ When only some modules of the stage can be reached from the current
 module, only the cut scores that separate the reachable modules are
 used, as in \code{\link{reval_mst}}, and the module whose interval
 contains the estimate is administered. An estimate equal to a cut
-score is assigned to the lower module. When every module of the next
+score is assigned to the higher module. When every module of the next
 stage is reachable, all cut scores are used.
 }
 
 \strong{Final scoring}: Responses from all administered stages are
 concatenated, and the final ability estimate is computed using the
-\code{final_score} method.
+\code{final_score} method. With \code{"EAP.SUM"} or \code{"INV.TCC"}, a
+missing response is counted as 0 in the sum score, as in
+\code{\link{est_score}}, but no warning is issued.
 
 \strong{Relation to \code{reval_mst()}}: With \code{route_method = NULL}, a
 \code{cut_score} list, and \code{route_score = list(method = "INV.TCC")},

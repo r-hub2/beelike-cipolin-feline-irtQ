@@ -319,3 +319,24 @@ test_that("run_mst() stops on invalid input", {
     "route_score"
   )
 })
+
+
+# 5. routing at a cut score
+
+test_that("give_path() sends a score equal to a cut score to the higher module", {
+  # scores at, below, and above the cut scores, including infinite scores
+  out <- irtQ:::give_path(score = c(-0.5, 0, 0.5, -Inf, Inf),
+                          cut_sc = c(-0.5, 0.5))
+  expect_equal(out$path, c(2, 2, 3, 1, 3))
+
+  # a single cut score: the cut score itself goes to the higher module
+  out1 <- irtQ:::give_path(score = c(-1, 0, 1), cut_sc = 0)
+  expect_equal(out1$path, c(1, 2, 2))
+
+  # no cut score: every score, including an infinite one, goes to the only module
+  out0 <- irtQ:::give_path(score = c(-Inf, 0, Inf), cut_sc = numeric(0))
+  expect_equal(out0$path, c(1, 1, 1))
+
+  # a missing score stays missing
+  expect_true(is.na(irtQ:::give_path(score = NA_real_, cut_sc = 0)$path))
+})
