@@ -219,9 +219,15 @@
 #'     information at the routing estimate is selected.
 #'   \item \code{NULL}: the routing estimate is compared against the cut
 #'     scores in \code{cut_score[[s]]} (for the transition from stage
-#'     \emph{s} to stage \emph{s}+1) to assign a rank, and the rank-th
-#'     reachable module (ordered by module index) is administered. If the
-#'     rank exceeds the number of reachable modules, the last module is used.
+#'     \emph{s} to stage \emph{s}+1). The cut scores are tied to the modules
+#'     of stage \emph{s}+1 in order of module index: cut score \emph{k}
+#'     separates the \emph{k}-th and the (\emph{k}+1)-th module of the stage.
+#'     When only some modules of the stage can be reached from the current
+#'     module, only the cut scores that separate the reachable modules are
+#'     used, as in \code{\link{reval_mst}}, and the module whose interval
+#'     contains the estimate is administered. An estimate equal to a cut
+#'     score is assigned to the lower module. When every module of the next
+#'     stage is reachable, all cut scores are used.
 #' }
 #'
 #' \strong{Final scoring}: Responses from all administered stages are
@@ -616,6 +622,9 @@ run_mst <- function(x,
   # stage1_mods: all module indices that belong to stage 1
   stage1_mods <- panel_data$config[[1L]]          # integer vector, length = n.mod[1]
   fixed_start <- if (!is.null(ini_mod)) stage1_mods[ini_mod] else NULL
+  # modules of each stage in pathway order, used to map the cut scores of a
+  # stage transition to the modules they separate (as in reval_mst())
+  stage_mods <- lapply(seq_len(n.stg), function(s) unique(pathway[, s]))
   # When fixed_start is NULL, each examinee is assigned a stage-1 module
   # by sample() at the start of the per-examinee loop (see below).
 
@@ -962,10 +971,12 @@ run_mst <- function(x,
           # cut_score[[s-1]] has length = (number of categories - 1) for stage s
           theta_prev <- theta_route_mat[i, s - 1L]
           cut_s      <- cut_score[[s - 1L]]
-          # give_path() assigns a rank (1, 2, ..., ncats) based on theta_prev
-          rank_s <- give_path(score = theta_prev, cut_sc = cut_s)$path
-          # Clamp rank to valid range [1, length(next_possible)]
-          rank_s <- max(1L, min(rank_s, length(next_possible)))
+          # positions of the reachable modules among the modules of stage s
+          idx_reach <- match(next_possible, stage_mods[[s]])
+          # cut scores that separate the reachable modules (as in reval_mst())
+          cuts_use <- cut_s[idx_reach[-length(idx_reach)]]
+          # give_path() assigns a rank (1, 2, ..., number of reachable modules)
+          rank_s <- give_path(score = theta_prev, cut_sc = cuts_use)$path
           mod_s  <- next_possible[rank_s]
         }
 
@@ -1178,11 +1189,11 @@ run_mst <- function(x,
             } else NULL
           }
 
-          # Subset elm_item to observed items
+          # subset elm_item to the observed items (and the fence items for MLF)
           elm_sub_p       <- elm_path
-          elm_sub_p$pars  <- elm_path$pars[seq_along(resp_sub_acc), , drop = FALSE]
-          elm_sub_p$model <- elm_path$model[seq_along(resp_sub_acc)]
-          elm_sub_p$cats  <- elm_path$cats[seq_along(resp_sub_acc)]
+          elm_sub_p$pars  <- elm_path$pars[na_pos_acc, , drop = FALSE]
+          elm_sub_p$model <- elm_path$model[na_pos_acc]
+          elm_sub_p$cats  <- elm_path$cats[na_pos_acc]
 
           final_result <- est_score_indiv(
             resp_vec   = resp_sub_acc,

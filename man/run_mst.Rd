@@ -287,9 +287,15 @@ GRM/GPCM items, it is the mean of the threshold / step parameters.
 information at the routing estimate is selected.
 \item \code{NULL}: the routing estimate is compared against the cut
 scores in \code{cut_score[[s]]} (for the transition from stage
-\emph{s} to stage \emph{s}+1) to assign a rank, and the rank-th
-reachable module (ordered by module index) is administered. If the
-rank exceeds the number of reachable modules, the last module is used.
+\emph{s} to stage \emph{s}+1). The cut scores are tied to the modules
+of stage \emph{s}+1 in order of module index: cut score \emph{k}
+separates the \emph{k}-th and the (\emph{k}+1)-th module of the stage.
+When only some modules of the stage can be reached from the current
+module, only the cut scores that separate the reachable modules are
+used, as in \code{\link{reval_mst}}, and the module whose interval
+contains the estimate is administered. An estimate equal to a cut
+score is assigned to the lower module. When every module of the next
+stage is reachable, all cut scores are used.
 }
 
 \strong{Final scoring}: Responses from all administered stages are

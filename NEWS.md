@@ -13,6 +13,18 @@
   simulated paths and results can differ from earlier versions, in
   particular from stage 3 onward.
 
+- Fixed cut-score routing in `run_mst()` for route maps in which a
+  module reaches only some modules of the next stage. The examinee could
+  be sent to a module that did not match the cut scores. Only the cut
+  scores that separate the reachable modules are now used, which is the
+  rule applied by `reval_mst()`. Results are unchanged when every module
+  of a stage can be reached.
+
+- Fixed the final estimate of `run_mst()` for responses with missing
+  values (`response` argument). The ML, WL, MLF, MAP, and EAP estimates
+  used the parameters of other items instead of those of the observed
+  items.
+
 ## Minor Improvements
 
 - `reval_mst()` now stops with an informative message when the modules

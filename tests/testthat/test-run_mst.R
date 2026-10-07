@@ -153,6 +153,51 @@ test_that("routing estimates use only the observed responses when some are missi
   expect_lt(max_diff_cum(fit, x_mst, mod_mst, resp_na, 1.702, "ML"), 1e-6)
 })
 
+test_that("final estimates use the parameters of the observed items when some responses are missing", {
+  resp_na <- resp_mst
+  # set about 10 percent of the responses to missing at fixed positions
+  set.seed(2033)
+  resp_na[sample(length(resp_na), size = round(0.10 * length(resp_na)))] <- NA
+  for (meth in c("ML", "EAP", "MLF")) {
+    fit <- run_mst(
+      x = x_mst, route_map = map_mst, module = mod_mst,
+      theta = theta_mst, response = resp_na, D = 1.702,
+      route_method = "bmat",
+      route_score = list(method = "EAP"),
+      final_score = list(method = meth), verbose = FALSE
+    )
+    # est_score() on the observed items of the administered modules
+    ref <- vapply(seq_len(nrow(fit$path)), function(i) {
+      it <- items_upto(fit$path[i, ], mod_mst, 3L)
+      est_score(x = x_mst[it, ], data = resp_na[i, it, drop = FALSE],
+                D = 1.702, method = meth)$est.theta
+    }, numeric(1L))
+    expect_equal(fit$est.theta, ref, tolerance = 1e-6)
+  }
+})
+
+test_that("final sum-score estimates count missing responses as zero, as est_score() does", {
+  resp_na <- resp_mst
+  set.seed(2034)
+  resp_na[sample(length(resp_na), size = round(0.10 * length(resp_na)))] <- NA
+  for (meth in c("EAP.SUM", "INV.TCC")) {
+    fit <- run_mst(
+      x = x_mst, route_map = map_mst, module = mod_mst,
+      theta = theta_mst, response = resp_na, D = 1.702,
+      route_method = "bmat",
+      route_score = list(method = "EAP"),
+      final_score = list(method = meth), verbose = FALSE
+    )
+    # est_score() replaces missing responses with zeros and warns
+    ref <- suppressWarnings(vapply(seq_len(nrow(fit$path)), function(i) {
+      it <- items_upto(fit$path[i, ], mod_mst, 3L)
+      est_score(x = x_mst[it, ], data = resp_na[i, it, drop = FALSE],
+                D = 1.702, method = meth)$est.par$est.theta
+    }, numeric(1L)))
+    expect_equal(fit$est.theta, ref, tolerance = 1e-6)
+  }
+})
+
 test_that("INV.TCC routing estimates equal the inverse TCC lookup of the cumulative sum score", {
   fit <- run_mst(
     x = x_mst, route_map = map_mst, module = mod_mst,
@@ -185,14 +230,39 @@ test_that("cut-score routing assigns the module from the cumulative estimate", {
   expect_equal(unname(fit$path[, 2]), c(2L, 3L, 4L)[rank2])
 
   # stage 3 module follows the estimate that pools the stage 1 and stage 2
-  # responses; the rank is capped at the number of modules reachable from the
-  # stage 2 module
-  rank3 <- findInterval(fit$theta.route[, 2], cut_mst[[2]]) + 1L
+  # responses; modules 2 and 4 reach only two of the three stage 3 modules, so
+  # only the cut score that separates those two modules applies
+  cut3 <- cut_mst[[2]]
+  est2 <- unname(fit$theta.route[, 2])
   expected3 <- vapply(seq_len(nrow(fit$path)), function(i) {
-    reach <- which(map_mst[fit$path[i, 2], ] == 1)
-    reach[min(rank3[i], length(reach))]
-  }, numeric(1L))
+    switch(as.character(fit$path[i, 2]),
+      "2" = if (est2[i] <= cut3[1]) 5L else 6L,
+      "3" = if (est2[i] <= cut3[1]) 5L else if (est2[i] <= cut3[2]) 6L else 7L,
+      "4" = if (est2[i] <= cut3[2]) 6L else 7L)
+  }, integer(1L))
   expect_equal(unname(fit$path[, 3]), expected3)
+})
+
+test_that("an examinee in module 4 with a middle estimate is routed to module 6", {
+  # inverse TCC routing keeps the simulation fast for many examinees
+  set.seed(2032)
+  fit <- run_mst(
+    x = x_mst, route_map = map_mst, module = mod_mst,
+    theta = rnorm(6000), D = 1.702,
+    route_method = NULL, cut_score = cut_mst,
+    route_score = list(method = "INV.TCC"),
+    final_score = list(method = "INV.TCC"), verbose = FALSE
+  )
+  cut3    <- cut_mst[[2]]
+  est2    <- fit$theta.route[, 2]
+  in_mod4 <- fit$path[, 2] == 4L
+  middle  <- in_mod4 & est2 > cut3[1] & est2 <= cut3[2]
+  # the simulation has examinees in module 4 whose estimate lies between the cut scores
+  expect_gt(sum(middle), 0L)
+  # they go to module 6, the easier of the two modules reachable from module 4
+  expect_true(all(fit$path[middle, 3] == 6L))
+  # module 4 examinees above the second cut score go to module 7
+  expect_true(all(fit$path[in_mod4 & est2 > cut3[2], 3] == 7L))
 })
 
 
