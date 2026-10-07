@@ -49,8 +49,8 @@
 #'
 #' \tabular{ll}{
 #' Package: \tab irtQ\cr
-#' Version: \tab 1.3.0\cr
-#' Date: \tab 2026-10-05\cr
+#' Version: \tab 1.3.1\cr
+#' Date: \tab 2026-10-07\cr
 #' Depends: \tab R (>= 4.5)\cr
 #' License: \tab GPL (>= 2)\cr
 #' }

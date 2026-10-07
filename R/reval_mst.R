@@ -42,8 +42,8 @@
 #'   on performance. Further examples and explanations are available below.
 #' @param theta A vector of ability levels (theta) at which the MST panel's
 #'   performance is assessed. This allows for the evaluation of measurement
-#'   precision and bias across a continuum of ability levels. The default range
-#'   is `theta = seq(-5, 5, 0.1)`.
+#'   precision and bias across a continuum of ability levels. The default is
+#'   `theta = seq(-5, 5, 1)`.
 #' @param intpol A logical value to enable linear interpolation in the inverse
 #'   test characteristic curve (TCC) scoring, facilitating ability estimate
 #'   approximation for observed sum scores not directly obtainable from the TCC,
@@ -64,6 +64,23 @@
 #'   enables the computation of conditional biases and CSEMs efficiently,
 #'   bypassing the need for extensive simulations traditionally required for MST
 #'   evaluation.
+#'
+#'   The recursion of Lim et al. (2021) is built on inverse TCC ability
+#'   estimates. At each stage, the sum score accumulated over all modules
+#'   administered so far is converted to an ability estimate by inverse TCC
+#'   scoring, this estimate is compared with the cut scores to route the test
+#'   taker to the next module, and the final ability estimate is also the
+#'   inverse TCC estimate of the total sum score. Accordingly, the function
+#'   supports inverse TCC scoring with cut-score routing only. To evaluate
+#'   other scoring or routing methods, use [irtQ::run_mst()], which runs a
+#'   Monte Carlo simulation. With `route_method = NULL`, a `cut_score` list, and
+#'   `route_score = list(method = "INV.TCC")`, [irtQ::run_mst()] follows the
+#'   same design that this function evaluates analytically.
+#'
+#'   All modules in the same stage must have the same maximum sum score (the
+#'   sum of the maximum item scores), for example the same number of items when
+#'   all items are dichotomous. The function stops with an error when this
+#'   condition is not met.
 #'
 #'   The `module` argument, used in conjunction with the item bank metadata `x`,
 #'   systematically organizes items into modules for MST panel evaluation. Each
@@ -97,8 +114,7 @@
 #'   pattern allows for dynamic adaptation, tailoring the test path to
 #'   individual performance levels.
 #'
-#' @return This function returns a list of seven internal objects. The four
-#'   objects are:
+#' @return This function returns a list of seven internal objects. These are:
 #'
 #' \item{panel.info}{A list of several sub-objects containing detailed information
 #' about the MST panel configuration, including:
@@ -301,6 +317,25 @@ reval_mst <- function(x,
       }
     )
   names(meta_mod) <- paste0("m.", 1:tn.mod)
+
+  # Check that all modules in the same stage have the same maximum sum score
+  for (s in 1:n.stg) {
+    # maximum sum scores of the modules in stage s
+    max_sum_stg <-
+      purrr::map_dbl(
+        .x = meta_mod[panel_data$config[[s]]],
+        .f = ~ sum(.x$cats - 1)
+      )
+    if (length(unique(max_sum_stg)) > 1L) {
+      stop(
+        sprintf(
+          "All modules in stage %d must have the same maximum sum score (found: %s).",
+          s, paste(max_sum_stg, collapse = ", ")
+        ),
+        call. = FALSE
+      )
+    }
+  }
 
   # List containing item metadata for all possible (sub) pathways at each stage
   meta_path <-

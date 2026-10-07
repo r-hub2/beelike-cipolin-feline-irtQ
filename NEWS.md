@@ -1,6 +1,44 @@
 
 <!-- NEWS.md is generated from NEWS.Rmd. Please edit that file -->
 
+# irtQ 1.3.1
+
+## Bug Fixes
+
+- Fixed the routing in `run_mst()`. The ability estimate used to choose
+  the next module was computed from the responses to the current module
+  only. It is now computed from the responses to all modules
+  administered so far, as intended. This applies to every routing method
+  (`"bmat"`, `"mfi"`, and cut scores) and every `route_score` method, so
+  simulated paths and results can differ from earlier versions, in
+  particular from stage 3 onward.
+
+## Minor Improvements
+
+- `reval_mst()` now stops with an informative message when the modules
+  in a stage differ in maximum sum score.
+
+## Documentation
+
+- Stated in `?reval_mst` that the recursion is based on inverse TCC
+  estimates, that only inverse TCC scoring with cut-score routing is
+  supported, and that modules in a stage must have the same maximum sum
+  score; corrected the documented default of `theta` and the description
+  of the returned list.
+
+- In `?run_mst`, described the cumulative routing estimate and the
+  relation to `reval_mst()`.
+
+- Corrected the description of the expected frequencies in `pcd2()` and
+  stated that `crit.val = NULL` flags no items.
+
+- Reworded the motivation of `ripd()`.
+
+- In `?simMST`, noted that the item parameters are on the D = 1.702
+  scale. In `?find_cut`, clarified that the cut scores in `simMST` were
+  obtained with `find_cut()` and softened the statement about path
+  reversals.
+
 # irtQ 1.3.0
 
 ## New Features
