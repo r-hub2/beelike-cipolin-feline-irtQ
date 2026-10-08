@@ -36,8 +36,9 @@ IRT software output. The function calls \code{confirm_df(x)} internally
 to validate and normalise the metadata.}
 
 \item{route_map}{A binary square matrix defining the MST transition
-structure. A 1 at row \emph{i}, column \emph{j} means that a test taker
-can be routed from module \emph{i} to module \emph{j}. Equivalent to the
+structure. An entry of 1 in row \emph{i} and column \emph{j} means that a
+test taker can be routed from module \emph{i} to module \emph{j}.
+Equivalent to the
 \code{transMatrix} argument in \code{randomMST()} from \pkg{mstR}
 (Magis et al., 2017). See \code{\link{reval_mst}} for details.}
 
@@ -155,21 +156,8 @@ Example: \code{route_score = list(method = "INV.TCC", range.tcc = c(-5, 5))}.}
 
 \item{final_score}{A named list specifying the scoring method and options
 for the final ability estimate (applied to all items accumulated across
-the entire administered pathway). Supports all fields in
-\code{route_score} plus:
-\describe{
-\item{\code{method}}{Character. Supports all \code{route_score} methods,
-plus \code{"EAP.SUM"} (EAP summed scoring; Thissen et al., 1995) and
-\code{"INV.TCC"} (inverse test characteristic curve scoring; Lim et
-al., 2021). Default: \code{"ML"}.}
-\item{\code{intpol}}{Logical: enable linear interpolation for
-\code{"INV.TCC"}. Default: \code{TRUE}.}
-\item{\code{range.tcc}}{Numeric vector of length 2: theta search range
-for \code{"INV.TCC"}. Default: \code{c(-7, 7)}.}
-\item{\code{max.it}}{Integer: maximum bisection iterations for
-\code{"INV.TCC"}. Default: \code{500}.}
-}
-The full default is equivalent to
+the entire administered pathway). It takes the same fields, methods, and
+defaults as \code{route_score}. The full default is equivalent to
 \code{list(method = "ML", range = c(-5, 5), norm.prior = c(0, 1),}
 \code{nquad = 41L, tol = 1e-4, max.iter = 100L, fence.a = 3.0, fence.b = NULL,}
 \code{intpol = TRUE, range.tcc = c(-7, 7), max.it = 500L)}.}

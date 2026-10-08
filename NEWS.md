@@ -30,6 +30,28 @@
   factor. Before, keys for tests with 10 or more items could be assigned
   to the wrong items.
 
+- `shape_df()` with `default.par = TRUE` now repeats a single value of
+  `cats` or `model` for all items. Before, a single `cats` value gave
+  item IDs of "V1" for every item and a guessing parameter of 0 instead
+  of 0.2 for 3PLM items.
+
+- `irtfit()` now computes the observed category proportions directly
+  from the frequencies. Before, they came from
+  `janitor::adorn_percentages()`, which can include the total column in
+  the denominator in some environments and halve the proportions, the
+  residuals, and `overSR.prop`. Results are unchanged when the
+  proportions were computed correctly.
+
+- `catsib()` no longer overwrites `score` with `se` when `se` is given
+  as a matrix or data frame.
+
+- `cac_rud()` no longer stops with a dimnames error when a performance
+  level has no examinees, and the label of the total row of `marginal`
+  is now "marginal", as in `cac_lee()`.
+
+- `simdat()` treats NA values in `g.drm` as zeros, as the item metadata
+  input does. Before, the responses to those items were all NA.
+
 ## Minor Improvements
 
 - `reval_mst()` now stops with an informative message when the modules
@@ -76,6 +98,16 @@
   scale. In `?find_cut`, clarified that the cut scores in `simMST` were
   obtained with `find_cut()` and softened the statement about path
   reversals.
+
+- Corrected the probability matrix of the first example in `?lwrc`, the
+  GPCM formula note in `?irtQ`, and the class of `prob.cats` in
+  `?traceline`. Corrected statements in the README, the vignette
+  overview, and the articles (shrinkage of MAP and EAP, `range.score` in
+  `irtfit()`, `fix.id` in `est_mg()`, the effect of `EmpHist` in FIPC,
+  the fixed-slope 1PLM, fixed guessing, the CATSIB regression
+  correction, the purification procedure, and the usage notes of the
+  utility functions). The DIF article now simulates item difficulties in
+  a narrower range so that the pooled calibrations converge.
 
 # irtQ 1.3.0
 

@@ -358,14 +358,16 @@ items with fixed item parameters or fixed abilities
 abilities (<code>est_score()</code>), evaluating model-data fit
 (<code>irtfit()</code>, <code>sx2_fit()</code>), and detecting
 differential item functioning (<code>rdif()</code>,
-<code>crdif()</code>, <code>grdif()</code>, <code>catsib()</code>). It
-also provides functions for item and test information
-(<code>info()</code>), item response curves (<code>traceline()</code>),
-classification accuracy and consistency (<code>cac_lee()</code>,
-<code>cac_rud()</code>), multistage test panels
-(<code>panel_info()</code>, <code>reval_mst()</code>,
-<code>run_mst()</code>), and classical test theory
-(<code>ctt()</code>).</p>
+<code>crdif()</code>, <code>grdif()</code>, <code>catsib()</code>) and
+item parameter drift (<code>ripd()</code>, <code>pcd2()</code>). It also
+provides functions for item and test information (<code>info()</code>),
+item response curves (<code>traceline()</code>), classification accuracy
+and consistency (<code>cac_lee()</code>, <code>cac_rud()</code>),
+multistage test panels (<code>panel_info()</code>,
+<code>find_cut()</code>, <code>reval_mst()</code>,
+<code>run_mst()</code>), and classical test theory (<code>ctt()</code>,
+<code>freq_score()</code>, <code>ctt_distr()</code>,
+<code>score_resp()</code>).</p>
 <p>This vignette walks through a short workflow: read item parameters,
 simulate responses, calibrate the items, estimate abilities, check fit,
 and compute test information. Every example uses the scaling constant

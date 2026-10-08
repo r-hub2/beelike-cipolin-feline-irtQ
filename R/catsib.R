@@ -360,7 +360,7 @@ catsib <- function(x = NULL,
     }
     # transform scores to a vector form
     if (is.matrix(se) | is.data.frame(se)) {
-      score <- as.numeric(data.matrix(se))
+      se <- as.numeric(data.matrix(se))
     }
   } else {
     # if min.resp is not NULL, find the examinees who have the number of responses

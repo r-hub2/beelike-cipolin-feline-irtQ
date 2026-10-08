@@ -127,9 +127,9 @@
 #'     is the overall location (difficulty) parameter of the item, and \eqn{\tau_v}
 #'     is the threshold for score category \eqn{v}.
 #'     In the \pkg{irtQ} package, an item with \eqn{K} unique score categories
-#'     requires \eqn{K - 1} threshold parameters, as \eqn{b_0 = 0} is fixed by
-#'     convention and thus \eqn{\sum_{v=0}^{0} Da(\theta - b_v) = 0} for the
-#'     lowest category.
+#'     requires \eqn{K - 1} threshold parameters. The \eqn{v = 0} term of the
+#'     sums is defined as 0 (\eqn{b_0} is not a free parameter), so the
+#'     numerator for the lowest category is \eqn{\exp(0) = 1}.
 #'     When fitting the partial credit model, the item discrimination parameter
 #'     \eqn{a} is fixed to 1.
 #'   }

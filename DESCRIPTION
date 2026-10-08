@@ -46,7 +46,7 @@ URL: https://hwangQ.github.io/irtQ/, https://github.com/hwangQ/irtQ
 BugReports: https://github.com/hwangQ/irtQ/issues
 Config/roxygen2/version: 8.0.0
 NeedsCompilation: no
-Packaged: 2026-10-08 01:18:02 UTC; kijja
+Packaged: 2026-10-08 10:28:08 UTC; kijja
 Author: Hwanggyu Lim [aut, cre],
   Craig S. Wells [ctb],
   James Howard [ctb],
