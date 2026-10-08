@@ -49,6 +49,9 @@
 - `ctt()` reports the listwise deletion of incomplete rows once, and the
   item table has default row names.
 
+- `plot.find_cut()` no longer passes an unused `inherit.aes` argument to
+  `geom_vline()`, which caused warnings with some ggplot2 versions.
+
 ## Documentation
 
 - Stated in `?reval_mst` that the recursion is based on inverse TCC

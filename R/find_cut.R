@@ -784,8 +784,7 @@ plot.find_cut <- function(x,
         color       = "black",
         linetype    = "solid",
         linewidth   = 1.0,
-        alpha       = 0.8,
-        inherit.aes = FALSE
+        alpha       = 0.8
       )
     }
 
@@ -798,8 +797,7 @@ plot.find_cut <- function(x,
         color       = "grey50",
         linetype    = "dashed",
         linewidth   = 0.7,
-        alpha       = 0.8,
-        inherit.aes = FALSE
+        alpha       = 0.8
       )
     }
 
@@ -812,8 +810,7 @@ plot.find_cut <- function(x,
         color       = "firebrick",
         linetype    = "dashed",
         linewidth   = 0.7,
-        alpha       = 0.8,
-        inherit.aes = FALSE
+        alpha       = 0.8
       )
     }
   }
