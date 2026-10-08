@@ -52,6 +52,11 @@
 - `simdat()` treats NA values in `g.drm` as zeros, as the item metadata
   input does. Before, the responses to those items were all NA.
 
+- The Wald confidence intervals in `plot.irtfit()` now use the two-sided
+  critical value, `qnorm(1 - alpha / 2)`. Before, they used
+  `qnorm(1 - alpha)` and were 90% intervals at the default
+  `alpha = 0.05`, while the Wilson intervals were 95% intervals.
+
 ## Minor Improvements
 
 - `reval_mst()` now stops with an informative message when the modules
@@ -73,6 +78,10 @@
 
 - `plot.find_cut()` no longer passes an unused `inherit.aes` argument to
   `geom_vline()`, which caused warnings with some ggplot2 versions.
+
+- `catsib()` now stops with an informative message when `score` is
+  supplied without `se`. Before, it failed with a "missing value where
+  TRUE/FALSE needed" error.
 
 ## Documentation
 

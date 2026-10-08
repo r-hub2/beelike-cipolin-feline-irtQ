@@ -362,3 +362,13 @@ test_that("catsib() gives the same results for se given as a vector, a matrix, o
   expect_identical(res_mat$no_purify$dif_stat, res_vec$no_purify$dif_stat)
   expect_identical(res_df$no_purify$dif_stat, res_vec$no_purify$dif_stat)
 })
+
+test_that("catsib() stops with an informative message when score is given without se", {
+  expect_error(
+    catsib(
+      x = x_dif, data = resp_all, score = score_all$est.theta,
+      group = group_vec, focal.name = 1L, D = 1
+    ),
+    "must be supplied in the argument 'se'"
+  )
+})

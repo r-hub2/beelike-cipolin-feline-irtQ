@@ -52,3 +52,25 @@ test_that("irtfit() drops empty score groups and keeps proportions that sum to o
     expect_equal(unname(rowSums(prop)), rep(1, nrow(tb)))
   }
 })
+
+test_that("plot.irtfit() Wald intervals use the two-sided critical value", {
+  # the last plot is read back, which needs get_last_plot() in ggplot2
+  skip_if_not("get_last_plot" %in% getNamespaceExports("ggplot2"))
+  grDevices::pdf(NULL)
+  on.exit(grDevices::dev.off())
+  fit <- irtfit(
+    x = x_mix, score = theta_fit, data = resp_fit, group.method = "equal.freq",
+    n.width = 8, loc.theta = "average", range.score = c(-4, 4), D = 1, alpha = 0.05
+  )
+  plot(x = fit, item.loc = 1, type = "icc", ci.method = "wald", show.table = FALSE)
+  built <- ggplot2::ggplot_build(ggplot2::get_last_plot())
+  # the segment layer holds the interval (y = upper limit, yend = lower limit)
+  seg <- Filter(function(d) all(c("y", "yend", "xend") %in% names(d)), built$data)[[1]]
+  unclipped <- seg$yend > 0 & seg$y < 1
+  half_width <- (seg$y - seg$yend)[unclipped] / 2
+  tb <- fit$contingency.plot[[1]]
+  se_all <- c(tb$se.0, tb$se.1)
+  # each half width equals the 97.5th percentile of the normal times a standard error
+  expect_true(length(half_width) > 0)
+  expect_true(all(vapply(half_width, function(h) any(abs(h / stats::qnorm(0.975) - se_all) < 1e-6), logical(1))))
+})
