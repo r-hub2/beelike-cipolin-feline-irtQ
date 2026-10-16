@@ -78,6 +78,7 @@ cst_catch <- function(expr) {
 }
 
 test_that("catsib() statistics match an independent implementation", {
+  skip_on_cran()
   sets <- list(
     list(seed = 1, miss = 0, wg = "comb", mb = 3, nb = c(80, 10), skip = NULL),
     list(seed = 2, miss = 0.3, wg = "foc", mb = 5, nb = c(40, 10), skip = c(4, 9)),
@@ -169,6 +170,7 @@ test_that("catsib() purification works down to the last item", {
 })
 
 test_that("catsib() reads character responses as numbers", {
+  skip_on_cran()
   sim <- cst_sim(11)
   r0 <- catsib(NULL, sim$resp, score = sim$score, se = sim$se, group = sim$group, focal.name = 1)
   chr <- as.data.frame(apply(sim$resp, 2, as.character), stringsAsFactors = FALSE)

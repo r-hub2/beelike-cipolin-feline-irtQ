@@ -87,11 +87,13 @@ test_that("est_irt() cross-product SEs match marginal scores with D = 1.702", {
 })
 
 test_that("est_irt() cross-product SEs use the fixed guessing value", {
+  skip_on_cran()
   rst <- se_check(1, TRUE, 0.25)
   expect_equal(unname(rst$pkg), unname(rst$ref), tolerance = 1e-4)
 })
 
 test_that("est_irt() SEs are invariant to the scaling constant for rescaled slopes", {
+  skip_on_cran()
   set.seed(8)
   resp <- simdat(xt_se, theta = rnorm(1500), D = 1)
   ap <- list(dist = "lnorm", params = c(0, 0.5))

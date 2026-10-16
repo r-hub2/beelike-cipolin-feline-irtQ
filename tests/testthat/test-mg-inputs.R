@@ -63,6 +63,7 @@ test_that("fix.loc, fix.id and fipc.method are checked in MG-FIPC", {
 })
 
 test_that("missing values are recoded in the group data as well", {
+  skip_on_cran()
   d5 <- M$data
   d5[[1]][1:5, 2] <- 99
   f <- suppressWarnings(q(x = M$x, data = d5, group.name = gn, free.group = 2:3, missing = 99))

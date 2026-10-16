@@ -34,6 +34,7 @@ test_that("est_irt() log-likelihood, posterior, expected counts, and AIC/BIC mat
 })
 
 test_that("est_irt(fipc = TRUE, fipc.method = 'MEM') reaches the fixed point of Kim (2006)", {
+  skip_on_cran()
   fix <- c(1:2, 7:9, 11)
   fit <- suppressWarnings(est_irt(x = xm, data = dm, D = 1.702, fipc = TRUE, fix.loc = fix, Etol = 1e-6, se = FALSE, verbose = FALSE))
   # fixed items are unchanged

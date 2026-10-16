@@ -29,6 +29,7 @@ test_that("weights that do not sum to one are rescaled with a warning and give t
 })
 
 test_that("the rescaling of the weights also applies to FIPC and to est_mg()", {
+  skip_on_cran()
   w1 <- gen.weight(dist = "norm", theta = seq(-6, 6, length.out = 49))
   w2 <- w1
   w2$weight <- 2 * w2$weight

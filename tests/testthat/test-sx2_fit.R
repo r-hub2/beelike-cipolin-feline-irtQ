@@ -123,6 +123,7 @@ test_that("sx2_fit() names the collapsed tables of a single polytomous item cons
 })
 
 test_that("sx2_fit() for an est_irt object uses the latent distribution stored in the object by default", {
+  skip_on_cran()
   mod <- est_irt(data = LSAT6, D = 1.702, model = "2PLM", cats = 2, verbose = FALSE)
   base <- function(...) sx2_fit(mod$par.est, data = mod$data, D = mod$scale.D, ...)
 
@@ -212,6 +213,7 @@ test_that("sx2_fit() collapses sparse summed score groups and lowers the df", {
 })
 
 test_that("sx2_fit() for est_irt and est_item objects uses the data and scaling constant of the object", {
+  skip_on_cran()
   mod <- est_irt(data = LSAT6, D = 1.702, model = "2PLM", cats = 2, verbose = FALSE)
   expect_identical(
     sx2_fit(mod, norm.prior = c(0, 1), nquad = 30)$fit_stat,

@@ -33,6 +33,7 @@ test_that("est_irt() counts the free parameters of the normal and empirical hist
 })
 
 test_that("est_irt() counts the free parameters of FIPC without rescaling", {
+  skip_on_cran()
   fix <- 1:6
   n.new <- n.item - (6 * 3)
   fipc_fit <- function(...) fit_irt(fipc = TRUE, ...)

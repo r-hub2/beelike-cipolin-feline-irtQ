@@ -39,6 +39,7 @@ test_that("dif_rescore() rescoring only the examinees who responded to the remov
 })
 
 test_that("dif_rescore() rescores all examinees in the first iteration and mutes only the requested warnings", {
+  skip_on_cran()
   sim <- dc_sim()
   score <- rep(0, nrow(sim$resp))
   args <- list(

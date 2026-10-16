@@ -877,6 +877,7 @@ test_that("lwrc() matches enumeration of all response patterns", {
 })
 
 test_that("EAP.SUM matches the brute-force summed-score posterior", {
+  skip_on_cran()
   grid <- as.matrix(expand.grid(lapply(x_mix$cats, function(k) 0:(k - 1))))
   w <- gen.weight(41, dist = "norm", mu = 0.2, sigma = 1.1)
   lss <- sapply(w[, 1], function(t) {

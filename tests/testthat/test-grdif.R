@@ -194,6 +194,7 @@ test_that("grdif() excludes examinees with a missing ability estimate or group w
 })
 
 test_that("grdif() applies min.resp also when the scores are supplied", {
+  skip_on_cran()
   sim <- grt_sim(seed = 3, miss = 0.4)
   score <- suppressWarnings(est_score(sim$x, sim$resp, D = 1)$est.theta)
   few <- rowSums(!is.na(sim$resp)) < 5 & rowSums(!is.na(sim$resp)) > 0
@@ -207,6 +208,7 @@ test_that("grdif() applies min.resp also when the scores are supplied", {
 })
 
 test_that("grdif() gives missing statistics for an item that a group did not answer", {
+  skip_on_cran()
   sim <- grt_sim(seed = 4)
   score <- suppressWarnings(est_score(sim$x, sim$resp, D = 1)$est.theta)
   resp <- sim$resp
@@ -409,6 +411,7 @@ test_that("grdif() purification stops with a warning when a group has no ability
 })
 
 test_that("grdif() reports an incomplete purification when max.iter is reached", {
+  skip_on_cran()
   sim <- grt_sim()
   score <- suppressWarnings(est_score(sim$x, sim$resp, D = 1)$est.theta)
   out <- grt_catch(grdif(sim$x, sim$resp, score = score, group = sim$group, focal.name = sim$focal,
@@ -420,6 +423,7 @@ test_that("grdif() reports an incomplete purification when max.iter is reached",
 
 
 test_that("grdif() post-hoc analyses match rdif() for each pair, with the reference group as the reference of its pairs", {
+  skip_on_cran()
   sim <- grt_sim()
   score <- suppressWarnings(est_score(sim$x, sim$resp, D = 1)$est.theta)
 

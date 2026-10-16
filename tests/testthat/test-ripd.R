@@ -97,6 +97,7 @@ test_that("ripd() excludes examinees with a missing ability estimate with a warn
 })
 
 test_that("ripd() applies min.resp to the focal group before scoring", {
+  skip_on_cran()
   sim <- ripd_sim()
   n_resp <- rowSums(!is.na(sim$resp))
   drop_row <- sim$group == "f" & n_resp < 8
@@ -469,6 +470,7 @@ test_that("print.ripd() prints the results of each analysis and honors what", {
 })
 
 test_that("ripd() statistics match an independent implementation", {
+  skip_on_cran()
   sim <- ripd_sim()
   for (D in c(1, 1.702)) {
     score <- suppressWarnings(est_score(sim$par, sim$resp, D = D, method = "ML")$est.theta)

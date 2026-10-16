@@ -6,14 +6,14 @@ Date: 2026-10-16
 Description: Fits unidimensional item response theory (IRT) models to test
     data that include dichotomous and polytomous items, calibrates pretest
     items with fixed item and fixed ability parameter calibration, performs
-    multiple-group calibration, estimates examinee abilities, and evaluates
-    model-data fit at the item level. It also provides tools for detecting
-    differential item functioning and item parameter drift, for computing
-    classification accuracy and consistency, and for evaluating and
+    multiple-group calibration, estimates the abilities of examinees, and
+    evaluates model-data fit at the item level. It also provides tools for
+    detecting differential item functioning and item parameter drift, for
+    computing classification accuracy and consistency, and for evaluating and
     simulating multistage-adaptive test panels, together with classical test
-    theory functions for item- and test-level statistics (e.g., item
-    difficulty, item-total correlation, and coefficient alpha) and for
-    scoring selected-response item data.
+    theory functions for item- and test-level statistics (e.g., item difficulty,
+    item-total correlation, and coefficient alpha) and for scoring
+    selected-response item data.
     The bring.flexmirt() and write.flexmirt() functions were written by modifying
     the read.flexmirt() function (Pritikin & Falk (2020) <doi:10.1177/0146621620929431>).
     The bring.bilog() and bring.parscale() functions were written by modifying the read.bilog() 
@@ -47,7 +47,7 @@ URL: https://hwangQ.github.io/irtQ/, https://github.com/hwangQ/irtQ
 BugReports: https://github.com/hwangQ/irtQ/issues
 Config/roxygen2/version: 8.0.0
 NeedsCompilation: no
-Packaged: 2026-10-16 05:07:36 UTC; kijja
+Packaged: 2026-10-16 15:17:08 UTC; kijja
 Author: Hwanggyu Lim [aut, cre],
   Craig S. Wells [ctb],
   James Howard [ctb],

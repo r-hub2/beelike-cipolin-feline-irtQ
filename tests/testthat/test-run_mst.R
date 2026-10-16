@@ -200,6 +200,7 @@ test_that("final sum-score estimates count missing responses as zero, as est_sco
 })
 
 test_that("INV.TCC routing estimates equal the inverse TCC lookup of the cumulative sum score", {
+  skip_on_cran()
   fit <- run_mst(
     x = x_mst, route_map = map_mst, module = mod_mst,
     theta = theta_mst, response = resp_mst, D = 1.702,

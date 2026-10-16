@@ -146,6 +146,7 @@ crt_catch <- function(expr) {
 }
 
 test_that("crdif() statistics match a first-principles implementation", {
+  skip_on_cran()
   sim <- crt_sim()
   for (D in c(1, 1.702)) {
     score <- suppressWarnings(est_score(sim$x, sim$resp, D = D, method = "ML")$est.theta)

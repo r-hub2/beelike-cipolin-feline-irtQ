@@ -111,6 +111,7 @@ test_that("est_irt() converges for GRM", {
 })
 
 test_that("est_irt() converges for GPCM", {
+  skip_on_cran()
   set.seed(42)
   # eight 4-category items with slopes from 0.8 to 1.6 and sorted step
   # parameters in [-1.5, 1.5]; a design with enough items to identify the slopes

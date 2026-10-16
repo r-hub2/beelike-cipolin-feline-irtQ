@@ -230,6 +230,7 @@ test_that("catsib() dif_stat contains beta and p-value columns", {
 })
 
 test_that("catsib() runs with weight.group = 'foc' and 'ref' and gives finite beta", {
+  skip_on_cran()
   for (wg in c("foc", "ref")) {
     # the short fixture gives a low reliability of the corrected scores, which
     # raises an expected warning
@@ -294,6 +295,7 @@ test_that("catsib() internal scoring (score=NULL) works without error", {
 })
 
 test_that("catsib() retained bins satisfy min.binsize threshold for both groups", {
+  skip_on_cran()
   res3 <- suppressWarnings(catsib(
     x          = NULL,
     data       = resp_all,

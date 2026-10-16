@@ -51,12 +51,14 @@ run_mg <- function(x_items, data_list, ...) {
 # ==============================================================================
 
 test_that("est_mg() returns class 'est_mg'", {
+  skip_on_cran()
   dat <- make_two_groups(x_drm10)
   fit <- run_mg(x_drm10, dat)
   expect_s3_class(fit, "est_mg")
 })
 
 test_that("est_mg() top-level slots are present", {
+  skip_on_cran()
   dat <- make_two_groups(x_drm10)
   fit <- run_mg(x_drm10, dat)
   expected_slots <- c("par.est", "loglikelihood", "aic", "bic",
@@ -188,6 +190,7 @@ test_that("est_mg() 3PLM model with x = NULL (model/cats/item.id specified direc
 # ==============================================================================
 
 test_that("est_mg() GRM-only: converges with 2 items", {
+  skip_on_cran()
   dat <- make_two_groups(x_grm2, seed = 30, n = 400)
   fit <- run_mg(x_grm2, dat)
   expect_s3_class(fit, "est_mg")
@@ -213,6 +216,7 @@ test_that("est_mg() GRM-only: par.est has same structure for both groups", {
 # ==============================================================================
 
 test_that("est_mg() GPCM-only: converges with 2 items", {
+  skip_on_cran()
   dat <- make_two_groups(x_gpcm2, seed = 40, n = 400)
   fit <- run_mg(x_gpcm2, dat)
   expect_s3_class(fit, "est_mg")
@@ -220,6 +224,7 @@ test_that("est_mg() GPCM-only: converges with 2 items", {
 })
 
 test_that("est_mg() GPCM-only: par.est$overall has GPCM model column", {
+  skip_on_cran()
   dat <- make_two_groups(x_gpcm2, seed = 40, n = 400)
   fit <- run_mg(x_gpcm2, dat)
   expect_true(all(fit$par.est$overall$model == "GPCM"))
@@ -253,6 +258,7 @@ test_that("est_mg() mixed: par.est$overall contains both 3PLM and GRM rows", {
 # ==============================================================================
 
 test_that("est_mg() anchor items: group-specific par.est agree for common items", {
+  skip_on_cran()
   # Both groups have the same 10 items (same IDs) -> all items are anchors
   dat <- make_two_groups(x_drm10, seed = 60)
   fit <- run_mg(x_drm10, dat, use.gprior = TRUE,
@@ -410,6 +416,7 @@ test_that("summary.est_mg() runs without error", {
 })
 
 test_that("print.est_mg() runs without error", {
+  skip_on_cran()
   dat <- make_two_groups(x_drm10, seed = 80)
   fit <- run_mg(x_drm10, dat)
   expect_no_error(capture.output(print(fit)))

@@ -18,6 +18,7 @@ indep_item_ll <- function(par, data, theta, D) {
 }
 
 test_that("the log-likelihood excludes the log prior densities", {
+  skip_on_cran()
   f <- est_item(x = xi, data = di, score = th, D = 1.702, verbose = FALSE)
   expect_equal(f$loglikelihood, indep_item_ll(f$par.est, di, th, 1.702), tolerance = 1e-8)
   fp <- est_item(x = xi, data = di, score = th, D = 1.702, use.aprior = TRUE, use.bprior = TRUE, verbose = FALSE)

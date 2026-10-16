@@ -4,6 +4,7 @@ M <- make_mg_data(seed = 11)
 gn <- c("G1", "G2", "G3")
 
 test_that("the group and overall log-likelihoods match an independent multiple-group computation", {
+  skip_on_cran()
   fit <- suppressWarnings(est_mg(x = M$x, data = M$data, group.name = gn, free.group = 2:3, verbose = FALSE))
   ll <- indep_mg_loglik(fit$par.est$overall, M$data, fit$weights, D = 1)
   expect_equal(unname(unlist(fit$loglikelihood$group)), ll, tolerance = 1e-9)
@@ -56,6 +57,7 @@ test_that("the standard errors match an independent cross-product information wi
 })
 
 test_that("two reference groups give the est_irt() results of the pooled data", {
+  skip_on_cran()
   set.seed(5)
   x1 <- M$x[[1]]
   dA <- simdat(x = x1, theta = rnorm(300), D = 1)

@@ -32,6 +32,7 @@ test_that("est_irt() with FIPC stops with a clear message on invalid inputs", {
 })
 
 test_that("item.id replaces the IDs in x with and without FIPC", {
+  skip_on_cran()
   new.id <- paste0("Z", seq_len(nrow(x12)))
   fit <- suppressWarnings(est_irt(x = x12, data = d12, D = 1, item.id = new.id, MaxE = 3, se = FALSE, verbose = FALSE))
   expect_identical(fit$par.est$id, new.id)

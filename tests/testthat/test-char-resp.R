@@ -22,6 +22,7 @@ test_that("est_irt() fits character response columns as the numeric ones", {
 })
 
 test_that("est_mg() fits a character response column in only one group", {
+  skip_on_cran()
   set.seed(8)
   x <- shape_df(par.drm = list(a = c(1, 1.3, 0.8, 1.1), b = c(-1, 0, 0.5, 1), g = 0), cats = 2, model = "2PLM")
   d1 <- as.data.frame(simdat(x = x, theta = rnorm(300), D = 1))

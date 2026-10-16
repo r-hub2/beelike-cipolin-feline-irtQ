@@ -9,6 +9,7 @@ di <- simdat(x = xi, theta = th, D = 1.702)
 di[sample(length(di), 0.08 * length(di))] <- NA
 
 test_that("score must give one finite value per examinee; matrix and data frame scores work", {
+  skip_on_cran()
   expect_error(est_item(x = xi, data = di, score = replace(th, 3, NA), verbose = FALSE), "one finite ability value")
   expect_error(est_item(x = xi, data = di, score = th[-1], verbose = FALSE), "one finite ability value")
   f0 <- est_item(x = xi, data = di, score = th, D = 1.702, verbose = FALSE)

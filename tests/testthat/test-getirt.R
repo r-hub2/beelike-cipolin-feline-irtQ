@@ -13,6 +13,7 @@ test_that("every element of an est_irt object can be extracted", {
 })
 
 test_that("every element of an est_mg object can be extracted", {
+  skip_on_cran()
   M <- make_mg_data(seed = 11)
   # the run stops after three cycles, so it warns about convergence
   fit <- suppressWarnings(est_mg(x = M$x[1:2], data = M$data[1:2], group.name = c("G1", "G2"), free.group = 2,

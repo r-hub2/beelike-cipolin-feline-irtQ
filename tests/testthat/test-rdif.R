@@ -251,6 +251,7 @@ test_that("rdif() reports the examinees who lose their ability estimates in the 
 })
 
 test_that("rdif() statistics match an independent implementation", {
+  skip_on_cran()
   sim <- rdt_sim()
   for (D in c(1, 1.702)) {
     score <- suppressWarnings(est_score(sim$x, sim$resp, D = D, method = "ML")$est.theta)
