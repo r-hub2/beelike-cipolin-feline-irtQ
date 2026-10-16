@@ -20,7 +20,8 @@ ctt_item(
 examinees in rows and items in columns. Item scores must range from 0 to
 \code{cats[j] - 1} for each item j (0/1 for a dichotomous item; 0, 1, 2, ...
 for a polytomous/partial-credit item). An error is raised when a score
-is not a whole number between 0 and \code{cats[j] - 1}.}
+is not a whole number between 0 and \code{cats[j] - 1}; a score within 1e-8
+of a whole number is treated as that whole number.}
 
 \item{item.id}{A character vector of item identifiers, in the same order
 as the columns of \code{data}. If \code{NULL} (default), item IDs are generated
@@ -39,16 +40,14 @@ two (i.e., \code{max(max(data[, j]) + 1, 2)}); supply \code{cats} explicitly
 whenever the maximum possible score may not have been observed in the
 sample. Each value must be a whole number of at least 2.}
 
-\item{correct}{Logical. Both the raw (uncorrected) item-total correlation -
-where an item (or, in \code{\link[=ctt_distr]{ctt_distr()}}, a response option/category) is
-correlated with the total score that includes its own contribution -
-and the corrected item-total correlation - excluding its own
-contribution - are always computed and reported as separate columns
-(see \strong{Details}/\strong{Value}). This argument only controls which of the
-two is used for flagging: if \code{TRUE}, flagging (in \code{\link[=ctt_item]{ctt_item()}}'s \code{flag}
-column, \code{\link[=ctt_alpha]{ctt_alpha()}}'s summary discrimination figure, and, in
-\code{\link[=ctt_distr]{ctt_distr()}}, the \code{crit.distractor} check) is based on the corrected
-value; if \code{FALSE} (default), on the raw value.}
+\item{correct}{Logical. Both the raw item-total correlation (the item
+score, or in \code{\link[=ctt_distr]{ctt_distr()}} an option or category indicator, correlated
+with a total score that includes the item) and the corrected item-total
+correlation (correlated with a total score that excludes the item) are
+always computed and reported as separate columns. This argument only
+selects which of the two is used for flagging: the corrected value if
+\code{TRUE}, the raw value if \code{FALSE} (default). It drives the \code{flag} column
+of \code{\link[=ctt]{ctt()}} and the \code{crit.distractor} check of \code{\link[=ctt_distr]{ctt_distr()}}.}
 
 \item{missing}{A value indicating missing responses in \code{data}, analogous
 to the \code{missing} argument in \code{\link[=est_irt]{est_irt()}} and \code{\link[=score_resp]{score_resp()}}.
@@ -58,65 +57,71 @@ listwise from all statistics computed by this function.}
 
 \item{flag}{Logical. If \code{TRUE} (default), items are flagged when their
 difficulty or discrimination falls outside the thresholds given in
-\code{crit.p} and \code{crit.dis}.}
+\code{crit.p} and \code{crit.dis}, or when their discrimination is undefined.}
 
 \item{crit.p}{A numeric vector of length two giving the lower and upper
-difficulty bounds used for flagging: difficulty below the first value is
-flagged as too difficult, and difficulty above the second value is
-flagged as too easy. Default is \code{c(0.10, 0.95)}.}
+difficulty bounds used for flagging: an item with difficulty below the
+first value is flagged as too difficult ("difficulty too low"), and an
+item with difficulty above the second value is flagged as too easy
+("difficulty too high"). Default is \code{c(0.10, 0.95)}.}
 
 \item{crit.dis}{A single numeric value giving the minimum acceptable
-discrimination (item-total correlation); items strictly below this value
-are flagged as poorly discriminating. Default is \code{0.20}.}
+discrimination (item-total correlation); an item whose discrimination is
+strictly below this value is flagged as poorly discriminating
+("discrimination too low"). An item whose discrimination is undefined
+(a constant item, or a constant reference total score) is flagged
+"discrimination undefined". Default is \code{0.20}.}
 }
 \value{
 A list with two elements:
-\item{item}{A data frame with one row per item, containing the item
-label, number of score categories, difficulty, the raw (uncorrected)
-item-total correlation (\code{discrimination_raw}), the corrected
-(item-excluded) item-total correlation (\code{discrimination_corrected}),
-and alpha-with-item-removed, plus a \code{flag} column (a character
-description of which criteria were triggered, or \code{""} when none were;
-present only when \code{flag = TRUE}). Flagging is based on whichever of
-\code{discrimination_raw}/\code{discrimination_corrected} is selected by
-\code{correct}.}
-\item{crit}{A list echoing the \code{crit.p} and \code{crit.dis} thresholds used, for
-reference in downstream reporting.}
+\item{item}{A data frame with one row per item and the columns \code{item}
+(item ID), \code{cats} (number of score categories), \code{difficulty},
+\code{discrimination_raw} (raw item-total correlation),
+\code{discrimination_corrected} (corrected item-total correlation),
+\code{alpha_removed} (alpha with the item removed), and, only when
+\code{flag = TRUE}, \code{flag} (the criteria the item meets, among
+"difficulty too low", "difficulty too high", "discrimination too low",
+and "discrimination undefined", separated by "; ", or \code{""} when none).
+Discrimination is flagged using the column selected by \code{correct}.
+Statistics are rounded to three decimal places.}
+\item{crit}{A list with elements \code{crit.p}, \code{crit.dis}, and \code{correct}, the
+thresholds and the correlation used for flagging (\code{correct = TRUE} for
+the corrected item-total correlation, \code{FALSE} for the raw one).}
 }
 \description{
-Computes traditional classical test theory (CTT) item statistics -
-difficulty, an item-total correlation (discrimination), and Cronbach's
-alpha with the item removed - for dichotomous or polytomous item response
-data, along with optional flagging of items that fall outside commonly
-used quality thresholds.
+Computes classical test theory (CTT) item statistics for dichotomous or
+polytomous item response data: difficulty, the item-total correlation
+(discrimination), and Cronbach's alpha with the item removed. Items that
+fall outside commonly used quality thresholds can optionally be flagged.
 }
 \details{
 Difficulty for item j is defined generally as the mean observed score
 divided by the item's maximum possible score,
-\code{mean(data[, j], na.rm = TRUE) / (cats[j] - 1)}. For a dichotomous item
-(\code{cats[j] = 2}), this reduces to the familiar proportion-correct difficulty
-index. For a polytomous item, this expresses the average score as a
-proportion of the maximum attainable score, so that difficulty remains
-interpretable on the same 0-1 scale regardless of the number of score
-categories.
+\code{mean(data[, j]) / (cats[j] - 1)}, computed after listwise deletion. For a
+dichotomous item (\code{cats[j] = 2}), this reduces to the familiar
+proportion-correct difficulty index. For a polytomous item, this
+expresses the average score as a proportion of the maximum attainable
+score, so that difficulty remains interpretable on the same 0-1 scale
+regardless of the number of score categories.
 
-Discrimination for item j is the Pearson correlation between the item
-score and the total score, which for a dichotomous item is mathematically
-equivalent to the point-biserial correlation. Both the uncorrected (raw)
-item-total correlation and the corrected (item-excluded) item-total
-correlation are always computed and returned as separate columns; see,
-e.g., Crocker and Algina (1986) for discussion of both conventions.
-This mirrors how some software reports both side by side (e.g.,
-\code{psych::alpha()} reports the raw item-total correlation as \code{raw.r} and
-the corrected version as \code{r.drop}) rather than defaulting to one or the
-other. The \code{correct} argument only selects which of the two feeds the
-discrimination flagging criterion (see \code{crit.dis}).
+Discrimination for item j is the Pearson correlation between the item score
+and the total score, which for a dichotomous item is mathematically
+equivalent to the point-biserial correlation. A correlation is \code{NA} when the
+item score or the reference total score is constant. Both the uncorrected
+(raw) item-total correlation and the corrected (item-excluded) item-total
+correlation are always computed and returned as separate columns; see, e.g.,
+Crocker and Algina (1986) for discussion of both conventions. This mirrors
+how some software reports both side by side (e.g., \code{psych::alpha()} reports
+the raw item-total correlation as \code{raw.r} and the corrected version as
+\code{r.drop}) rather than defaulting to one or the other. The \code{correct} argument
+only selects which of the two feeds the discrimination flagging criterion
+(see \code{crit.dis}).
 
 Alpha-with-item-removed for item j is Cronbach's alpha recomputed on the
 remaining \code{ncol(data) - 1} items, using the same variance-based formula
-used for an overall, test-level alpha (\verb{k / (k - 1) * (1 - sum(item variances) / total variance)}). A value of \code{NA} is returned wherever a
-needed variance is zero (e.g., a constant item, or fewer than two items
-remaining), since the relevant ratio is then undefined.
+used for an overall, test-level alpha (\verb{k / (k - 1) * (1 - sum(item variances) / total variance)}). The value is \code{NA} when the total score of
+the remaining items has zero variance or when fewer than two items remain
+(a two-item test), since alpha is then undefined.
 }
 \references{
 Crocker, L., & Algina, J. (1986). \emph{Introduction to classical and modern

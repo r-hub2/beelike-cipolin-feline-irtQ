@@ -6,9 +6,10 @@
 #' @param theta A numeric vector of ability values (latent traits).
 #' @param a A numeric vector of item discrimination (slope) parameters.
 #' @param b A numeric vector of item difficulty parameters.
-#' @param g A numeric vector of item guessing parameters. Not required for 1PL or 2PL models.
+#' @param g A numeric vector of item guessing parameters. Not required for 1PL
+#'   or 2PL models. `NA` values are treated as 0.
 #' @param D A scaling constant used in IRT models to make the logistic function
-#'   closely approximate the normal ogive function. A value of 1.7 is commonly
+#'   closely approximate the normal ogive function. A value of 1.702 is commonly
 #'   used for this purpose. Default is 1.
 #'
 #' @details
@@ -44,17 +45,21 @@ drm <- function(theta, a, b, g = NULL, D = 1) {
   # check the item guessing parameters
   if (is.null(g)) g <- rep(0, nitem)
 
-  # calculate probability of correct answer
-  z <- (D * a) * Rfast::Outer(x = theta, y = b, oper = "-")
-  P <- t(g + (1 - g) / (1 + exp(-z)))
+  # treat NA guessing parameters as zeros
+  g[is.na(g)] <- 0
 
-  # prevent that the probabilities are equal to 1L or g (or 0 in case of 1PLM and 2PLM)
+  # calculate probability of correct answer (rows are items, columns are thetas)
+  z <- (D * a) * Rfast::Outer(x = theta, y = b, oper = "-")
+  P <- g + (1 - g) / (1 + exp(-z))
+
+  # keep the probabilities away from 1 and from g (0 for the 1PLM and 2PLM)
   P[P > 9999999999e-10] <- 9999999999e-10
+  # compare each item with its own guessing parameter before transposing
   lg.lessg <- P < (g + 1e-10)
   P[lg.lessg] <- P[lg.lessg] + 1e-10
 
-  # return the probability matrix
-  P
+  # return the probability matrix with thetas in rows and items in columns
+  t(P)
 }
 
 
@@ -65,21 +70,28 @@ drm <- function(theta, a, b, g = NULL, D = 1) {
 #' (GRM) or the (generalized) partial credit model (GPCM).
 #'
 #' @inheritParams drm
-#' @param d A numeric vector of item difficulty (or threshold) parameters.
-#' @param pr.model A character string specifying the polytomous IRT model.
-#'   Available options are `"GRM"` for the graded response model and `"GPCM"`
-#'   for the (generalized) partial credit model.
+#' @param a A numeric value of the item discrimination (slope) parameter.
+#' @param d A numeric vector of the threshold parameters of the item. For the
+#'   GRM, the thresholds must be in increasing order.
+#' @param pr.model A character string specifying the polytomous IRT model:
+#'   `"GRM"` for the graded response model or `"GPCM"` for the (generalized)
+#'   partial credit model. Default is `"GRM"`.
 #'
 #' @details When computing category probabilities using the partial credit model
 #' (PCM), set `a = 1`.
 #'
-#' For `pr.model = "GPCM"`, the vector `d` should contain threshold parameters
-#' that define the boundaries between adjacent score categories. In the
-#' \pkg{irtQ} package, these thresholds are expressed as the item location
-#' (overall difficulty) minus the step parameters for each category. If an item
-#' has *K* score categories, *K - 1* threshold parameters must be provided; the
-#' first is assumed to be 0. For example, for a GPCM item with five categories,
-#' provide four threshold parameters.
+#' For `pr.model = "GPCM"`, `d` contains the threshold parameters
+#' \eqn{b_v = \beta - \tau_v}, that is, the overall item location minus the
+#' threshold of each score category. An item with *K* score categories requires
+#' *K - 1* threshold parameters. The term for the lowest score category is
+#' fixed at 0 and is not supplied. For example, a GPCM item with five
+#' categories requires four threshold parameters.
+#'
+#' The GRM probabilities are bounded to the range from 1e-10 to 1 - 1e-10,
+#' whereas the GPCM probabilities are bounded below only by the smallest
+#' positive normalized double value (about 2.2e-308). The category
+#' probabilities in [irtQ::traceline()] and [irtQ::info()] are bounded below by
+#' 1e-10 for both models.
 #'
 #' For more details on the parameterization of the (generalized) partial credit
 #' model, refer to the *IRT Models* section in the [irtQ-package] documentation.
@@ -103,7 +115,8 @@ drm <- function(theta, a, b, g = NULL, D = 1) {
 #'
 #' @export
 prm <- function(theta, a, d, D = 1, pr.model = c("GRM", "GPCM")) {
-  pr.model <- toupper(pr.model)
+  # use the first listed model when the default vector is left unchanged
+  pr.model <- match.arg(toupper(pr.model), choices = c("GRM", "GPCM"))
   if (pr.model == "GRM") {
     P <- grm(theta = theta, a = a, d = d, D = D)
   } else {
@@ -117,22 +130,20 @@ prm <- function(theta, a, d, D = 1, pr.model = c("GRM", "GPCM")) {
 # IRT GPC model
 #' @importFrom Rfast Outer colCumSums rowsums
 gpcm <- function(theta, a, d, D = 1) {
-  # add 0 of the the first category step (threshold) parameter
-  # to the step parameter vector
+  # prepend 0 as the term for the lowest score category
   d <- c(0, d)
 
   # calculate category probabilities
   z <- (D * a) * (Rfast::Outer(x = theta, y = d, oper = "-"))
   cumsum_z <- t(Rfast::colCumSums(z))
-  if (any(cumsum_z > 700)) {
-    cumsum_z <- (cumsum_z / max(cumsum_z)) * 700
-  }
-  if (any(cumsum_z < -700)) {
-    cumsum_z <- -(cumsum_z / min(cumsum_z)) * 700
-  }
+  # subtract the row maximum so that exp() does not overflow
+  cumsum_z <- cumsum_z - Rfast::rowMaxs(cumsum_z, value = TRUE)
   numer <- exp(cumsum_z) # numerator
   denom <- Rfast::rowsums(numer) # denominator
   P <- numer / denom
+
+  # keep the probabilities above zero so that their logarithms are finite
+  P[P < .Machine$double.xmin] <- .Machine$double.xmin
 
   # return
   P
@@ -140,10 +151,7 @@ gpcm <- function(theta, a, d, D = 1) {
 
 # IRT GRM model
 grm <- function(theta, a, d, D = 1) {
-  # count the number of d parameters
-  # m <- length(d)
-
-  # calculate all the probabilities greater than equal to each threshold
+  # calculate the probabilities of scoring at or above each threshold
   allP <- drm(theta = theta, a = a, b = d, g = 0, D = D)
 
   # calculate category probabilities

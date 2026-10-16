@@ -2,7 +2,7 @@
 % Please edit documentation in R/pcd2.R
 \name{pcd2}
 \alias{pcd2}
-\title{Pseudo-count D2 method}
+\title{Pseudo-Count D2 Method for Item Parameter Drift Detection}
 \usage{
 pcd2(
   x,
@@ -25,80 +25,83 @@ pcd2(
 \item{x}{A data frame containing item metadata (e.g., item parameters, number
 of categories, IRT model types, etc.). See \code{\link[=est_irt]{est_irt()}} or
 \code{\link[=simdat]{simdat()}} for more details about the item metadata. This data frame
-can be easily created using the \code{\link[=shape_df]{shape_df()}} function.}
+can be easily created using the \code{\link[=shape_df]{shape_df()}} function. Only
+dichotomous items are supported; the function stops if \code{x} contains GRM or
+GPCM items.}
 
-\item{data}{A matrix of examinees' item responses corresponding to the items
-specified in the \code{x} argument. Rows represent examinees and columns
-represent items.}
+\item{data}{A matrix of examinees' item responses, with rows for examinees
+and columns for items in the same order as the items in \code{x}. Responses
+to an item with K score categories must be integers from 0 to K - 1.
+Missing responses are coded as \code{NA} or, in functions that have a
+\code{missing} argument, as the value given in \code{missing}.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 
-\item{item.skip}{A numeric vector of item indices to exclude from IPD analysis.
-If \code{NULL}, all items are included. Useful for omitting specific items based on
-prior insights.}
+\item{item.skip}{A numeric vector of item positions (row numbers of \code{x}), or a
+logical vector with one value per item, identifying the items to exclude
+from the IPD analysis. Skipped items still contribute to the
+posterior ability distributions; only their \code{pcd2} values are set to \code{NA},
+and they are never flagged. If \code{NULL}, all items are analyzed. Default is
+\code{NULL}.}
 
 \item{missing}{A value indicating missing responses in the data set. Default
 is \code{NA}.}
 
-\item{Quadrature}{A numeric vector of length two:
-\itemize{
-\item first element: number of quadrature points
-\item second element: symmetric bound (absolute value) for those points
+\item{Quadrature}{A numeric vector of length two giving the number of
+quadrature points and the symmetric bound (absolute value) of the points.
 For example, \code{c(49, 6)} specifies 49 evenly spaced points from -6 to 6.
-These points are used in the E-step of the EM algorithm. Default is \code{c(49, 6)}.
-}}
+These points are used to compute each examinee's posterior ability
+distribution when \code{weights = NULL}. Default is \code{c(49, 6)}.}
 
-\item{weights}{A two-column matrix or data frame containing the quadrature
-points (in the first column) and their corresponding weights (in the second
-column) for the latent variable prior distribution. If not \code{NULL}, the
-scale of the latent ability distribution is fixed to match the scale of the
-provided quadrature points and weights. The weights and points can be
-conveniently generated using the function \code{\link[=gen.weight]{gen.weight()}}.
+\item{weights}{A two-column matrix or data frame of quadrature points (first
+column) and weights (second column) defining the prior ability
+distribution used to compute the posterior distributions. It can be created
+with \code{\link[=gen.weight]{gen.weight()}}. If \code{NULL}, a normal prior defined by
+\code{Quadrature}, \code{group.mean}, and \code{group.var} is used. Default is \code{NULL}.}
 
-If \code{NULL}, a normal prior density is used instead, based on the
-information provided in the \code{Quadrature}, \code{group.mean}, and \code{group.var}
-arguments. Default is \code{NULL}.}
-
-\item{group.mean}{A numeric value specifying the mean of the latent variable
-prior distribution when \code{weights = NULL}. Default is 0. This value is fixed
-to resolve the indeterminacy of the item parameter scale during
-calibration.}
+\item{group.mean}{A numeric value specifying the mean of the normal prior
+ability distribution when \code{weights = NULL}. Default is 0.}
 
 \item{group.var}{A positive numeric value specifying the variance of the
-latent variable prior distribution when \code{weights = NULL}. Default is 1.
-This value is fixed to resolve the indeterminacy of the item parameter
-scale during calibration.}
+normal prior ability distribution when \code{weights = NULL}. Default is 1.}
 
-\item{crit.val}{A critical value applied in hypothesis testing using
-the Pseudo-count \eqn{D^{2}} statistic. The user must supply it; no
-default threshold is built in. If \code{NULL} (default), the statistic is
-reported but no item is flagged and purification is not performed.}
+\item{crit.val}{A numeric critical value for the pseudo-count \eqn{D^{2}}
+statistic. Items whose statistic is greater than or equal to \code{crit.val} are
+flagged. Because the statistic has no known null distribution, the critical
+value is usually obtained by bootstrapping (see Examples). If \code{NULL}
+(default), the statistic is reported but no item is flagged and
+purification is not performed.}
 
-\item{min.resp}{A positive integer specifying the minimum required number of
-responses for each evaluated item. Defaults to \code{NULL}.}
+\item{min.resp}{A single nonnegative number, usually a positive integer,
+specifying the minimum number of responses an item must have to be
+analyzed. All responses of items with fewer than
+\code{min.resp} (but at least one) responses are set to \code{NA}, so their \code{pcd2}
+value is \code{NaN} and \code{N} is 0, and a warning lists those items. If \code{NULL}, no
+minimum is applied. Default is \code{NULL}.}
 
-\item{purify}{Logical. Indicates whether to apply a purification procedure.
+\item{purify}{Logical. Whether to apply the iterative purification
+procedure. Purification is performed only when \code{crit.val} is also supplied.
 Default is \code{FALSE}.}
 
 \item{max.iter}{A positive integer specifying the maximum number of
-iterations allowed for the purification process. Default is \code{10}. If the
-limit is reached while flagged items remain, a warning is issued and the
-\code{complete} element of the purification results is \code{FALSE}; for tests with
-many items or many DIF items, consider increasing \code{max.iter}.}
+purification iterations. Default is 10. If the limit is reached while
+flagged items remain, a warning is issued, the items flagged at the last
+iteration are added to the flagged set, and the \code{complete} element of
+\code{with_purify} is \code{FALSE}. Because one item is removed per iteration,
+\code{max.iter} should be at least the number of items expected to drift.}
 
-\item{verbose}{Logical. If \code{TRUE}, progress messages from the purification
-procedure will be displayed; if \code{FALSE}, the messages will be suppressed.
-Default is \code{TRUE}.}
+\item{verbose}{Logical. If \code{TRUE}, the progress of the purification procedure
+is printed to the console. Default is \code{TRUE}.}
 }
 \value{
-This function returns a list containing four main components:
+This function returns a list with the following elements:
 
-\item{no_purify}{A list containing the results of Pseudo-count \eqn{D^{2}} analysis
+\item{no_purify}{A list containing the results of pseudo-count \eqn{D^{2}} analysis
 without applying the purification procedure. It includes:
 \describe{
-\item{ipd_stat}{A data frame summarizing the Pseudo-count \eqn{D^{2}} statistics
+\item{ipd_stat}{A data frame summarizing the pseudo-count \eqn{D^{2}} statistics
 for all items. The columns include:
 \code{id} (item ID),
 \code{pcd2} (the computed \eqn{D^{2}} value), and
@@ -109,36 +112,46 @@ If no items are flagged or \code{crit.val = NULL}, this is \code{NULL}.}
 }
 }
 
-\item{purify}{A logical value indicating whether the iterative purification
-procedure was applied (\code{TRUE}) or not (\code{FALSE}).}
+\item{purify}{The value of the \code{purify} argument. Purification is actually
+performed only when \code{crit.val} is also supplied.}
 
-\item{with_purify}{A list containing the results of Pseudo-count \eqn{D^{2}} analysis
+\item{with_purify}{A list containing the results of pseudo-count \eqn{D^{2}} analysis
 after applying the purification procedure. This list is populated only when both
-\code{purify = TRUE} and \code{crit.val} is not \code{NULL}. It includes:
+\code{purify = TRUE} and \code{crit.val} is not \code{NULL}; otherwise, all of its elements are \code{NULL}. It
+includes:
 \describe{
-\item{ipd_stat}{A data frame reporting the final Pseudo-count \eqn{D^{2}} statistics
-after purification. Columns include:
+\item{ipd_stat}{A data frame of the pseudo-count \eqn{D^{2}} statistics for all
+items, taken for each item from the analysis given in \code{n.iter}. Columns
+include:
 \code{id} (item ID),
 \code{pcd2} (the computed \eqn{D^{2}} value),
 \code{N} (the number of valid responses), and
-\code{n.iter} (the iteration number in which each item was evaluated).}
-\item{ipd_item}{A numeric vector of item indices flagged as IPD items during
-purification. Items are ordered by the iteration in which they were flagged.}
+\code{n.iter} (for a flagged item, the iteration at which it was flagged, where
+0 is the initial analysis; for the other items, the final iteration).}
+\item{ipd_item}{A numeric vector of item indices (row positions in \code{x})
+flagged as IPD items during purification, sorted in ascending order. The
+iteration at which each item was flagged is given in the \code{n.iter} column of
+\code{ipd_stat}. It contains all items if every item is flagged. It is \code{NULL}
+when no item is flagged in the initial analysis.}
 \item{n.iter}{An integer indicating the number of purification iterations
-completed.}
+completed. The iteration that removes the last item is not counted,
+because the statistics are not recomputed.}
 \item{complete}{A logical value indicating whether the purification procedure
 converged before reaching the maximum number of iterations (\code{max.iter}).
-If \code{FALSE}, the iteration limit was reached before convergence.}
+\code{FALSE} if the iteration limit was reached before convergence or if every
+item was flagged.}
 }
 }
 
 \item{crit.val}{A numeric value indicating the critical threshold used to flag
 items for parameter drift. If not specified by the user, this will be \code{NULL}.}
+
+\item{call}{The matched function call.}
 }
 \description{
-This function calculates the Pseudo-count \eqn{D^{2}} statistic
+This function calculates the pseudo-count \eqn{D^{2}} statistic
 to evaluate item parameter drift, as described by Cappaert et al. (2018) and
-Stone (2000). The Pseudo-count \eqn{D^{2}} statistic is designed to detect
+Stone (2000). The pseudo-count \eqn{D^{2}} statistic is designed to detect
 item parameter drift efficiently without requiring item recalibration, making
 it especially valuable in computerized adaptive testing (CAT) environments.
 This method compares observed and expected response frequencies across
@@ -146,33 +159,35 @@ quadrature points, which represent latent ability levels. The observed
 pseudo-frequencies are computed using the posterior distribution of each
 examinee's ability, whereas the expected frequencies are the response
 probabilities implied by the item parameters in the item bank (Stone, 2000).
-This provides a sensitive measure of item parameter drift, helping to
-ensure the stability and accuracy of the test over time.
+The current version supports dichotomous items only.
 }
 \details{
-The Pseudo-count \eqn{D^{2}} statistic quantifies item parameter drift (IPD) by
-computing the weighted squared differences between the observed and expected
-response frequencies for each score category across ability levels. The
-observed pseudo-frequencies are obtained from the posterior distribution of
-each examinee's ability, and the expected frequencies are the category
-probabilities computed from the item bank parameters (Stone, 2000).
+The pseudo-count \eqn{D^{2}} statistic quantifies item parameter drift (IPD)
+by computing, across quadrature points, the weighted squared differences
+between the observed pseudo-proportion of correct responses and the
+proportion expected under the item bank parameters, weighted by the
+pseudo-counts. The observed pseudo-counts are obtained from the posterior
+distribution of each examinee's ability, and the expected proportions are the
+probabilities of a correct response computed from the item bank parameters
+(Stone, 2000).
 
-The Pseudo-count \eqn{D^{2}} statistic is calculated as:
+The pseudo-count \eqn{D^{2}} statistic is calculated as:
 \deqn{
-Pseudo-count D^{2} = \sum_{k=1}^{Q} \left( \frac{r_{0k} + r_{1k}}{N}\right)
+D^{2}_{PC} = \sum_{k=1}^{Q} \left( \frac{r_{0k} + r_{1k}}{N}\right)
 \left( \frac{r_{1k}}{r_{0k} + r_{1k}} - E_{1k} \right)^2
 }
 
-where \eqn{r_{0k}} and \eqn{r_{1k}} are the pseudo-counts for the incorrect
-and correct responses at each ability level \eqn{k}, \eqn{E_{1k}} is the
-expected proportion of correct responses at each ability level \eqn{k},
-calculated using item parameters from the item bank, and \eqn{N} is the total
-count of examinees who received each item.
+where \eqn{Q} is the number of quadrature points, \eqn{r_{0k}} and
+\eqn{r_{1k}} are the pseudo-counts of incorrect and correct responses at
+quadrature point \eqn{k} (the sums of the examinees' posterior probabilities
+at that point over the examinees with each response), \eqn{E_{1k}} is the
+probability of a correct response at point \eqn{k} under the item bank
+parameters, and \eqn{N} is the number of examinees who responded to the item.
 
 \strong{Critical Value (\code{crit.val})}:
 The \code{crit.val} argument specifies the threshold used to flag an item as
-exhibiting potential parameter drift. If an item's Pseudo-count \eqn{D^{2}}
-value exceeds this threshold, it is identified as a drifted item. If
+exhibiting potential parameter drift. If an item's pseudo-count \eqn{D^{2}}
+value is greater than or equal to this threshold, the item is flagged. If
 \code{crit.val = NULL}, the function reports the raw statistic without flagging.
 
 \strong{Minimum Response Count (\code{min.resp})}:
@@ -182,25 +197,32 @@ for an item to be included in the analysis. Items with fewer responses than
 with \code{NA}. This avoids unreliable estimates based on small sample sizes.
 
 \strong{Purification Procedure}:
-Although Cappaert et al. (2018) did not incorporate purification into their method,
-\code{\link[=pcd2]{pcd2()}} implements an optional iterative purification process similar
-to Lim et al. (2022). When \code{purify = TRUE} and a \code{crit.val} is provided:
+Although Cappaert et al. (2018) did not incorporate purification into their
+method, \code{\link[=pcd2]{pcd2()}} implements an optional iterative purification process
+similar to Lim et al. (2022). When \code{purify = TRUE} and a \code{crit.val} is
+provided:
 \itemize{
 \item The procedure begins by identifying items flagged for drift using the initial
-Pseudo-count \eqn{D^{2}} statistics.
-\item In each subsequent iteration, the item with the highest flagged Pseudo-count
+pseudo-count \eqn{D^{2}} statistics.
+\item In each subsequent iteration, the item with the highest flagged pseudo-count
 \eqn{D^{2}} value is removed from the item set, and the statistics are recalculated
 using only the remaining items.
 \item The process continues until no additional items are flagged or the
 number of iterations reaches \code{max.iter}.
+\item If \code{max.iter} is reached before convergence, a warning is issued, the
+items flagged at the last iteration are added to the flagged set, and
+\code{complete} is set to \code{FALSE}.
+\item If every item is flagged, the procedure stops with a warning,
+because no item is left to analyze, all items are returned as flagged, and
+\code{complete} is \code{FALSE}.
 \item All flagged items and statistics are saved, and convergence status is reported.
 }
-This process ensures that drift detection is not distorted by already-flagged items,
-improving the robustness of the results.
+This process reduces the influence of already-flagged items on the posterior
+distributions used for the remaining items.
 }
 \examples{
 ## Example 1: No critical value specified
-## Compute the Pseudo-count D2 statistics for dichotomous items
+## Compute the pseudo-count D2 statistics for dichotomous items
 ## Import the "-prm.txt" output file generated by flexMIRT
 flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt", package = "irtQ")
 
@@ -214,24 +236,30 @@ score <- rnorm(500, mean = 0, sd = 1)
 # Simulate response data using the item metadata and ability values
 data <- simdat(x = x, theta = score, D = 1)
 
-# Compute the Pseudo-count D2 statistics (no purification applied)
+# Compute the pseudo-count D2 statistics (no purification applied)
 ps_d2 <- pcd2(x = x, data = data)
 print(ps_d2)
 
 ## Example 2: Applying a critical value with purification
-# Compute the Pseudo-count D2 statistics with purification enabled
+# crit.val = 0.002 is an arbitrary value for illustration; no drift was
+# simulated, so any flagged item is a false positive.
+# Compute the pseudo-count D2 statistics with purification enabled
 ps_d2_puri <- pcd2(x = x, data = data, crit.val = 0.002, purify = TRUE)
 print(ps_d2_puri)
 
 \donttest{
 ## -- Example 3: CAT-based IPD detection using simIPD --------------------------
 ##
-## The Pseudo-count D2 statistic has no closed-form null distribution.
-## Following Lim & Han (2026), the critical value is estimated empirically
-## via bootstrap:
-##   (1) Select drift-free (anchor) items to form the null D2 distribution.
-##   (2) Repeatedly resample from those values and take the 95th percentile.
-##   (3) Average across bootstrap iterations to obtain the critical value.
+## The pseudo-count D2 statistic has no closed-form null distribution.
+## Following Cappaert et al. (2018), the critical value is estimated
+## empirically via bootstrap:
+##   (1) Select items that are not suspected of IPD (anchor items).
+##   (2) Compute D2 for the whole item pool from all responses, and take
+##       the D2 values of the anchor items as the null distribution.
+##   (3) Resample the null distribution with replacement, take the 95th
+##       percentile of each bootstrap sample, and average the percentiles
+##       to obtain the critical value.
+##   (4) Run pcd2() with this critical value.
 ##
 ## The simIPD dataset provides:
 ##   item_par  : original 360-item pool (3PLM, irtQ format)
@@ -244,44 +272,58 @@ print(ps_d2_puri)
 data(simIPD)
 
 ## -- Step 1. Select anchor items for bootstrap -----------------------------
-## From the full item pool, select items that (a) have sufficient observed
-## responses (>= boot_size) and (b) are not known IPD items. These items
-## serve as the empirical null distribution of D2.
-## boot_size = 300: chosen to match the minimum response count used in the
-##   bootstrap procedure of the simulation study (Lim & Han, 2026).
-## In practice, exclude items you know or suspect have drifted; here the
-## ground truth (simIPD$ipd_item) is used for illustration.
-boot_size    <- 300
-n_resp       <- colSums(!is.na(simIPD$foc_resp))   # observed responses per item
-anchor_items <- setdiff(which(n_resp >= boot_size), simIPD$ipd_item)
+## Select items that (a) have at least min_resp_anchor observed responses
+## and (b) are not suspected of IPD. In practice, exclude the items you
+## suspect to have drifted; here the ground truth (simIPD$ipd_item) is
+## excluded for illustration.
+## The minimum response count follows Lim & Han (2026); it is a practical
+## addition to the procedure of Cappaert et al. (2018), who did not set such
+## a criterion. In a CAT pool with uneven exposure, items with few responses
+## have large D2 values that inflate the tail of the null distribution. For
+## the simIPD data, the critical value computed below is about 0.034 when
+## all items with at least one response are used, about 0.008 with at least
+## 50 responses, about 0.006 with at least 100, and about 0.004 with at
+## least 300.
+min_resp_anchor <- 300
+n_resp          <- colSums(!is.na(simIPD$foc_resp))   # observed responses per item
+anchor_items    <- setdiff(which(n_resp >= min_resp_anchor), simIPD$ipd_item)
 
-## -- Step 2. Compute null D2 values for the anchor items ------------------
-pcd2_null <- pcd2(
-  x        = simIPD$item_par[anchor_items, ],
-  data     = simIPD$foc_resp[, anchor_items],
-  D        = 1.7,
-  crit.val = NULL,
-  purify   = FALSE
-)$no_purify$ipd_stat$pcd2
+## -- Step 2. Compute D2 for the whole pool and keep the anchor items -------
+## D2 is computed once from all items and responses, so that the posterior
+## ability distributions are the same as in the final analysis (Step 4).
+## A warning lists the pool items that were never administered.
+pcd2_all  <- pcd2(
+  x    = simIPD$item_par,
+  data = simIPD$foc_resp,
+  D    = 1.7
+)
+pcd2_null <- pcd2_all$no_purify$ipd_stat$pcd2[anchor_items]
 
-## -- Step 3. Bootstrap critical value (Lim & Han, 2026) --------------
-## For each bootstrap iteration: resample boot_size D2 values from the null
-## distribution and take the 95th percentile. The critical value is the mean
-## of these percentiles across all iterations.
+## -- Step 3. Bootstrap critical value (Cappaert et al., 2018) --------------
+## For each bootstrap iteration: resample the null D2 values with replacement
+## (the sample size equals the number of anchor items) and take the 95th
+## percentile. The critical value is the mean of these percentiles.
 ## n_boots = 500: reduced for demo speed; use 10,000 in practice for a
 ##   stable critical value estimate.
 set.seed(2024)
 n_boots <- 500
 
-crit_val <- purrr::map_dbl(
-  .x = 1:n_boots,
-  .f = ~ sample(x = pcd2_null, size = boot_size, replace = TRUE) |>
-           stats::quantile(probs = 0.95)
-) |> mean()
+crit_val <- mean(vapply(
+  X   = seq_len(n_boots),
+  FUN = function(b) {
+    stats::quantile(sample(x = pcd2_null, size = length(pcd2_null), replace = TRUE),
+                    probs = 0.95)
+  },
+  FUN.VALUE = numeric(1)
+))
 
 cat("Bootstrap critical value (alpha = 0.05):", round(crit_val, 6), "\n")
 
 ## -- Step 4. Run PCD2 with the bootstrap critical value + purification --
+## The statistics of the first analysis (pcd2_result$no_purify) are the same
+## as those of pcd2_all for the analyzed items, since the same responses are
+## used. The same warning about the items that were never administered
+## appears.
 pcd2_result <- pcd2(
   x         = simIPD$item_par,
   data      = simIPD$foc_resp,
@@ -306,10 +348,22 @@ cat("True positives:", sum(detected \%in\% simIPD$ipd_item), "of",
 Cappaert, K. J., Wen, Y., & Chang, Y. F. (2018). Evaluating CAT-adjusted
 approaches for suspected item parameter drift detection. \emph{Measurement:
 Interdisciplinary Research and Perspectives, 16}(4), 226-238.
+\doi{10.1080/15366367.2018.1511199}.
+
+Lim, H., Choe, E. M., & Han, K. T. (2022). A residual-based differential
+item functioning detection framework in item response theory. \emph{Journal of
+Educational Measurement, 59}(1), 80-104. \doi{10.1111/jedm.12313}.
+
+Lim, H., & Han, K. T. (2026). IRT residual-based approach to detecting item
+parameter drift in CAT. \emph{Journal of Educational and Behavioral Statistics}.
+\doi{10.3102/10769986261460852}.
 
 Stone, C. A. (2000). Monte Carlo based null distribution for an alternative
 goodness-of-fit test statistic in IRT models. \emph{Journal of Educational
-Measurement, 37}(1), 58-75.
+Measurement, 37}(1), 58-75. \doi{10.1111/j.1745-3984.2000.tb01076.x}.
+}
+\seealso{
+\code{\link[=ripd]{ripd()}}, \link{simIPD}, \code{\link[=gen.weight]{gen.weight()}}
 }
 \author{
 Hwanggyu Lim \email{hglim83@gmail.com}

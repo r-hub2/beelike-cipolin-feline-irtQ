@@ -491,10 +491,12 @@ estimates; it is written out here for clarity.</p>
 <span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt;   Variance-covariance matrix of item parameter estimates is obtainable.</span></span>
 <span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
 <span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt; Log-likelihood: -7122.816</span></span></code></pre></div>
-<p>Printing the fitted object reports the number of EM cycles, the
-number of quadrature points, the first- and second-order convergence
-checks, and the log-likelihood. A fuller estimation summary is available
-from <code>summary(fit)</code>.</p>
+<p>Printing the fitted object reports the number of EM cycles (printed
+as “E-step cycles”), the number of quadrature points, the two checks
+labeled “First-order test” and “Second-order test” (see
+<code>test.1</code> and <code>test.2</code> in <code>?est_irt</code>),
+and the log-likelihood. A fuller estimation summary is available from
+<code>summary(fit)</code>.</p>
 <p><code>getirt()</code> extracts parts of the fitted object, such as
 the item parameter estimates.</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>par_est <span class="ot">&lt;-</span> <span class="fu">getirt</span>(fit, <span class="at">what =</span> <span class="st">&quot;par.est&quot;</span>)</span>
@@ -520,23 +522,25 @@ items correctly or all incorrectly.</p>
 <span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="fu">head</span>(scores<span class="sc">$</span>est.theta)</span>
 <span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt; [1]  0.08603911 -1.30225167  0.08313340  0.08013606 -0.28721183 -4.00000000</span></span>
 <span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="fu">cor</span>(scores<span class="sc">$</span>est.theta, theta)</span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt; [1] 0.8777982</span></span></code></pre></div>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt; [1] 0.8789198</span></span></code></pre></div>
 </div>
 <div id="model-data-fit" class="section level2">
 <h2>Model-data fit</h2>
 <p><code>sx2_fit()</code> computes the S-X2 item fit statistic, and
 <code>irtfit()</code> computes chi-square and likelihood-ratio
 statistics, infit and outfit, and the contingency tables behind the
-residual plots.</p>
+residual plots. For a fitted <code>est_irt</code> object,
+<code>sx2_fit()</code> uses the latent distribution stored in the object
+to compute the expected frequencies.</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>sx2 <span class="ot">&lt;-</span> <span class="fu">sx2_fit</span>(fit)</span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">head</span>(sx2<span class="sc">$</span>fit_stat)</span>
 <span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt;     id  chisq df crit.val     p</span></span>
 <span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; 1 CMC1 11.342 16   26.296 0.788</span></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt; 2 CMC2  6.096 11   19.675 0.867</span></span>
-<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt; 3 CMC3 19.788 16   26.296 0.230</span></span>
-<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; 4 CMC4 15.647 15   24.996 0.406</span></span>
-<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; 5 CMC5 19.984 15   24.996 0.173</span></span>
-<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co">#&gt; 6 CMC6 13.013 15   24.996 0.601</span></span></code></pre></div>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt; 2 CMC2  6.095 11   19.675 0.867</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt; 3 CMC3 19.786 16   26.296 0.230</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; 4 CMC4 15.645 15   24.996 0.406</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; 5 CMC5 19.985 15   24.996 0.172</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co">#&gt; 6 CMC6 13.009 15   24.996 0.602</span></span></code></pre></div>
 <p><code>irtfit()</code> groups the examinees by the ML estimates from
 the previous section, and the plot shows the raw and standardized
 residuals of the first item.</p>

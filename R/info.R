@@ -1,4 +1,4 @@
-#' Item and Test Information Function
+#' Item and Test Information Functions
 #'
 #' This function computes item and test information functions (Hambleton et
 #' al., 1991) for a given set of theta values.
@@ -10,11 +10,13 @@
 #'
 #'   See [irtQ::est_irt()] or [irtQ::simdat()] for more details about the item
 #'   metadata. This data frame can be easily created using the
-#'   [irtQ::shape_df()] function.
+#'   [irtQ::shape_df()] function. An item with `cats = 2` under the `"GRM"` or
+#'   `"GPCM"` model has one threshold in `par.2`, must have `NA` in `par.3`,
+#'   and is computed as a 2PLM item.
 #' @param theta A numeric vector of theta values at which item and test
 #'   information are computed.
 #' @param D A scaling constant used in IRT models to make the logistic function
-#'   closely approximate the normal ogive function. A value of 1.7 is commonly
+#'   closely approximate the normal ogive function. A value of 1.702 is commonly
 #'   used for this purpose. Default is 1.
 #' @param tif Logical. If `TRUE`, the test information function
 #'   is computed. Default is `TRUE`.
@@ -31,11 +33,13 @@
 #' an `est_irt` or `est_item` object. The structure of this data frame
 #' is explained in the documentation of [irtQ::est_irt()] and [irtQ::simdat()].
 #' Items of different models (e.g., 3PLM, GPCM) can be combined in a single test.
+#' For an `est_irt` or `est_item` object, the item parameter estimates and the
+#' scaling constant `D` are taken from the object, and a `D` supplied through
+#' `...` is ignored.
 #'
-#' The information is computed for each item appropriately and aggregated for
-#' the TIF if `tif = TRUE`. The TIF is often used to assess where the test
-#' provides the most precision, and is critical when designing adaptive tests
-#' or evaluating test coverage across the ability continuum.
+#' Item information is computed under each item's IRT model and summed over
+#' items to give the TIF when `tif = TRUE`. The TIF shows where on the theta
+#' scale the test measures most precisely.
 #'
 #' The returned object is a list of class `"info"`, which contains the item
 #' information matrix and the test information vector. The `plot()` method for
@@ -52,16 +56,14 @@
 #'
 #'   \item{tif}{A numeric vector containing the test information values at each
 #'   theta value, computed as the sum of item information values across all
-#'   items. This component is included only when `tif = TRUE`.}
+#'   items. This component is `NULL` when `tif = FALSE`.}
 #'
 #'   \item{theta}{A numeric vector of theta values at which the item and test
 #'   information functions are evaluated. This matches the user-supplied
 #'   `theta` argument.}
 #'
-#' The returned object is of class `info` and can be visualized using
-#' the function [irtQ::plot.info()]. This output structure is consistent across
-#' input types (`data.frame`, `est_item`, `est_irt`), and facilitates
-#' downstream plotting, comparison, or export of information function values.
+#' The structure is the same for all input types (`data.frame`, `est_item`,
+#' and `est_irt`).
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
@@ -155,7 +157,7 @@ info.default <- function(x, theta, D = 1, tif = TRUE, ...) {
     iif_drm <-
       info_drm(
         theta = theta, a = elm_item$pars[idx.drm, 1],
-        b = elm_item$par[idx.drm, 2], g = elm_item$par[idx.drm, 3],
+        b = elm_item$pars[idx.drm, 2], g = elm_item$pars[idx.drm, 3],
         D = D, one.theta = FALSE, grad = FALSE, info = TRUE
       )$II
   } else {
@@ -164,7 +166,7 @@ info.default <- function(x, theta, D = 1, tif = TRUE, ...) {
 
   # For PRM items
   if (!is.null(idx.prm)) {
-    # count the number of examinees
+    # count the number of theta values
     nstd <- length(theta)
 
     # check what poly models were used
@@ -172,16 +174,16 @@ info.default <- function(x, theta, D = 1, tif = TRUE, ...) {
     iif_prm <- NULL
     idx.prm <- c()
     for (mod in pr.mod) {
-      # extract the response, model, and item parameters
-      lg.prm <- elm_item$model == mod
-      par.tmp <- elm_item$par[lg.prm, , drop = FALSE]
+      # extract the response, model, and item parameters of items with more than two categories
+      lg.prm <- elm_item$model == mod & elm_item$cats > 2
+      par.tmp <- elm_item$pars[lg.prm, , drop = FALSE]
       a <- par.tmp[, 1]
       d <- par.tmp[, -1, drop = FALSE]
 
       # reorder the index of the PRMs
-      idx.prm <- c(idx.prm, elm_item$item[[mod]])
+      idx.prm <- c(idx.prm, which(lg.prm))
 
-      # compute the probabilities of endorsing each score category
+      # compute the item information of the polytomous items
       iif_all <-
         info_prm(
           theta = theta, a = a, d = d, D = D, pr.model = mod,
@@ -219,189 +221,29 @@ info.default <- function(x, theta, D = 1, tif = TRUE, ...) {
 
 #' @describeIn info An object created by the function [irtQ::est_item()].
 #' @export
-#' @importFrom Rfast colsums
 info.est_item <- function(x, theta, tif = TRUE, ...) {
-  # extract information from an object
-  D <- x$scale.D
-  x <- x$par.est
-
-  # confirm and correct all item metadata information
-  x <- confirm_df(x)
-
-  # break down the item metadata into several elements
-  elm_item <- breakdown(x)
-
-  # classify the items into DRM and PRM item groups
-  idx.item <- idxfinder(elm_item)
-  idx.drm <- idx.item$idx.drm
-  idx.prm <- idx.item$idx.prm
-
-  # extract item id
-  id <- elm_item$id
-
-  # For DRM items
-  if (!is.null(idx.drm)) {
-    # compute the item information
-    iif_drm <-
-      info_drm(
-        theta = theta, a = elm_item$pars[idx.drm, 1],
-        b = elm_item$par[idx.drm, 2], g = elm_item$par[idx.drm, 3],
-        D = D, one.theta = FALSE, grad = FALSE, info = TRUE
-      )$II
-  } else {
-    iif_drm <- NULL
-  }
-
-  # For PRM items
-  if (!is.null(idx.prm)) {
-    # count the number of examinees
-    nstd <- length(theta)
-
-    # check what poly models were used
-    pr.mod <- unique(elm_item$model[idx.prm])
-    iif_prm <- NULL
-    idx.prm <- c()
-    for (mod in pr.mod) {
-      # extract the response, model, and item parameters
-      lg.prm <- elm_item$model == mod
-      par.tmp <- elm_item$par[lg.prm, , drop = FALSE]
-      a <- par.tmp[, 1]
-      d <- par.tmp[, -1, drop = FALSE]
-
-      # reorder the index of the PRMs
-      idx.prm <- c(idx.prm, elm_item$item[[mod]])
-
-      # compute the probabilities of endorsing each score category
-      iif_all <-
-        info_prm(
-          theta = theta, a = a, d = d, D = D, pr.model = mod,
-          grad = FALSE, info = TRUE
-        )$II
-      iif_all <- matrix(iif_all, ncol = nstd, byrow = FALSE)
-      iif_prm <- rbind(iif_prm, iif_all)
-    }
-  } else {
-    iif_prm <- NULL
-  }
-
-  # create an item information matrix for all items
-  iif <- rbind(iif_drm, iif_prm)
-
-  # re-order the item information matrix along with the original order of items
-  loc.item <- c(idx.drm, idx.prm)
-  iif <- iif[order(loc.item), , drop = FALSE]
-  rownames(iif) <- id
-  colnames(iif) <- paste0("theta.", 1:length(theta))
-
-  # compute the test information
-  if (tif) {
-    tif.vec <- Rfast::colsums(iif)
-  } else {
-    tif.vec <- NULL
-  }
-
-  # return the results
-  rst <- list(iif = iif, tif = tif.vec, theta = theta)
-  class(rst) <- c("info")
-  rst
+  # compute with the estimated metadata and the scaling constant stored in the object
+  info.default(x = x$par.est, theta = theta, D = x$scale.D, tif = tif)
 }
+
 
 #' @describeIn info An object created by the function [irtQ::est_irt()].
 #' @export
-#' @importFrom Rfast rowsums
 info.est_irt <- function(x, theta, tif = TRUE, ...) {
-  # extract information from an object
-  D <- x$scale.D
-  x <- x$par.est
-
-  # confirm and correct all item metadata information
-  x <- confirm_df(x)
-
-  # break down the item metadata into several elements
-  elm_item <- breakdown(x)
-
-  # classify the items into DRM and PRM item groups
-  idx.item <- idxfinder(elm_item)
-  idx.drm <- idx.item$idx.drm
-  idx.prm <- idx.item$idx.prm
-
-  # extract item id
-  id <- elm_item$id
-
-  # For DRM items
-  if (!is.null(idx.drm)) {
-    # compute the item information
-    iif_drm <-
-      info_drm(
-        theta = theta, a = elm_item$pars[idx.drm, 1],
-        b = elm_item$par[idx.drm, 2], g = elm_item$par[idx.drm, 3],
-        D = D, one.theta = FALSE, grad = FALSE, info = TRUE
-      )$II
-  } else {
-    iif_drm <- NULL
-  }
-
-  # For PRM items
-  if (!is.null(idx.prm)) {
-    # count the number of examinees
-    nstd <- length(theta)
-
-    # check what poly models were used
-    pr.mod <- unique(elm_item$model[idx.prm])
-    iif_prm <- NULL
-    idx.prm <- c()
-    for (mod in pr.mod) {
-      # extract the response, model, and item parameters
-      lg.prm <- elm_item$model == mod
-      par.tmp <- elm_item$par[lg.prm, , drop = FALSE]
-      a <- par.tmp[, 1]
-      d <- par.tmp[, -1, drop = FALSE]
-
-      # reorder the index of the PRMs
-      idx.prm <- c(idx.prm, elm_item$item[[mod]])
-
-      # compute the probabilities of endorsing each score category
-      iif_all <-
-        info_prm(
-          theta = theta, a = a, d = d, D = D, pr.model = mod,
-          grad = FALSE, info = TRUE
-        )$II
-      iif_all <- matrix(iif_all, ncol = nstd, byrow = FALSE)
-      iif_prm <- rbind(iif_prm, iif_all)
-    }
-  } else {
-    iif_prm <- NULL
-  }
-
-  # create an item information matrix for all items
-  iif <- rbind(iif_drm, iif_prm)
-
-  # re-order the item information matrix along with the original order of items
-  loc.item <- c(idx.drm, idx.prm)
-  iif <- iif[order(loc.item), , drop = FALSE]
-  rownames(iif) <- id
-  colnames(iif) <- paste0("theta.", 1:length(theta))
-
-  # compute the test information
-  if (tif) {
-    tif.vec <- Rfast::colsums(iif)
-  } else {
-    tif.vec <- NULL
-  }
-
-  # return the results
-  rst <- list(iif = iif, tif = tif.vec, theta = theta)
-  class(rst) <- c("info")
-  rst
+  # compute with the estimated metadata and the scaling constant stored in the object
+  info.default(x = x$par.est, theta = theta, D = x$scale.D, tif = tif)
 }
 
-# a function to compute the expected fisher item information for DRM items
-# Pi(), Ji(), and li() functions of catR (Magis & Barrada, 2017) package were referred
-# to compute the first and second derivatives of P with respect to theta and
-# Ji value
+
+# Compute the expected Fisher item information for DRM items.
+# The derivatives of P with respect to theta and the J value follow the
+# Pi(), Ii(), and Ji() functions of catR (Magis & Barrada, 2017).
 #' @importFrom Rfast Outer
 info_drm <- function(theta, a, b, g, D = 1, one.theta = FALSE,
                      r_i, grad = FALSE, info = TRUE, ji = FALSE) {
+  # treat NA guessing parameters as zeros
+  g[is.na(g)] <- 0
+
   # calculate probability of correct answers
   Da <- D * a
   if (!one.theta) {
@@ -411,21 +253,25 @@ info_drm <- function(theta, a, b, g, D = 1, one.theta = FALSE,
   }
   P <- g + (1 - g) / (1 + exp(-z))
 
-  # prevent that the probabilities are equal to 1L or g (or 0 in case of 1PLM and 2PLM)
+  # keep the probabilities away from 1 and from g (0 for the 1PLM and 2PLM)
   P[P > 9999999999e-10] <- 9999999999e-10
   lg.lessg <- P < (g + 1e-10)
   P[lg.lessg] <- P[lg.lessg] + 1e-10
 
   # compute the fisher information
   if (info) {
-    # compute the first and second derivatives of P wts the theta
-    # referred to Pi.R in the catR package (Magis and Barranda, 2017)
-    expz <- exp(z)
-    exp1g <- expz * (1 - g)
-    dP <- Da * exp1g / (1 + expz)^2
+    # compute the first derivative of P with respect to theta
+    # (see Pi() in catR; Magis & Barrada, 2017)
+    # logistic function and its complement, both finite for any z
+    pz <- 1 / (1 + exp(-z))
+    qz <- 1 / (1 + exp(z))
+    # first derivative from pz and qz, which stays finite for any z
+    dP <- Da * (1 - g) * pz * qz
 
-    # compute the item information (Hambleton & Swaminathan, 1985, p.107)
-    # II <- {((D * a)^2 * (1 - P)) / P} * ((P - g)/(1 - g))^2
+    # compute the item information as dP^2 / (P * Q), which equals the
+    # reference formula for the 3PL item information
+    # (D * a)^2 * (Q / P) * ((P - g) / (1 - g))^2
+    # (Hambleton & Swaminathan, 1985, p. 107)
     Q <- (1 - P)
     II <- dP^2 / (P * Q)
   } else {
@@ -439,13 +285,11 @@ info_drm <- function(theta, a, b, g, D = 1, one.theta = FALSE,
     S <- NULL
   }
 
-  # JI should be computed only for WL method
+  # compute J only for the WL method
   if (ji & info) {
-    d2P <- Da^2 * expz * (1 - expz) * (1 - g) / (1 + expz)^3
+    # second derivative in the same overflow-free form
+    d2P <- Da^2 * (1 - g) * pz * qz * (qz - pz)
     J <- dP * d2P / (P * Q)
-    #   d3P <- Da^3 * expz * (1 - g) * (expz^2 - 4 * expz + 1)/(1 + expz)^4
-    #   dJ <- (P * Q * (d2P^2 + dP * d3P) - dP^2 * d2P *(Q - P))/(P^2 * Q^2)
-    #   dI <- 2 * dP * d2P / P - dP^3 / P^2
   } else {
     J <- NULL
   }
@@ -455,10 +299,9 @@ info_drm <- function(theta, a, b, g, D = 1, one.theta = FALSE,
 }
 
 
-# a function to compute the expected fisher item information for PRM items
-# Pi(), Ji(), and li() functions of catR (Magis & Barrada, 2017) package were referred
-# to compute the first and second derivatives of P with respect to theta and
-# Ji value
+# Compute the expected Fisher item information for PRM items.
+# The derivatives of P with respect to theta and the J value follow the
+# Pi(), Ii(), and Ji() functions of catR (Magis & Barrada, 2017).
 #' @importFrom Rfast rowsums Outer
 info_prm <- function(theta, a, d, D = 1, pr.model,
                      r_i, grad = FALSE, info = TRUE, ji = FALSE) {
@@ -470,11 +313,10 @@ info_prm <- function(theta, a, d, D = 1, pr.model,
     # convert the d matrix to a vector
     d <- c(t(d))
 
-    # calculate the probabilities greater than equal to each threshold
+    # calculate the probabilities of scoring at or above each threshold
     Da <- D * a
     theta_d <- Rfast::Outer(x = theta, y = d, oper = "-")
     z <- Da * matrix(theta_d, ncol = m, byrow = TRUE)
-    # z <- matrix(theta_d, ncol = m, byrow = TRUE)
     allP <- 1 / (1 + exp(-z))
     allP[is.na(allP)] <- 0 # insert 0 to NAs
 
@@ -485,20 +327,17 @@ info_prm <- function(theta, a, d, D = 1, pr.model,
 
     # compute the fisher information
     if (info) {
-      # calculate the first and second derivative of Ps wts the theta
+      # compute the first and second derivatives of P with respect to theta
       allQ <- 1 - allP[, , drop = FALSE]
       deriv_Pstth <- (Da * allP) * allQ
       dP <- cbind(0, deriv_Pstth) - cbind(deriv_Pstth, 0)
       w1 <- (1 - 2 * allP) * deriv_Pstth
       d2P <- Da * (cbind(0, w1) - cbind(w1, 0))
-      # w2 <- Da * w1 * (1 - 2 * allP) - 2 * deriv_Pstth^2
-      # d3P <- Da * (cbind(0, w2) - cbind(w2, 0))
 
       # compute the information for all score categories (IP)
       IP <- (dP^2 / P) - d2P
 
-      # weight sum of all score category information
-      # which is the item information (II)
+      # sum the category information over categories to obtain the item information (II)
       II <- Rfast::rowsums(IP, na.rm = TRUE)
     } else {
       II <- NULL
@@ -507,7 +346,7 @@ info_prm <- function(theta, a, d, D = 1, pr.model,
 
   # GPCM
   if (pr.model == "GPCM") {
-    # include zero for the step parameter of the first category
+    # prepend 0 as the term for the lowest score category
     # and convert the d matrix to a vector
     d <- c(t(cbind(0, d)))
 
@@ -516,13 +355,9 @@ info_prm <- function(theta, a, d, D = 1, pr.model,
     theta_d <- Rfast::Outer(x = theta, y = d, oper = "-")
     z <- matrix(theta_d, nrow = m + 1, byrow = FALSE)
     cumsum_z <- Da * t(Rfast::colCumSums(z))
-    # cumsum_z[is.na(cumsum_z)] <- 0
-    if (any(cumsum_z > 700, na.rm = TRUE)) {
-      cumsum_z <- (cumsum_z / max(cumsum_z, na.rm = TRUE)) * 700
-    }
-    if (any(cumsum_z < -700, na.rm = TRUE)) {
-      cumsum_z <- -(cumsum_z / min(cumsum_z, na.rm = TRUE)) * 700
-    }
+    # subtract each row maximum over the existing categories to keep exp() finite
+    row_max <- Rfast::rowMaxs(replace(cumsum_z, is.na(cumsum_z), -Inf), value = TRUE)
+    cumsum_z <- cumsum_z - row_max
     numer <- exp(cumsum_z) # numerator
     numer[is.na(numer)] <- 0
     denom <- Rfast::rowsums(numer, na.rm = TRUE)
@@ -531,7 +366,7 @@ info_prm <- function(theta, a, d, D = 1, pr.model,
 
     # compute the fisher information
     if (info) {
-      # calculate the first and second derivative of Ps wts the theta
+      # compute the first and second derivatives of P with respect to theta
       denom2 <- denom^2
       denom4 <- denom2^2
       d1th_z <- (1:(m + 1))
@@ -548,11 +383,11 @@ info_prm <- function(theta, a, d, D = 1, pr.model,
       # compute the information for all score categories (IP)
       IP <- (dP^2 / P) - d2P
 
-      # weight sum of all score category information
-      # which is the item information (II)
+      # sum the category information over categories to obtain the item information (II)
       II <- Rfast::rowsums(IP, na.rm = TRUE)
     } else {
-      dP <- dP2 <- II <- NULL
+      # clear the derivative and information outputs when info = FALSE
+      dP <- II <- NULL
     }
   }
 
@@ -564,8 +399,7 @@ info_prm <- function(theta, a, d, D = 1, pr.model,
     S <- NULL
   }
 
-  # JI should be computed only for WL method
-  # and S is also adjusted accordingly using the weight function of J/2I
+  # compute J only for the WL method
   if (ji & info) {
     J <- Rfast::rowsums((dP * d2P) / P, na.rm = TRUE)
   } else {
@@ -576,8 +410,8 @@ info_prm <- function(theta, a, d, D = 1, pr.model,
   list(II = II, S = S, P = P, J = J)
 }
 
-# This function computes the gradient of the negative loglikelihood and
-# a negative expectation of second derivative of log-likelihood (fisher information)
+# Compute the gradient of the negative log-likelihood and the Fisher
+# information (the negative expected second derivative of the log-likelihood)
 info_score <- function(theta, elm_item, freq.cat, idx.drm, idx.prm,
                        method = c("ML", "MAP", "MLF", "WL"), D = 1,
                        norm.prior = c(0, 1), grad = TRUE, ji = FALSE) {
@@ -615,7 +449,7 @@ info_score <- function(theta, elm_item, freq.cat, idx.drm, idx.prm,
     for (mod in pr.mod) {
       # extract the response, model, and item parameters
       lg.prm <- elm_item$model == mod
-      par.tmp <- elm_item$par[lg.prm, , drop = FALSE]
+      par.tmp <- elm_item$pars[lg.prm, , drop = FALSE]
       r_i <- freq.cat[lg.prm, , drop = FALSE]
       a <- par.tmp[, 1]
       d <- par.tmp[, -1, drop = FALSE]
@@ -645,20 +479,20 @@ info_score <- function(theta, elm_item, freq.cat, idx.drm, idx.prm,
     grad_sum <- grad_sum - (ji_sum / (2 * finfo_sum))
   }
   
-  # extract the fisher information when MAP method is used
+  # add the prior terms when the MAP method is used
   if (method == "MAP") {
-    # compute a gradient and hessian of prior distribution
+    # compute the gradient and Hessian of the prior distribution
     rst.prior <-
       logprior_deriv(
         val = theta, is.aprior = FALSE, D = NULL, dist = "norm",
         par.1 = norm.prior[1], par.2 = norm.prior[2]
       )
     
-    # extract the hessian and add it
+    # extract the Hessian and add it
     finfo.prior <- attributes(rst.prior)$hessian
     finfo_sum <- sum(finfo_sum, finfo.prior, na.rm = TRUE)
-    
-    # add the gradient and add it
+
+    # extract the gradient and add it
     if (grad) {
       grad.prior <- attributes(rst.prior)$gradient
       grad_sum <- sum(grad_sum, grad.prior, na.rm = TRUE)

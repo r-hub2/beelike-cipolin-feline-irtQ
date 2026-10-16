@@ -1,9 +1,9 @@
 # "collapse_ftable_prm" function
-# Vectorised wrapper around collapse_ftable() for the PRM category-collapsing
-# step in sx2_fit().  Processes all summed-score groups for one polytomous item.
+# Vectorized wrapper around collapse_ftable() for the PRM category-collapsing
+# step in sx2_fit(). Processes all summed score groups for one polytomous item.
 #
 # Algorithm:
-#   1. Rfast::rowmins() detects - in one vectorised pass - which score groups
+#   1. Rfast::rowMins() detects, in one vectorized pass, which score groups
 #      require category collapsing (min expected freq < min.collapse).
 #   2. Rows not needing collapse are extracted in bulk with asplit(), avoiding
 #      per-row data.frame construction and function-call overhead.
@@ -20,7 +20,7 @@ collapse_ftable_prm <- function(exp_mat, obs_mat, min.collapse = 1) {
   obs_m <- as.matrix(obs_mat)
   nrows <- nrow(exp_m)
 
-  # vectorised scan: one pass to find the minimum expected freq per score group
+  # vectorized scan: one pass to find the minimum expected freq per score group
   # value = TRUE returns the actual minimum value (default FALSE returns the index)
   row_min_exp <- Rfast::rowMins(exp_m, value = TRUE)
   needs_idx   <- which(row_min_exp < min.collapse)   # groups needing collapse
@@ -50,7 +50,8 @@ collapse_ftable_prm <- function(exp_mat, obs_mat, min.collapse = 1) {
 
 
 # "collapse_ftable" function
-# This function collapses the cells of a contingency table according to a column
+# This function merges adjacent rows of a contingency table until every value
+# in column col is at least min.collapse, working from both ends toward the middle
 collapse_ftable <- function(x, col, min.collapse = 1) {
   tmp <- x
 
@@ -59,6 +60,11 @@ collapse_ftable <- function(x, col, min.collapse = 1) {
 
   # collapse cells
   while (length(loc_less) > 0) {
+    # stop when only one row remains, since no neighbor is left to merge with
+    if (nrow(tmp) == 1L) {
+      break
+    }
+
     # check the last row number in the contingency table
     last.num <- nrow(tmp)
 
@@ -66,10 +72,10 @@ collapse_ftable <- function(x, col, min.collapse = 1) {
     center <- round(mean(1:last.num) + 0.01, 0)
 
     # relocate the location of rows that have frequencies less than minimum criterion
-    # "loc_less_low" is the rows in which location is less than or equal to the center point
+    # "loc_less_low" holds the rows at or below the center point
     loc_less_low <- loc_less[loc_less <= center]
 
-    # "loc_less_high" is the rows in which location is greater than the center point
+    # "loc_less_high" holds the rows above the center point, in reverse order
     loc_less_high <- rev(loc_less[loc_less > center])
 
     # relocation of the rows
@@ -87,7 +93,7 @@ collapse_ftable <- function(x, col, min.collapse = 1) {
       tmp <- rbind(row.sum, row.other)
     }
 
-    # when the location of the first selected cell is between 1 and last row number of the contingency table
+    # when the first selected cell is an interior row, merge it with the neighbor toward the center
     if (start.num >= 2 & start.num < last.num) {
       dif.num <- start.num - center
       sel <- ifelse(dif.num > 0, 1, 2)
@@ -115,8 +121,8 @@ collapse_ftable <- function(x, col, min.collapse = 1) {
     loc_less <- which(round(tmp[, col], 15) < min.collapse)
 
     # count the number of remaining cells after collapsing
-    # if the number of remaining cells is 1 and and the expected cell frequency is still less than
-    # the specified value, then stop collapsing cell
+    # stop when only one row remains and its value is still below
+    # min.collapse
     if (length(loc_less) == 1 & nrow(tmp) == 1) {
       break
     }

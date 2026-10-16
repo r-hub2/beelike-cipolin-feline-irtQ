@@ -14,22 +14,27 @@
 #'   metadata format: \code{id}, \code{cats}, \code{model}, \code{par.1},
 #'   \code{par.2}, \code{par.3}).}
 #'
-#'   \item{module}{A binary matrix that maps items in the item bank to MST
-#'   modules. This structure specifies the item-to-module assignment,
-#'   similar to the `modules` argument in the `randomMST()` function from
-#'   the \pkg{mstR} package (Magis et al., 2017).}
+#'   \item{module}{A binary integer matrix (56 x 7) that maps items in the
+#'   item bank to MST modules. This structure specifies the item-to-module
+#'   assignment, similar to the `modules` argument in the `randomMST()`
+#'   function from the \pkg{mstR} package (Magis et al., 2017).}
 #'
-#'   \item{route_map}{A binary square matrix that defines the MST transition
-#'   structure, showing module pathways across stages.
-#'   This corresponds to the `transMatrix` argument in the `randomMST()`
-#'   function in the \pkg{mstR} package.}
+#'   \item{route_map}{A binary square integer matrix (7 x 7) that defines the
+#'   MST transition structure, showing module pathways across stages. Module 1
+#'   routes to modules 2 to 4, module 2 to modules 5 and 6, module 3 to
+#'   modules 5 to 7, and module 4 to modules 6 and 7. This corresponds to the
+#'   `transMatrix` argument in the `randomMST()` function in the \pkg{mstR}
+#'   package.}
 #'
-#'   \item{cut_score}{A list of numeric vectors specifying the routing cut
-#'   scores between MST stages, computed via \code{\link{find_cut}()} based
-#'   on TIF-crossing points of the assembled modules.}
+#'   \item{cut_score}{A list of two numeric vectors, `stage.2` and `stage.3`,
+#'   giving the routing cut scores into stages 2 and 3. They are the
+#'   TIF-crossing points in the `cut_score` element returned by
+#'   `find_cut(x = simMST$item_bank, module = simMST$module,`
+#'   `route_map = simMST$route_map, D = 1.702)`.}
 #'
-#'   \item{theta}{A numeric vector of ability (theta) values used to evaluate
-#'    the panel's measurement precision across the latent trait continuum.}
+#'   \item{theta}{A numeric vector of 81 ability values from -4 to 4 in steps
+#'   of 0.1, used to evaluate the measurement precision of the panel across the
+#'   latent trait continuum.}
 #' }
 #'
 #'   This 1-3-3 MST panel includes 7 modules across 3 stages, drawn from

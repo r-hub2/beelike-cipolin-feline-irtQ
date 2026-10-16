@@ -8,15 +8,19 @@
 #'
 #' @format A list of length three:
 #' \describe{
-#'   \item{item.prm}{A data frame in item metadata format containing 100 dichotomous items.
+#'   \item{item.prm}{A data frame of item metadata for 100 dichotomous items
+#'   (2PLM; `par.3` is `NA`). The `id` column is a factor (`V1` to `V100`).
 #'   - Items 1-90: Generated and calibrated under the IRT 2PL model.
-#'   - Items 91-100: Generated under the IRT 3PL model but calibrated using the 2PL model.}
+#'   - Items 91-100: Generated under the IRT 3PL model but calibrated using
+#'   the 2PL model.}
 #'
-#'   \item{res.dat}{A matrix of item responses from 10,000 examinees (rows) to 100
-#'   items (columns). `NA` marks an item that was not administered to the examinee.
-#'   The columns have no names; they follow the row order of `item.prm`, whose
-#'   `id` values are `V1` to `V100`.}
-#'   \item{score}{A numeric vector of ability estimates for the 10,000 examinees.}
+#'   \item{res.dat}{A numeric matrix of item responses (0 or 1) from 10,000
+#'   examinees (rows) to 100 items (columns). Each examinee answered 40 items;
+#'   `NA` marks an item that was not administered to the examinee. The columns
+#'   have no names; they follow the row order of `item.prm`, whose `id` values
+#'   are `V1` to `V100`.}
+#'   \item{score}{A numeric vector of ability estimates for the 10,000
+#'   examinees.}
 #' }
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}

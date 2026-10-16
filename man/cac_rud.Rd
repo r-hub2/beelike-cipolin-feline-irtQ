@@ -15,45 +15,66 @@ can be easily created using the \code{\link[=shape_df]{shape_df()}} function.
 If \code{x = NULL}, the \code{se} argument must be explicitly provided.
 Defaults to \code{NULL}.}
 
-\item{cutscore}{A numeric vector specifying the cut scores for
-classification. Cut scores are the points that separate different
-performance categories (e.g., pass vs. fail, or different grades).}
+\item{cutscore}{A numeric vector of finite cut scores on the ability (theta)
+metric, in strictly ascending order. The K - 1 cut scores divide examinees
+into K performance levels. An ability value equal to a cut score is
+assigned to the higher level.}
 
-\item{theta}{A numeric vector of ability estimates. Ability estimates (theta
-values) are the individual proficiency estimates obtained from the IRT
-model. The theta parameter is optional and can be \code{NULL}.}
+\item{theta}{A numeric vector of ability estimates, one per examinee. It is
+ignored when \code{weights} is supplied. An examinee with a missing \code{theta} (or
+a missing \code{se}) is excluded with a warning. Default is \code{NULL}.}
 
 \item{se}{A numeric vector of the same length as \code{theta} representing the
-standard errors associated with each ability estimate. If \code{NULL} and
-\code{x} is supplied, standard errors are computed using the test information
-function. See the \strong{Details} section for more information. Standard
-errors from \code{\link[=est_score]{est_score()}} that are set to 99.9999 (ability estimates
-at a limit of \code{range}) should be handled before they are supplied.}
+standard errors associated with each ability estimate. All standard errors
+must be positive. If \code{NULL} and \code{x} is supplied, standard errors are
+computed using the test information function. See the \strong{Details} section
+for more information. When \code{weights} is supplied, \code{se} must have one value
+per quadrature point. Standard errors from \code{\link[=est_score]{est_score()}} that are
+set to 99.9999 (ability estimates at a limit of \code{range}) should be handled
+before they are supplied.}
 
-\item{weights}{An optional two-column data frame or matrix where the first
-column is the quadrature points (nodes) and the second column is the
-corresponding weights. This is typically used in quadrature-based IRT
-analysis.}
+\item{weights}{A two-column data frame or matrix. The first column holds the
+quadrature points (nodes), and the second column holds the corresponding
+weights, which should sum to 1; weights that do not sum to 1 are rescaled
+to sum to 1 with a warning (for example, frequencies can be given as
+weights). The weights must be nonnegative and finite and have a positive
+sum. \code{\link[=gen.weight]{gen.weight()}} creates such a data frame. When \code{weights}
+is supplied, \code{theta} is ignored. Default is \code{NULL}.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
-used for this purpose. Default is 1.}
+closely approximate the normal ogive function. A value of 1.702 is commonly
+used for this purpose. Default is 1. It is used only when \code{se} is computed
+from \code{x}.}
 }
 \value{
-A list containing the following elements:
+A list with the following elements:
 \itemize{
-\item confusion: A confusion matrix showing the cross table between true and expected levels.
-\item marginal: A data frame showing the marginal classification accuracy and consistency indices.
-\item conditional: A data frame showing the conditional classification accuracy and consistency indices.
-\item prob.level: A data frame showing the probability of being assigned to each level category.
-\item cutscore: A numeric vector showing the cut scores used in the analysis.
+\item \code{confusion}: A K x K matrix of expected proportions, with the true levels
+in rows (dimension name \code{True}) and the expected (observed) levels in
+columns (dimension name \code{Expected}). The entries are rounded to 7 decimal
+places and sum to 1 up to rounding.
+\item \code{marginal}: A data frame with the columns \code{level}, \code{accuracy}, and
+\code{consistency}. The rows for levels 1 to K give the contribution of the
+ability values whose true level is that level, that is, the weighted sums
+of their conditional indices. These rows add up to the last row,
+\code{marginal}, which holds the marginal classification accuracy and
+consistency.
+\item \code{conditional}: A data frame with one row per ability value and the columns
+\code{theta}, \code{weights}, \code{level} (true level, an integer), \code{accuracy}, and
+\code{consistency}.
+\item \code{prob.level}: A data frame with the columns \code{theta}, \code{weights}, and
+\code{level}, followed by \code{p.level.1} to \code{p.level.K}, the probabilities of being
+classified into each level.
+\item \code{cutscore}: The cut scores used, on the ability (theta) metric.
 }
 }
 \description{
-This function computes classification accuracy and consistency indices using
-the method proposed by Rudner in 2001 and 2005. This function supports both
-scenarios: when the empirical ability distribution of the population is
-available, and when individual ability estimates are used.
+This function computes classification accuracy and consistency indices with
+the approach of Rudner (2001, 2005), which assumes that an ability estimate
+is normally distributed around the true ability with a standard deviation
+equal to its standard error. The indices can be computed over an ability
+distribution given by quadrature points and weights, or over individual
+ability estimates.
 }
 \details{
 This function first validates the input arguments. If both \code{theta}
@@ -68,10 +89,14 @@ points in \code{weights}.
 It then computes the probability that an examinee with a given ability is
 classified into each performance level using the normal distribution function
 centered at each \code{theta} (or quadrature point) with standard deviation \code{se}.
-These probabilities are used to calculate conditional classification accuracy
-(the probability of being correctly classified) and conditional classification
-consistency (the probability of being consistently classified upon repeated
-testing) for each ability value.
+The conditional classification accuracy is the probability of being
+classified into the level that contains the ability value itself (Rudner,
+2001, 2005). The conditional classification consistency is the sum of the
+squared level probabilities, as in Lee (2010); Rudner (2001, 2005) defines
+only accuracy indices. When individual ability estimates are used, each
+estimate is treated as the true ability, and each examinee receives the
+weight 1/N, where N is the number of ability estimates after the examinees
+with a missing \code{theta} or \code{se} are excluded.
 
 Finally, the function computes marginal classification accuracy and
 consistency across all examinees by aggregating the conditional indices with
@@ -79,9 +104,9 @@ the associated weights.
 }
 \examples{
 \donttest{
-## -------------------------------------------
-# 1. Using the empirical ability distribution
-## -------------------------------------------
+## --------------------------------------------------------------------------
+## 1. Using a population ability distribution (D method)
+## --------------------------------------------------------------------------
 
 # Import the "-prm.txt" output file from flexMIRT
 flex_prm <- system.file("extdata", "flexmirt_sample-prm.txt", package = "irtQ")
@@ -98,16 +123,16 @@ weights <- gen.weight(dist = "norm", mu = 0, sigma = 1, theta = node)
 
 # Compute classification accuracy and consistency
 cac_1 <- cac_rud(
-  x = x, 
-  cutscore = cutscore, 
+  x = x,
+  cutscore = cutscore,
   weights = weights,
-  se = NULL,  
+  se = NULL,
   D = 1)
 print(cac_1)
 
-## -----------------------------------------
-# 2. Using individual ability estimates
-## -----------------------------------------
+## --------------------------------------------------------------------------
+## 2. Using individual ability estimates (P method)
+## --------------------------------------------------------------------------
 
 # Generate true abilities from N(0, 1)
 set.seed(12)
@@ -124,27 +149,33 @@ est_theta <- est_score(
 theta_hat <- est_theta$est.theta
 se <- est_theta$se.theta
 
+# Replace the SEs of the estimates at a bound of range (set to 99.9999)
+# with the SEs from the test information function
+at_bound <- se == 99.9999
+se[at_bound] <- 1 / sqrt(info(x = x, theta = theta_hat[at_bound], D = 1, tif = TRUE)$tif)
+
 # Compute classification accuracy and consistency using provided SEs
 cac_2 <- cac_rud(
-  cutscore = cutscore, 
-  theta = theta_hat, 
+  cutscore = cutscore,
+  theta = theta_hat,
   se = se)
 print(cac_2)
 
 # Or compute classification accuracy and consistency using the item metadata
 # instead of providing the SEs directly
 cac_2 <- cac_rud(
-  x = x, 
-  cutscore = cutscore, 
+  x = x,
+  cutscore = cutscore,
   theta = theta_hat)
 print(cac_2)
-
-
 }
-
 
 }
 \references{
+Lee, W.-C. (2010). Classification consistency and accuracy for
+complex assessments using item response theory. \emph{Journal of Educational
+Measurement, 47}(1), 1-17. \doi{10.1111/j.1745-3984.2009.00096.x}.
+
 Rudner, L. M. (2001). Computing the expected proportions of
 misclassified examinees. \emph{Practical Assessment, Research & Evaluation,
 7}(14). \doi{10.7275/an9m-2035}.

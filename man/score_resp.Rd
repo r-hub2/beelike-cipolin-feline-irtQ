@@ -11,38 +11,38 @@ score_resp(data, key, missing = NA)
 rows and items in columns (in the same left-to-right order as \code{key}).
 Do not include non-item columns (e.g., group or examinee identifiers);
 subset those out before calling \code{score_resp()}. Each cell should contain
-either a single selected option - an option number (e.g., \code{2}), a
-single-letter option label (e.g., \code{"C"}), or any other option label
-(e.g., a Korean syllable label, or a Roman numeral such as \code{"II"}) -
-matching whichever coding scheme is used for that item's \code{key}
-value, a missing-response indicator (see \code{missing}), or a character
-string of comma-separated options (e.g., \code{"1,5"} or \code{"A,C"}) for a
-double-marked response. To keep double-marked responses as character
+a single selected option in the coding scheme of that item's \code{key} value
+(an option number such as \code{2}, a Latin-letter label such as \code{"C"}, or
+any other option label such as a Korean syllable label), a
+missing-response indicator (see \code{missing}), or a character string of
+comma-separated options (e.g., \code{"1,5"} or \code{"A,C"}) for a double-marked
+response. To keep double-marked responses as character
 strings rather than having them coerced to \code{NA} on import, read the
 source file with all item columns imported as text (e.g.,
 \code{readxl::read_excel(..., col_types = "text")}) before passing \code{data} to
 this function.}
 
 \item{key}{Either (a) a vector of correct options in item order (length
-must equal \code{ncol(data)}), where each element is a numeric/integer option
-number (e.g., \code{4}), a single-letter option label (e.g., \code{"D"}), or any
-other non-blank option label (e.g., a Korean syllable label, or a
-Roman numeral such as \code{"II"}), or (b) a data frame
-with columns \code{item} and \code{key} giving the item number and its correct
-option, respectively (the \code{key} column may likewise mix option formats
-across rows). Each item's coding scheme is inferred independently from
-its own key value, so items using different option formats may be
-freely mixed within the same vector or data frame; letter (and other
-case-bearing) values are matched case-insensitively. When a data frame
-is supplied, it is internally sorted by \code{item} before use, so its row
-order does not need to match the column order of \code{data}. The \code{item}
-column may be numeric, character, or factor; it is matched by item
-number.}
+must equal \code{ncol(data)}), where each element is an option number (e.g.,
+\code{4}), a Latin-letter option label (e.g., \code{"D"}), or any other non-blank
+option label (e.g., a Korean syllable label), or (b) a data frame with
+columns \code{item} and \code{key} giving the item number and its correct option,
+respectively. Each item's coding scheme is inferred independently from
+its own key value, so items using different option formats may be mixed
+within the same vector or data frame; letter (and other case-bearing)
+values are matched case-insensitively. When a data frame is supplied, its
+\code{item} column (numeric, character, or factor) must contain each of the
+integers 1 to \code{ncol(data)} exactly once; the rows are sorted by item
+number before use, so their order need not match the column order of
+\code{data}. A key value that contains a comma names more than one option, and
+\code{score_resp()} stops with an error because every item must have exactly
+one correct option.}
 
 \item{missing}{A value indicating missing (omitted) responses in \code{data},
 analogous to the \code{missing} argument in \code{\link[=est_irt]{est_irt()}} and
-\code{\link[=est_score]{est_score()}}. Any cell equal to \code{missing} is recoded to \code{NA}
-before scoring. Default is \code{NA}, meaning \code{data} is assumed to already use
+\code{\link[=est_score]{est_score()}}. Any cell equal to \code{missing}, after trimming
+surrounding spaces, is recoded to \code{NA} before scoring. Default is \code{NA},
+meaning \code{data} is assumed to already use
 \code{NA} (or an empty string) for omitted responses, and no recoding is
 performed. Set this to whatever sentinel value a particular data set uses
 for a missing response (e.g., \code{-9}, \code{"9"}) when it differs from \code{NA}.}
@@ -52,21 +52,23 @@ A list with two elements:
 \item{scored}{A data frame with the same dimensions as \code{data}, containing
 the dichotomously scored (0/1) item responses. Column names follow
 \code{colnames(data)} (or \verb{V1, V2, ...} when \code{data} has no column names).}
-\item{resp_summary}{A data frame with one row per item, reporting the
-number and percentage of blank and double-marked responses, the number
-of unrecognized/invalid response tokens (\code{n_invalid}), and the number
-of examinees scored correct/incorrect, for each item.}
+\item{resp_summary}{A data frame with one row per item and the columns
+\code{item} (item label), \code{key} (the correct option, as trimmed text), \code{n}
+(number of examinees), \code{n_correct}, \code{n_wrong}, \code{n_blank}, \code{n_double},
+\code{n_invalid} (number of unrecognized response tokens), \code{pct_blank}, and
+\code{pct_double} (percentages of blank and double-marked responses, rounded
+to two decimal places).}
 }
 \description{
 This function converts raw selected-response (e.g., multiple-choice) item
-data - coded as the selected option (an option number, e.g., 1-5 for a
-five-option item; a single-letter option label, e.g., \code{"A"}-\code{"E"}; or any
-other option label in a different script or notation, such as Korean
-syllable labels or Roman numerals), a missing-response indicator for an
-omitted response, or a comma-separated string (e.g., \code{"1,5"} or \code{"A,C"})
-for a double-marked (multiple-option) response - into a dichotomously
-scored item-response matrix (0 = incorrect, 1 = correct) using a supplied
-answer key. The option coding scheme is detected independently for each
+data into a dichotomously scored item response matrix (0 = incorrect,
+1 = correct) using a supplied answer key. Each response is coded as the
+selected option (an option number, e.g., 1-5 for a five-option item; a
+Latin-letter option label, e.g., \code{"A"}-\code{"E"}; or any other option label,
+such as a Korean syllable label), as a missing-response indicator for an
+omitted response, or as a comma-separated string (e.g., \code{"1,5"} or
+\code{"A,C"}) for a double-marked (multiple-option) response. The option
+coding scheme is detected independently for each
 item from its own \code{key} value, so a single test form may freely mix
 numerically coded, letter-coded, and other label-coded items. Letter
 (and other case-bearing) option labels are matched case-insensitively
@@ -77,8 +79,8 @@ frequencies are tabulated separately for reporting.
 \details{
 For each item, a response is scored as correct (1) only when it is a
 single, non-missing option that matches the corresponding value in \code{key}.
-All other cases - an omitted response, a double-marked response, or a
-single but incorrect option - are scored as incorrect (0). Missing and
+All other responses (an omitted response, a double-marked response, or a
+single but incorrect option) are scored as incorrect (0). Missing and
 double-marked responses are tallied separately in \code{resp_summary} so that
 omission and double-marking rates can be reported independently, even
 though both are scored as 0.
@@ -86,8 +88,9 @@ though both are scored as 0.
 Each item's option coding scheme is determined independently from its own
 \code{key} value, using one of three rules:
 \itemize{
-\item If the key value parses as a number (e.g., \code{4}), responses to
-that item are compared numerically.
+\item If the key value is written with digits only (e.g., \code{4},
+optionally with a decimal part), responses to that item are compared
+numerically.
 \item If the key value consists of one or more Latin letters (e.g.,
 \code{"D"}), responses are compared as letters, case-insensitively (\code{"d"}
 and \code{"D"} are treated as the same option), and a response must itself
@@ -99,8 +102,8 @@ other non-numeric, non-Latin-letter label), the key value is treated
 as a general option label: any
 non-blank, non-double-marked response to that item is accepted as a
 single valid option, and is compared to the key with a
-case-insensitive (\code{toupper()}-based, which only affects any embedded
-Latin characters) exact string match. There is no universal,
+case-insensitive (\code{toupper()}-based) exact string match, which leaves
+caseless scripts such as Hangul unchanged. There is no universal,
 script-independent rule for "a well-formed option label" analogous to
 the numeric or Latin-letter checks above, so this scheme cannot
 distinguish a genuinely incorrect option from a garbled response
@@ -108,15 +111,16 @@ token; both are simply scored 0, and \code{n_invalid} is always 0 for
 items using this scheme (see below).
 }
 This per-item detection means a single test form may freely mix items
-using any of the three schemes - only the value supplied in \code{key} for a
+using any of the three schemes: only the value supplied in \code{key} for a
 given item determines how that item's column in \code{data} is interpreted. A
 \code{key} value that is blank or \code{NA} causes \code{score_resp()} to stop with an
 error, since no correct option was actually supplied for that item.
 
 A response cell is classified as double-marked when, after coercion to
 character, it contains a comma (e.g., \code{"1,5"}, \code{"B,D"}). A response cell is
-classified as blank/omitted when it equals \code{missing} (recoded to \code{NA}
-beforehand), or is otherwise \code{NA} or an empty/whitespace-only string. For
+classified as blank/omitted when it equals \code{missing} after trimming
+surrounding spaces (recoded to \code{NA} beforehand), or is otherwise \code{NA} or an
+empty/whitespace-only string. For
 numeric- and Latin-letter-coded items, any response that is none of blank,
 double-marked, or a single valid option in the coding scheme used for that
 item (e.g., a numeric token where a letter was expected for a
@@ -126,18 +130,10 @@ classified as invalid; it is still scored 0, but tallied separately in
 silently merged into the "wrong" count. As noted above, general
 label-coded items never populate \code{n_invalid}, since any non-blank,
 non-double-marked token is accepted as a single valid (though possibly
-incorrect) option for that scheme. Note that \code{n_correct + n_wrong} always
-equals \code{n}, but \code{n_blank}, \code{n_double}, and \code{n_invalid} are reported as
-separate diagnostic tallies, not as a four-way disjoint partition of
-\code{n_wrong}.
-
-This function performs dichotomous (single-key, selected-response) scoring
-only, since a selected-response item has exactly one correct option by
-design and therefore only two possible score categories (correct/incorrect).
-It is not generalized to items with more than two score categories (e.g.,
-partial-credit polytomous items). If such data become available, they
-should be supplied directly, already scored, to downstream item-analysis
-functions that support polytomous data, bypassing \code{score_resp()}.
+incorrect) option for that scheme. \code{n_correct + n_wrong} always equals
+\code{n}. \code{n_blank}, \code{n_double}, and \code{n_invalid} count disjoint subsets of
+\code{n_wrong}; the remaining wrong responses are single valid but incorrect
+options, which are not counted separately.
 }
 \note{
 This function applies to \strong{dichotomous, single-key, selected-response
@@ -148,8 +144,8 @@ partial-credit polytomous items scored 0, 1, 2, ...), since a
 selected-response item cannot yield a partial-credit score by
 construction. If polytomous item response data are available, supply an
 already-scored response matrix (with categories 0, 1, 2, ..., cats - 1)
-directly to downstream item-analysis functions instead of using
-\code{score_resp()}. See \strong{Details} for further discussion.
+directly to downstream item-analysis functions such as \code{\link[=ctt]{ctt()}} or
+\code{\link[=ctt_distr]{ctt_distr()}} instead of using \code{score_resp()}.
 }
 \examples{
 # A small 5-examinee, 3-item toy example with a blank and a double-mark

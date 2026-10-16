@@ -3,7 +3,7 @@
 # arguments once and returns three closures that share a single P(theta)
 # cache, so each nlminb evaluation point computes drm()/prm() at most
 # once instead of three times (once per closure). The cached P is the
-# return value of drm()/prm() for the active model branch.
+# return value of drm() or prm() for the active model branch.
 #
 # Cache hits in practice. nlminb (PORT) typically evaluates objective,
 # then gradient, then hessian at the same accepted iterate, with line
@@ -12,7 +12,7 @@
 # evaluate, the cache hits and saves two drm()/prm() calls per
 # accepted point. Line search rejections fill the cache with the
 # rejected trial; the next gradient/hessian call simply misses,
-# refreshes the cache, and proceeds - no correctness risk.
+# refreshes the cache, and proceeds, so correctness is not affected.
 
 # Build the (objective, gradient, hessian) closure trio for dichotomous
 # (1PLM/2PLM/3PLM) calibration with nlminb. All static arguments
@@ -20,7 +20,7 @@
 # in the factory's environment; each closure takes only `item_par` and
 # delegates to loglike_drm / grad_item_drm / hess_item_drm with the
 # shared cached P(theta) injected via `p_cache`.
-make_drm_optim_fns <- function(f_i, r_i, s_i, theta, mod, D, nstd,
+make_drm_optim_fns <- function(f_i, r_i, s_i, theta, mod, D,
                                fix.a, fix.g, a.val, g.val, n.1PLM,
                                aprior, bprior, gprior,
                                use.aprior, use.bprior, use.gprior) {
@@ -90,8 +90,8 @@ make_drm_optim_fns <- function(f_i, r_i, s_i, theta, mod, D, nstd,
     objective = function(item_par) {
       p_cache <- get_p(item_par)
       loglike_drm(
-        item_par = item_par, f_i = f_i, r_i = r_i, s_i = s_i, theta = theta,
-        mod = mod, D = D, nstd = nstd,
+        item_par = item_par, r_i = r_i, s_i = s_i, theta = theta,
+        mod = mod, D = D,
         fix.a = fix.a, fix.g = fix.g, a.val = a.val, g.val = g.val, n.1PLM = n.1PLM,
         aprior = aprior, bprior = bprior, gprior = gprior,
         use.aprior = use.aprior, use.bprior = use.bprior, use.gprior = use.gprior,
@@ -101,8 +101,8 @@ make_drm_optim_fns <- function(f_i, r_i, s_i, theta, mod, D, nstd,
     gradient = function(item_par) {
       p_cache <- get_p(item_par)
       grad_item_drm(
-        item_par = item_par, f_i = f_i, r_i = r_i, s_i = s_i, theta = theta,
-        mod = mod, D = D, nstd = nstd,
+        item_par = item_par, f_i = f_i, r_i = r_i, theta = theta,
+        mod = mod, D = D,
         fix.a = fix.a, fix.g = fix.g, a.val = a.val, g.val = g.val, n.1PLM = n.1PLM,
         aprior = aprior, bprior = bprior, gprior = gprior,
         use.aprior = use.aprior, use.bprior = use.bprior, use.gprior = use.gprior,
@@ -112,8 +112,8 @@ make_drm_optim_fns <- function(f_i, r_i, s_i, theta, mod, D, nstd,
     hessian = function(item_par) {
       p_cache <- get_p(item_par)
       hess_item_drm(
-        item_par = item_par, f_i = f_i, r_i = r_i, s_i = s_i, theta = theta,
-        mod = mod, D = D, nstd = nstd,
+        item_par = item_par, f_i = f_i, r_i = r_i, theta = theta,
+        mod = mod, D = D,
         fix.a = fix.a, fix.g = fix.g, a.val = a.val, g.val = g.val, n.1PLM = n.1PLM,
         aprior = aprior, bprior = bprior, gprior = gprior,
         use.aprior = use.aprior, use.bprior = use.bprior, use.gprior = use.gprior,
@@ -131,8 +131,8 @@ make_drm_optim_fns <- function(f_i, r_i, s_i, theta, mod, D, nstd,
 # expensive probability computation runs at most once per nlminb point.
 #
 # Cache structure per model:
-#   GRM  -> list(allPst, P) - boundary and category probs
-#   GPCM -> list(theta_d, numer, denom, P) - full intermediate tensors
+#   GRM  -> list(allPst, P): boundary and category probabilities
+#   GPCM -> list(theta_d, numer, denom, P): all intermediate quantities
 #                                           needed by both grad and hess
 #
 # The (theta_d, numer, denom) tuple is cached for GPCM because
@@ -182,15 +182,15 @@ make_prm_optim_fns <- function(r_i, theta, pr.mod, D, nstd,
       theta_d <- Rfast::Outer(x = theta, y = d_full, oper = "-")
       z <- Da * theta_d
       cumsum_z <- t(Rfast::colCumSums(z))
-      if (any(cumsum_z > 700)) {
-        cumsum_z <- (cumsum_z / max(cumsum_z)) * 700
-      }
-      if (any(cumsum_z < -700)) {
-        cumsum_z <- -(cumsum_z / min(cumsum_z)) * 700
+      # subtract the row maximum so that exp() and the powers of the denominator stay finite
+      if (any(abs(cumsum_z) > 100)) {
+        cumsum_z <- cumsum_z - Rfast::rowMaxs(cumsum_z, value = TRUE)
       }
       numer <- exp(cumsum_z)
       denom <- Rfast::rowsums(numer)
       P <- numer / denom
+      # keep the probabilities above zero so that their logarithms are finite
+      P[P < .Machine$double.xmin] <- .Machine$double.xmin
       prob <- list(theta_d = theta_d, numer = numer, denom = denom, P = P)
     }
 
@@ -208,7 +208,7 @@ make_prm_optim_fns <- function(r_i, theta, pr.mod, D, nstd,
     objective = function(item_par) {
       prob_cache <- get_prob(item_par)
       loglike_prm(
-        item_par = item_par, r_i = r_i, theta = theta, pr.mod = pr.mod, D = D, nstd = nstd,
+        item_par = item_par, r_i = r_i, theta = theta, pr.mod = pr.mod, D = D,
         fix.a = fix.a, a.val = a.val,
         aprior = aprior, bprior = bprior,
         use.aprior = use.aprior, use.bprior = use.bprior,
@@ -218,7 +218,7 @@ make_prm_optim_fns <- function(r_i, theta, pr.mod, D, nstd,
     gradient = function(item_par) {
       prob_cache <- get_prob(item_par)
       grad_item_prm(
-        item_par = item_par, r_i = r_i, theta = theta, pr.mod = pr.mod, D = D, nstd = nstd,
+        item_par = item_par, r_i = r_i, theta = theta, pr.mod = pr.mod, D = D,
         fix.a = fix.a, a.val = a.val,
         aprior = aprior, bprior = bprior,
         use.aprior = use.aprior, use.bprior = use.bprior,

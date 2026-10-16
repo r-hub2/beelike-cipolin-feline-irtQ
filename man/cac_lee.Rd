@@ -12,41 +12,61 @@ of categories, IRT model types, etc.). See \code{\link[=est_irt]{est_irt()}} or
 \code{\link[=simdat]{simdat()}} for more details about the item metadata. This data frame
 can be easily created using the \code{\link[=shape_df]{shape_df()}} function.}
 
-\item{cutscore}{A numeric vector specifying the cut scores for
-classification. Cut scores are the points that separate different
-performance categories (e.g., pass vs. fail, or different grades).}
+\item{cutscore}{A numeric vector of finite cut scores in strictly ascending
+order. The K - 1 cut scores divide examinees into K performance levels.
+With \code{cut.obs = TRUE}, the cut scores are on the observed summed score
+metric. With \code{cut.obs = FALSE}, they are on the ability (theta) metric. A
+score equal to a cut score is assigned to the higher level.}
 
-\item{theta}{A numeric vector of ability estimates. Ability estimates (theta
-values) are the individual proficiency estimates obtained from the IRT
-model. The theta parameter is optional and can be \code{NULL}.}
+\item{theta}{A numeric vector of ability estimates, one per examinee, used by
+the P method. It is ignored when \code{weights} is supplied. Missing values
+(\code{NA}) are excluded with a warning. Default is \code{NULL}.}
 
-\item{weights}{An optional two-column data frame or matrix where the first
-column is the quadrature points (nodes) and the second column is the
-corresponding weights. This is typically used in quadrature-based IRT
-analysis.}
+\item{weights}{A two-column data frame or matrix used by the D method. The
+first column holds the quadrature points (nodes), and the second column
+holds the corresponding weights, which should sum to 1; weights that do
+not sum to 1 are rescaled to sum to 1 with a warning (for example,
+frequencies can be given as weights). The weights must be nonnegative and
+finite and have a positive sum. \code{\link[=gen.weight]{gen.weight()}} creates such a
+data frame. When \code{weights} is supplied, \code{theta} is ignored. Default is
+\code{NULL}.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 
-\item{cut.obs}{Logical. If \code{TRUE}, it indicates the cutscores on the
-observed-summed score metric. If \code{FALSE}, it indicates they are on the IRT
-theta score metric. Default is \code{TRUE}.}
+\item{cut.obs}{Logical. If \code{TRUE}, \code{cutscore} is on the observed summed score
+metric. If \code{FALSE}, \code{cutscore} is on the ability (theta) metric and is
+converted to the summed score metric with the test characteristic curve
+(TCC). Default is \code{TRUE}.}
 }
 \value{
-A list containing the following elements:
+A list with the following elements:
 \itemize{
-\item confusion: A confusion matrix showing the cross table between true and expected levels.
-\item marginal: A data frame showing the marginal classification accuracy and consistency indices.
-\item conditional: A data frame showing the conditional classification accuracy and consistency indices.
-\item prob.level: A data frame showing the probability of being assigned to each level category.
-\item cutscore: A numeric vector showing the cut scores used in the analysis.
+\item \code{confusion}: A K x K matrix of expected proportions, with the true levels
+in rows (dimension name \code{True}) and the expected (observed) levels in
+columns (dimension name \code{Expected}). The entries are rounded to 7 decimal
+places and sum to 1 up to rounding.
+\item \code{marginal}: A data frame with the columns \code{level}, \code{accuracy}, and
+\code{consistency}. The rows for levels 1 to K give the contribution of the
+ability values whose true level is that level, that is, the weighted sums
+of their conditional indices. These rows add up to the last row,
+\code{marginal}, which holds the marginal classification accuracy and
+consistency.
+\item \code{conditional}: A data frame with one row per ability value and the columns
+\code{theta}, \code{weights}, \code{true.score} (expected summed score), \code{level} (true
+level, a factor), \code{accuracy}, and \code{consistency}.
+\item \code{prob.level}: A data frame with the columns \code{theta}, \code{weights},
+\code{true.score}, and \code{level}, followed by \code{p.level.1} to \code{p.level.K}, the
+probabilities of being classified into each level.
+\item \code{cutscore}: The cut scores used, on the observed summed score metric. When
+\code{cut.obs = FALSE}, these are the converted cut scores.
 }
 }
 \description{
 This function computes classification accuracy and consistency indices for
-complex assessments based on the method proposed by Lee (2010). This function
-supports both dichotomous and polytomous item response theory (IRT) models.
+complex assessments using the item response theory (IRT) approach of Lee
+(2010). Tests may contain dichotomous items, polytomous items, or both.
 }
 \details{
 This function first validates the input arguments. If both \code{theta} and \code{weights}
@@ -59,28 +79,31 @@ scale, and they are internally converted to the observed summed score scale usin
 test characteristic curve (TCC). This transformation allows classification to be carried
 out on the summed score metric, even if theta-based cut points are provided.
 
-When \code{weights} are provided (D method), the function uses the Lord-Wingersky recursive
-algorithm to compute the conditional distribution of observed total scores at each node.
-These conditional distributions are used to compute:
-\itemize{
-\item the probability of being classified into each performance level,
-\item conditional classification accuracy (probability of correct classification), and
-\item conditional classification consistency (probability of being assigned to the same level
-upon repeated testing).
-}
+For each ability value (a quadrature point in the D method, or an ability
+estimate in the P method), the conditional distribution of the observed
+summed score is computed with the Lord-Wingersky recursion (Lord &
+Wingersky, 1984) and its extension to polytomous items (see
+\code{\link[=lwrc]{lwrc()}}). Summing this distribution over the score ranges defined by
+the cut scores gives the probability of being classified into each level. The
+true level of an ability value is found by comparing its expected summed
+score (the TCC value) with the same cut scores, so the observed cut scores
+also serve as the true cut scores. The conditional classification accuracy is
+the probability of being classified into the true level, and the conditional
+classification consistency is the sum of the squared level probabilities,
+which is the probability of the same classification on two independent
+administrations (Lee, 2010).
 
-When \code{theta} values are provided instead (P method), the same logic applies, but using
-an empirical distribution of examinees instead of quadrature-based integration.
-In this case, uniform weights are assigned to all examinees.
-
-Finally, marginal classification accuracy and consistency are computed as weighted
-averages of the conditional statistics across the ability distribution.
+In the D method (\code{weights} supplied), the marginal indices are the weighted
+sums of the conditional indices over the quadrature points. In the P method
+(\code{theta} supplied), each examinee receives the weight 1/N, where N is the
+number of ability estimates (after the missing values are excluded), so the
+marginal indices are the averages of the conditional indices.
 }
 \examples{
 \donttest{
 ## --------------------------------------------------------------------------
-## 1. When the empirical ability distribution of the population is available
-##    (D method)
+## 1. When the ability distribution is given by quadrature points and
+##    weights (D method)
 ## --------------------------------------------------------------------------
 
 # Import the "-prm.txt" output file from flexMIRT
@@ -119,7 +142,10 @@ est_th <- est_score(
 
 # Calculate classification accuracy and consistency
 cac_2 <- cac_lee(x = x, cutscore = cutscore, theta = est_th, D = 1)
-print(cac_2)
+
+# Marginal indices and confusion matrix
+cac_2$marginal
+cac_2$confusion
 
 ## ---------------------------------------------------------
 ## 3. When individual ability estimates are available,
@@ -133,7 +159,10 @@ cac_3 <- cac_lee(
   x = x, cutscore = cutscore, theta = est_th, D = 1,
   cut.obs = FALSE
 )
-print(cac_3)
+
+# Marginal indices and confusion matrix
+cac_3$marginal
+cac_3$confusion
 }
 
 }
@@ -141,6 +170,10 @@ print(cac_3)
 Lee, W.-C. (2010). Classification consistency and accuracy for
 complex assessments using item response theory. \emph{Journal of Educational
 Measurement, 47}(1), 1-17. \doi{10.1111/j.1745-3984.2009.00096.x}.
+
+Lord, F. M., & Wingersky, M. S. (1984). Comparison of IRT true-score and
+equipercentile observed-score "equatings." \emph{Applied Psychological
+Measurement, 8}(4), 453-461. \doi{10.1177/014662168400800409}.
 }
 \seealso{
 \code{\link[=gen.weight]{gen.weight()}}, \code{\link[=est_score]{est_score()}}, \code{\link[=cac_rud]{cac_rud()}}

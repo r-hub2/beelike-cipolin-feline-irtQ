@@ -1,40 +1,25 @@
-# Compute EAP Summed Score
+# Compute EAP summed scores
 #
-# @description This function computes the expected a posterior (EAP) summed score (Thissen et al., 1995; Thissen & Orlando, 2001)
-# for each examinee. The EAP summed score is the mean of the posterior density for the summed score (or observed score) given
-# the item parameter estimates.
+# This function computes the expected a posteriori (EAP) estimate of ability
+# for each sum score (Thissen et al., 1995; Thissen & Orlando, 2001). The
+# estimate is the mean of the posterior distribution of theta given the sum
+# score, and the standard error is the posterior standard deviation. The
+# likelihood of each sum score at each quadrature point is computed with the
+# Lord-Wingersky recursion in lwrc().
 #
-# @param x A data.frame containing the item metadata (e.g., item parameters, number of categories, models ...).
-# See \code{\link{irtfit}}, \code{\link{test.info}}, or \code{\link{simdat}} for more details about the item metadata.
-# This data.frame can be easily obtained using the function \code{\link{shape_df}}.
-# @param data A matrix containing examinees' response data for the test items. A row and column indicate examinees and items, respectively.
-# @param norm.prior A numeric vector of two components specifying a mean and standard deviation of the normal prior distribution.
-# These two parameters are used to obtain the gaussian quadrature points and the corresponding weights from the normal distribution.
-# Default is c(0,1).
-# @param nquad An integer value specifying the number of gaussian quadrature points from the normal prior distribution. Default is 41.
-# @param weights A two-column matrix or data.frame containing the theta values (in the first column) and the weights (in the second column)
-# for the prior distribution. If missing, default values are used (see \code{norm.prior} and \code{nquad}).
-# @param D A scaling factor in IRT models to make the logistic function as close as possible to the normal ogive function (if set to 1.7).
-# Default is 1.
+# Arguments
+# x: item metadata (see shape_df()).
+# data: a matrix of item responses (rows: examinees, columns: items). Missing
+#   responses are replaced with 0.
+# norm.prior: mean and standard deviation of the normal prior used to generate
+#   Gaussian quadrature points and weights when weights = NULL.
+# nquad: number of Gaussian quadrature points. Default is 41.
+# weights: a two-column matrix or data frame of quadrature points and weights.
+# D: scaling constant (1.702 approximates the normal ogive). Default is 1.
 #
-# @details
-#
-# @return A list of the EAP summed scoring results
-#
-# @author Hwanggyu Lim \email{hglim83@@gmail.com}
-# @export
-# @examples
-# ## the use of a "-prm.txt" file obtained from a flexMIRT
-# flex_prm <- system.file("extdata", "flexmirt_sample-prm.txt", package = "irtQ")
-# x <- bring.flexmirt(file=flex_prm, "par")$Group1$full_df
-#
-# # simulate the item responses of examinees
-# set.seed(15)
-# theta <- rnorm(500)
-# data <- simdat(x, theta, D=1)
-#
-# # estimate the abilities
-# eap_sum(x, data, norm.prior=c(0, 1), nquad=41, D=1)
+# Value
+# A list with est.par (sum.score, est.theta, and se.theta for each examinee)
+# and score.table (the same columns for every possible sum score).
 #
 #' @importFrom Rfast colsums rowsums
 eap_sum <- function(x, data, norm.prior = c(0, 1), nquad = 41, weights = NULL, D = 1) {
@@ -48,7 +33,7 @@ eap_sum <- function(x, data, norm.prior = c(0, 1), nquad = 41, weights = NULL, D
   na.lg <- is.na(data)
   if (any(na.lg)) {
     data[na.lg] <- 0
-    memo <- "Any missing responses are replaced with 0s. \n"
+    memo <- "Missing responses are replaced with 0."
     warning(memo, call. = FALSE)
   }
 
@@ -59,10 +44,10 @@ eap_sum <- function(x, data, norm.prior = c(0, 1), nquad = 41, weights = NULL, D
     weights <- data.frame(weights)
   }
 
-  # estimate likelihoods using lord-wingersky algorithm
+  # compute the sum score likelihoods with the Lord-Wingersky recursion
   lkhd <- lwrc(x = x, theta = weights[, 1], prob = NULL, D = D)
 
-  # estimate EAP for sum scores
+  # compute the posterior mean and standard deviation for each sum score
   ss.prob <- c(lkhd %*% weights[, 2])
   post <- t((t(lkhd) * weights[, 2])) / ss.prob
   tr_post <- t(post)

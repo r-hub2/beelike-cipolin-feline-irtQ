@@ -3,31 +3,33 @@
 \docType{data}
 \name{simMG}
 \alias{simMG}
-\title{Simulated multiple-group data}
+\title{Simulated Multiple-Group Data}
 \format{
-This data set includes a list of three internal objects: (1) a list of item metadata (item.prm) for three groups,
-(2) a list of item response data (res.dat) for the three groups, and (3) a vector of group names (group.name) for
-the three groups.
-
-The first internal object (item.prm) contains a list of item metadata of three test forms for the three
-groups. In terms of test forms, the test forms for the first and second groups have fifty items consisting of forty seven 3PLM
-items and three GRM items. The test form for the third group has thirty eight items consisting of thirty seven 3PLM items and
-one GRM item. Among the three forms, the first and second test forms share twelve common items (C1I1 through C1I12) and
-the second and third test forms share ten common items (C2I1 through c2I10). There is no common item between the first and third forms.
-The item parameters in the item metadata were used to simulate the item response data sets for the three groups (see the second
-object of the list).
-
-Regrading the second internal object, all three response data sets were simulated with 2,000 latent abilities randomly sampled
-from \eqn{N(0, 1)} (Group 1), \eqn{N(0.5, 0.8^{2})} (Group 2), and \eqn{N(-0.3, 1.3^{2})} (Group 3), respectively, using the
-true item parameters provided in the item metadata.
-
-The third internal object is a vector of three group names which are "Group1", "Group2", and "Group3".
+A list with three elements:
+\describe{
+\item{item.prm}{A list of three data frames of item metadata, named
+\code{Group1}, \code{Group2}, and \code{Group3}. The forms of Groups 1 and 2 have 50
+items (47 3PLM items and three GRM items with five score categories), and
+the form of Group 3 has 38 items (37 3PLM items and one GRM item). Forms 1
+and 2 share 12 common items (\code{C1I1} to \code{C1I12}), forms 2 and 3 share 10
+common items (\code{C2I1} to \code{C2I10}), and forms 1 and 3 share no item. The
+item parameters are the true values used to simulate the responses, on
+the logistic metric (D = 1).}
+\item{res.dat}{A list of three item response matrices, named \code{Group1} to
+\code{Group3}, with 2,000 rows (examinees) and 50, 50, and 38 columns (items in
+the order of \code{item.prm}). The abilities were drawn from \eqn{N(0, 1)}
+(Group 1), \eqn{N(0.5, 0.8^{2})} (Group 2), and \eqn{N(-0.3, 1.3^{2})}
+(Group 3).}
+\item{group.name}{A character vector of the group names, \code{"Group1"},
+\code{"Group2"}, and \code{"Group3"}.}
+}
 }
 \usage{
 simMG
 }
 \description{
-This data set has a list consisting of item metadata, item response data, and group names of three simulated groups.
+A simulated data set for three groups that take three test forms linked by
+common items, for illustrating multiple-group calibration.
 }
 \examples{
 # structure of the data

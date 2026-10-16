@@ -1,11 +1,11 @@
 # find_cut.R
 # ---------------------------------------------------------------------------
-# find_cut() -- Identify TIF-crossing cut scores for MST routing
+# find_cut(): identify TIF-crossing cut scores for MST routing
 #
 # For each pair of adjacent modules (in the order provided by the user,
 # i.e., ascending module index) at each stage transition, this function finds
 # the theta value where the right module's TIF curve crosses the left module's
-# TIF curve with a positive slope (a "proper" crossing).  The resulting cut
+# TIF curve with a positive slope (a "proper" crossing). The resulting cut
 # scores can be passed directly to run_mst() as the cut_score argument.
 # ---------------------------------------------------------------------------
 
@@ -17,8 +17,8 @@
 #' theta values at which adjacent modules' Test Information Functions (TIFs)
 #' cross in the correct direction. The resulting cut scores can be passed
 #' directly to \code{\link{run_mst}} as its \code{cut_score} argument
-#' (with \code{route_method = NULL}), providing a principled and psychometrically
-#' grounded alternative to heuristic cut-score selection.
+#' (with \code{route_method = NULL}), which avoids the path reversals that
+#' maximum Fisher information (MFI) routing can produce (see \strong{Details}).
 #'
 #' @param x A data frame of item metadata in the standard \pkg{irtQ} format
 #'   (columns: \code{id}, \code{cats}, \code{model}, \code{par.1},
@@ -34,14 +34,14 @@
 #'   module \emph{i} to module \emph{j}. This is the same \code{route_map}
 #'   argument used in \code{\link{run_mst}}.
 #' @param D A scaling constant used in IRT models to make the logistic function
-#'   closely approximate the normal ogive function. A value of 1.7 is commonly
+#'   closely approximate the normal ogive function. A value of 1.702 is commonly
 #'   used for this purpose. Default is 1.
 #' @param theta_range A numeric vector of length 2 specifying the theta range
 #'   over which to search for TIF crossings. Default is \code{c(-6, 6)}.
 #' @param n_grid An integer specifying the number of equally spaced theta
 #'   points used for the initial sign-change scan. A finer grid reduces the
-#'   chance of missing a crossing but increases computation time. Default is
-#'   \code{2001}.
+#'   chance of missing a crossing but increases computation time. It must be at
+#'   least 100. Default is \code{2001}.
 #' @param ref_theta A single numeric value used to break ties when multiple
 #'   proper crossings are found for an adjacent module pair. The crossing
 #'   closest to \code{ref_theta} is selected. Default is \code{0}.
@@ -53,16 +53,24 @@
 #'     is the number of stages), compatible with the \code{cut_score} argument
 #'     of \code{\link{run_mst}}. Each element is a numeric vector of cut
 #'     scores for the transition into that stage, sorted in ascending order.
-#'     Stages with only one module have an empty numeric vector
-#'     (\code{numeric(0)}).}
-#'   \item{\code{details}}{A named list of per-stage diagnostic information,
-#'     including module indices, mean item locations, difficulty-sorted module
-#'     order, and per-pair crossing details (proper crossings, anomalous
-#'     crossings, and the selected cut score).}
+#'     The elements are named \code{"stage.2"}, \code{"stage.3"}, etc., after
+#'     the stage being entered. Stages with only one module have an empty
+#'     numeric vector (\code{numeric(0)}).}
+#'   \item{\code{details}}{A list with one element per stage from stage 2
+#'     (named \code{"stage.2"}, \code{"stage.3"}, etc.). Each element contains
+#'     \code{modules} (module indices), \code{mean_locs} (mean item locations,
+#'     named \code{"mod2"}, ...), \code{sorted_order} (modules in ascending
+#'     order of mean location), and \code{pairs}, a list with one element per
+#'     adjacent pair (named, e.g., \code{"mod2_vs_mod3"}) holding
+#'     \code{left_module}, \code{right_module}, \code{proper_crossings},
+#'     \code{anomalous_crossings}, and \code{selected_cut}. For a stage with a
+#'     single module, \code{modules} holds that module, \code{mean_locs},
+#'     \code{sorted_order}, and \code{pairs} are \code{NULL}, and a
+#'     \code{message} is added.}
 #'   \item{\code{tif_data}}{A \code{tibble} with columns \code{theta},
 #'     \code{module}, \code{stage}, and \code{tif}, providing TIF curves for
 #'     all modules at all stages (including stage 1). Used by
-#'     \code{\link{plot.find_cut}} to visualise TIF curves and crossing points.}
+#'     \code{\link{plot.find_cut}} to visualize TIF curves and crossing points.}
 #' }
 #'
 #' @details
@@ -76,21 +84,22 @@
 #' a theta value that is unexpectedly low, so that the harder module
 #' \emph{also} has the highest TIF near the low end of the ability scale.
 #' In this case, a low-ability examinee is incorrectly routed into the harder
-#' module -- the opposite of what the MST is designed to do, which is called an
-#' \emph{anomalous routing} or \emph{path reversal}.
+#' module, which is the opposite of what the MST is designed to do. This is
+#' called an \emph{anomalous routing} or \emph{path reversal}.
 #' }
 #'
 #' \subsection{Solution: TIF-crossing cut scores}{
 #' \code{find_cut()} resolves this problem by computing cut scores from the
 #' TIF curves themselves, rather than relying on pure MFI at the time of
-#' routing. Specifically, for each pair of adjacent modules (ordered by mean
-#' item difficulty), the function finds the theta value at which the harder
-#' module's TIF first overtakes the easier module's TIF \emph{from below}
-#' as theta increases. This crossing point is the natural boundary between
-#' the two modules: below it, the easier module is more informative; above it,
-#' the harder module is more informative. Using this point as a fixed cut
-#' score pre-empts the path reversals that MFI routing produces at the extremes
-#' of the scale.
+#' routing. Specifically, for each pair of modules that are adjacent in module
+#' index (which should follow the order of difficulty; see \emph{Module index
+#' vs. difficulty order}), the function finds the theta value at which the
+#' higher-index module's TIF first overtakes the lower-index module's TIF
+#' \emph{from below} as theta increases. This crossing point is the natural
+#' boundary between the two modules: below it, the lower-index (easier) module
+#' is more informative; above it, the higher-index (harder) module is more
+#' informative. Using this point as a fixed cut score pre-empts the path
+#' reversals that MFI routing produces at the extremes of the scale.
 #' }
 #'
 #' \subsection{Proper vs. anomalous crossings}{
@@ -98,13 +107,15 @@
 #' two types of crossing:
 #' \itemize{
 #'   \item \strong{Proper crossing}: the difference
-#'     \eqn{\text{TIF}_{\text{harder}}(\theta) - \text{TIF}_{\text{easier}}(\theta)}
-#'     changes sign from negative to positive (positive slope at the crossing).
-#'     This is the correct, expected crossing in the middle of the theta scale.
+#'     \eqn{\text{TIF}_{\text{right}}(\theta) - \text{TIF}_{\text{left}}(\theta)},
+#'     where the right module is the higher-index (intended harder) module of
+#'     the pair, changes sign from negative to positive (positive slope at the
+#'     crossing). This is the correct, expected crossing in the middle of the
+#'     theta scale.
 #'   \item \strong{Anomalous crossing}: the difference changes sign from
 #'     positive to negative (negative slope at the crossing). This corresponds
 #'     to the pathological situation in which the harder module temporarily
-#'     dominates at the low end of the theta scale -- exactly the pattern that
+#'     dominates at the low end of the theta scale, which is the pattern that
 #'     causes path reversals under MFI routing.
 #' }
 #' Only proper crossings are used as cut scores. Anomalous crossings are
@@ -136,12 +147,15 @@
 #' module index and maps routing rank 1 to the lowest-index module. For
 #' cut-score routing to assign low-theta examinees to the easiest module, the
 #' modules at each stage must be numbered in ascending difficulty order
-#' (easiest module = lowest index). \code{find_cut()} checks this assumption and issues a warning if the
-#' difficulty order does not match the index order. Regardless of this warning,
-#' cut scores are always computed between consecutive module pairs in the
-#' supplied index order (e.g., modules 2 & 3 and 3 & 4, not 2 & 4 and 4 & 3).
-#' The returned cut scores within each stage are sorted in ascending order,
-#' as required by \code{\link[base]{cut}}.
+#' (easiest module = lowest index). \code{find_cut()} checks this assumption
+#' and issues a warning if the difficulty order does not match the index order.
+#' Regardless of this warning, cut scores are always computed between
+#' consecutive module pairs in the supplied index order (e.g., modules 2 & 3
+#' and 3 & 4, not 2 & 4 and 4 & 3). The cut scores of each stage are returned
+#' in ascending order. When the index order and the difficulty order agree, the
+#' \emph{k}-th cut score is the crossing between the \emph{k}-th and the
+#' (\emph{k}+1)-th module of the stage, which is how \code{\link{run_mst}} and
+#' \code{\link{reval_mst}} use it.
 #' }
 #'
 #' @seealso \code{\link{run_mst}}, \code{\link{panel_info}},
@@ -150,7 +164,7 @@
 #' @importFrom stats setNames
 #'
 #' @examples
-#' ## -- Setup: use the built-in simMST 1-3-3 panel --------------------------
+#' ## Setup: use the built-in simMST 1-3-3 panel
 #' ## simMST is a 7-module, 3-stage MST panel (8 dichotomous 3PLM items each).
 #' ## Modules 1 (routing), 2-4 (stage 2: easy/medium/hard),
 #' ##         5-7 (stage 3: easy/medium/hard).
@@ -158,7 +172,7 @@
 #' module    <- simMST$module
 #' route_map <- simMST$route_map
 #'
-#' ## -- Find TIF-crossing cut scores -----------------------------------------
+#' ## Find TIF-crossing cut scores
 #' ## For each adjacent module pair at stages 2 and 3, find_cut() identifies
 #' ## the theta at which the harder module's TIF first exceeds the easier
 #' ## module's TIF (proper crossing), and returns it as a cut score.
@@ -168,7 +182,7 @@
 #' ## and the final selected cut scores per stage transition.
 #' print(cut_result)
 #'
-#' ## -- Visualise TIF curves and cut scores ---------------------------------
+#' ## Visualize TIF curves and cut scores
 #' ## plot() shows TIF curves for every module faceted by stage.
 #' ## Selected cut scores appear as solid black vertical lines with theta
 #' ## labels at the crossing point. Anomalous crossings (if any) appear
@@ -177,20 +191,21 @@
 #' plot(cut_result, layout = "horizontal")  # stages side by side
 #' plot(cut_result, show_anomalous = FALSE) # hide anomalous crossing markers
 #'
-#' ## Inspect the cut_score element -- a list directly compatible with run_mst()
+#' ## Inspect the cut_score element, a list that can be passed to run_mst()
 #' ## cut_score[[1]]: two cut scores for the stage-1 -> stage-2 transition
 #' ## cut_score[[2]]: cut scores for the stage-2 -> stage-3 transition
 #' cut_result$cut_score
 #'
 #' ## Compare with the cut scores stored in simMST, which were obtained the
-#' ## same way; the two sets of values are identical
+#' ## same way; the two sets agree up to numerical precision
 #' simMST$cut_score
+#' all.equal(cut_result$cut_score, simMST$cut_score)
 #'
-#' ## -- Use the cut scores in run_mst() --------------------------------------
+#' ## Use the cut scores in run_mst()
 #' ## Pass cut_result$cut_score directly to run_mst() with route_method = NULL.
 #' ## This replaces pure MFI routing with TIF-crossing-based fixed cut scores,
 #' ## preventing anomalous path reversals at the extremes of the theta scale.
-#' \dontrun{
+#' \donttest{
 #' set.seed(1)
 #' theta_true <- rnorm(500)
 #' result <- run_mst(
@@ -198,8 +213,10 @@
 #'   route_map    = route_map,
 #'   module       = module,
 #'   theta        = theta_true,
+#'   D            = 1.702,
 #'   route_method = NULL,
-#'   cut_score    = cut_result$cut_score
+#'   cut_score    = cut_result$cut_score,
+#'   verbose      = FALSE
 #' )
 #' }
 #'
@@ -220,9 +237,11 @@ find_cut <- function(x,
   if (nrow(x) != nrow(module))
     stop("Number of rows in 'x' must equal number of rows in 'module' (J items).")
   # route_map may be a matrix or a data.frame (panel_info() accepts both)
+  # a logical route_map is read as a 0/1 matrix, as panel_info() does
   if (!(is.matrix(route_map) || is.data.frame(route_map)) ||
-      !all(vapply(as.data.frame(route_map), is.numeric, logical(1L))))
-    stop("'route_map' must be a numeric binary square matrix (M x M).")
+      !all(vapply(as.data.frame(route_map),
+                  function(z) is.numeric(z) || is.logical(z), logical(1L))))
+    stop("'route_map' must be a binary (numeric or logical) square matrix (M x M).")
   if (ncol(module) != nrow(route_map))
     stop("Number of columns in 'module' (M modules) must equal dimensions of 'route_map'.")
   if (!is.numeric(D) || length(D) != 1L || !is.finite(D))
@@ -427,11 +446,16 @@ find_cut <- function(x,
           )$root,
           error = function(e) NA_real_
         )
-        if (is.na(root_i)) next    # uniroot failed -- skip this candidate
+        if (is.na(root_i)) next    # uniroot failed; skip this candidate
 
         # Classify the crossing by the sign of the slope (finite difference, h = 0.01)
         slope_i <- (diff_tif_fn(root_i + 0.01) - diff_tif_fn(root_i - 0.01)) / 0.02
         type_i  <- if (slope_i > 0) "proper" else "anomalous"
+
+        # Skip a root already found from the previous interval; this happens
+        # when the TIF difference is exactly zero at a grid point
+        if (length(all_roots) > 0L &&
+            abs(root_i - all_roots[length(all_roots)]) < .Machine$double.eps^0.5) next
 
         all_roots  <- c(all_roots,  root_i)
         root_types <- c(root_types, type_i)
@@ -457,7 +481,7 @@ find_cut <- function(x,
           length(anomalous_roots),
           paste(round(anomalous_roots, 4L), collapse = ", ")))
         } else {
-          # Sign changes existed on grid but uniroot() found nothing -- numerical issue
+          # Sign changes existed on grid but uniroot() found nothing (numerical issue)
           stop(sprintf(paste0(
             "Stage %d, pair (module %d vs module %d): ",
             "sign changes were detected on the grid but no root could be refined.\n",
@@ -515,7 +539,7 @@ find_cut <- function(x,
 
   # -- 4. Build tif_data tibble -----------------------------------------------
   # Tidy data frame with one row per (theta, module) combination
-  # Suitable for ggplot2 visualisation of TIF curves and crossing points
+  # Suitable for ggplot2 visualization of TIF curves and crossing points
   tif_data <- dplyr::bind_rows(tif_rows)
 
   # -- 5. Assemble and return the result object -------------------------------
@@ -530,13 +554,13 @@ find_cut <- function(x,
 
 
 # ---------------------------------------------------------------------------
-# plot.find_cut() -- S3 plot method for find_cut objects
+# plot.find_cut(): S3 plot method for find_cut objects
 # ---------------------------------------------------------------------------
 
 #' Plot TIF Curves and Cut Scores from a \code{find_cut} Result
 #'
 #' @description
-#' Produces a \pkg{ggplot2} visualisation of the Test Information Function
+#' Produces a \pkg{ggplot2} visualization of the Test Information Function
 #' (TIF) curves for each module, faceted by stage, with vertical lines marking
 #' the selected cut scores (proper TIF crossings) and, optionally, any
 #' anomalous crossings detected by \code{\link{find_cut}}.
@@ -549,7 +573,8 @@ find_cut <- function(x,
 #' @param x An object of class \code{"find_cut"} returned by
 #'   \code{\link{find_cut}}.
 #' @param theta_range A numeric vector of length 2 specifying the theta range
-#'   shown on the x-axis. Defaults to the full range stored in
+#'   shown on the x-axis. The TIF curves, the vertical lines, and the dots
+#'   outside this range are cut off. Defaults to the full range stored in
 #'   \code{x$tif_data}.
 #' @param show_anomalous Logical. If \code{TRUE} (default), anomalous TIF
 #'   crossings (negative-slope crossings excluded from the cut scores) are
@@ -563,7 +588,7 @@ find_cut <- function(x,
 #' @param ... Currently unused. Reserved for future arguments.
 #'
 #' @return A \code{ggplot} object. The object is printed automatically when
-#'   called interactively. It can be further customised with standard
+#'   called interactively. It can be further customized with standard
 #'   \pkg{ggplot2} functions such as \code{ggplot2::theme()},
 #'   \code{ggplot2::scale_color_manual()}, etc.
 #'
@@ -726,10 +751,10 @@ plot.find_cut <- function(x,
   caption_parts <- "Vertical lines: solid black = selected cut score"
   if (has_unselected)
     caption_parts <- paste0(caption_parts,
-                            " - grey dashed = unselected proper crossing")
+                            "; grey dashed = unselected proper crossing")
   if (show_anomalous && has_anomalous)
     caption_parts <- paste0(caption_parts,
-                            " - red dashed = anomalous crossing")
+                            "; red dashed = anomalous crossing")
 
   # -- 4. Choose facet layout -------------------------------------------------
   # "vertical"   -> ncol = 1, one row per stage, stage 1 at the top
@@ -775,7 +800,7 @@ plot.find_cut <- function(x,
   # -- 6. Overlay vertical lines for each crossing type ----------------------
   if (!is.null(vline_df)) {
 
-    # Selected cut scores -- solid black, linewidth 1.0
+    # Selected cut scores: solid black, linewidth 1.0
     sel_df <- vline_df[vline_df$crossing_type == "selected", ]
     if (nrow(sel_df) > 0L) {
       p <- p + ggplot2::geom_vline(
@@ -788,7 +813,7 @@ plot.find_cut <- function(x,
       )
     }
 
-    # Unselected proper crossings -- dashed grey50
+    # Unselected proper crossings: dashed grey50
     unsel_df <- vline_df[vline_df$crossing_type == "unselected", ]
     if (nrow(unsel_df) > 0L) {
       p <- p + ggplot2::geom_vline(
@@ -801,7 +826,7 @@ plot.find_cut <- function(x,
       )
     }
 
-    # Anomalous crossings -- dashed firebrick
+    # Anomalous crossings: dashed firebrick
     anom_df <- vline_df[vline_df$crossing_type == "anomalous", ]
     if (nrow(anom_df) > 0L) {
       p <- p + ggplot2::geom_vline(
@@ -816,7 +841,7 @@ plot.find_cut <- function(x,
   }
 
   # -- 7. Add open-circle dot at each selected crossing point -----------------
-  # The dot sits at (theta_cut, TIF_left(theta_cut)) -- the exact intersection
+  # The dot sits at (theta_cut, TIF_left(theta_cut)), the exact intersection
   # of the two adjacent module TIF curves at the cut score theta.
   if (!is.null(point_df)) {
     p <- p + ggplot2::geom_point(
@@ -846,6 +871,12 @@ plot.find_cut <- function(x,
       fontface    = "bold",
       inherit.aes = FALSE
     )
+  }
+
+  # -- 9. Limit the x-axis to the requested theta range -----------------------
+  # The crossing lines and dots outside the range are cut off, not dropped
+  if (!is.null(theta_range)) {
+    p <- p + ggplot2::coord_cartesian(xlim = theta_range)
   }
 
   p    # return ggplot object (auto-printed when called interactively)

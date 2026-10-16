@@ -1,5 +1,10 @@
-# This function returns the gradient vector and hessian matrix for the score category probability equation
+# This function returns, for each score category, a function that evaluates
+# the category probability with its gradient (and Hessian if requested)
 equation_scocat <- function(model = c("1PLM", "2PLM", "3PLM", "GRM", "GPCM"), cats = NULL, fix.a.gpcm = FALSE, hessian = TRUE, type = c("item", "ability")) {
+  # resolve the model and the type of derivatives
+  model <- match.arg(model)
+  type <- match.arg(type)
+
   ## -------------------------------
   # set the item parameters to be used in the equation
   if (model %in% c("1PLM", "2PLM", "3PLM")) {
@@ -16,7 +21,7 @@ equation_scocat <- function(model = c("1PLM", "2PLM", "3PLM", "GRM", "GPCM"), ca
   # score category probability equation
   equation <- c()
 
-  # (1) DRM
+  # (1) DRM: the first element is P(score = 1) and the second is P(score = 0)
   if (model %in% c("1PLM", "2PLM", "3PLM")) {
     equation <- c(equation, paste0(pars[3], " + (1 - ", pars[3], ") / (1 + exp(-D * ", pars[1], " * (theta - ", pars[2], ")))"))
     equation <- c(equation, paste0("1 - (", pars[3], " + (1 - ", pars[3], ") / (1 + exp(-D * ", pars[1], " * (theta - ", pars[2], "))))"))
@@ -38,7 +43,7 @@ equation_scocat <- function(model = c("1PLM", "2PLM", "3PLM", "GRM", "GPCM"), ca
     }
   }
 
-  # (2) GPCM
+  # (3) GPCM
   if (model == "GPCM") {
     # denominator
     denom <- c()
@@ -71,12 +76,12 @@ equation_scocat <- function(model = c("1PLM", "2PLM", "3PLM", "GRM", "GPCM"), ca
       numer <- c(numer, paste0("exp(", paste(tmp, collapse = " + "), ")"))
     }
 
-    # likelihood equation
+    # category probability equations
     equation <- paste(numer, denom, sep = " / ")
   }
 
   ## ----------------------------------------------------------------------------
-  # create a function for a gradient and hessian
+  # create a function for the gradient and Hessian
   funList <- vector("list", cats)
   if (type == "item") {
     # set the evaluated item parameters

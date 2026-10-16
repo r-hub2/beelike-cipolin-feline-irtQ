@@ -6,7 +6,7 @@
 #'
 #' @param List A list containing numeric vectors of possibly different lengths.
 #' @param type A character string indicating the type of binding to perform.
-#'   Options are `"rbind"` or `"cbind"`.
+#'   Options are `"rbind"` or `"cbind"`. Default is `"rbind"`.
 #' @param fill A value used to fill missing elements when aligning the vectors.
 #'   For `type = "cbind"`, this fills missing rows in shorter columns; for `type
 #'   = "rbind"`, this fills missing columns in shorter rows. Accepts any R
@@ -14,6 +14,7 @@
 #'
 #' @return A matrix formed by binding the elements of the list either row-wise
 #'   or column-wise, with shorter vectors padded by the specified `fill` value.
+#'   The matrix has no row or column names.
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
@@ -49,8 +50,87 @@ bind.fill <- function(List, type=c("rbind", "cbind"), fill = NA){
 
 }
 
-# this function finds the index of the DRM items and PLM items given the object of
-# "simdat()" function
+# Check the positions of the items to be skipped in an IPD analysis and return them as
+# sorted unique integers (NULL when no item is skipped)
+check_item_skip <- function(item.skip, nitem) {
+  # nothing to check when no item is skipped
+  if (is.null(item.skip)) {
+    return(NULL)
+  }
+
+  # read a logical vector as the positions of TRUE
+  if (is.logical(item.skip)) {
+    if (length(item.skip) != nitem || anyNA(item.skip)) {
+      stop("A logical 'item.skip' must have one non-missing value per item.", call. = FALSE)
+    }
+    item.skip <- which(item.skip)
+  }
+
+  # stop when the values are not whole item positions within the items
+  if (!is.numeric(item.skip) || anyNA(item.skip) || any(item.skip != round(item.skip)) ||
+      any(item.skip < 1 | item.skip > nitem)) {
+    stop("'item.skip' must contain item positions (row numbers of 'x') from 1 to ", nitem, ".",
+         call. = FALSE)
+  }
+
+  # return the unique positions in ascending order
+  item.skip <- sort(unique(as.integer(item.skip)))
+  if (length(item.skip) == 0L) item.skip <- NULL
+  item.skip
+}
+
+# Convert the response data of the model-data fit functions to a numeric matrix
+# and check that every observed response is a whole number within the score
+# categories of its item
+resp_to_matrix <- function(data, cats, id = seq_along(cats)) {
+  # convert the responses to a matrix
+  resp <- as.matrix(data)
+
+  # stop when the data do not have one column per item
+  if (ncol(resp) != length(cats)) {
+    stop(
+      "The number of columns in 'data' (", ncol(resp), ") must equal ",
+      "the number of items in 'x' (", length(cats), ").",
+      call. = FALSE
+    )
+  }
+
+  # read character or factor responses as numbers
+  if (!is.numeric(resp) && !is.logical(resp)) {
+    resp_num <- suppressWarnings(as.numeric(resp))
+
+    # stop when an observed response cannot be read as a number
+    if (any(is.na(resp_num) & !is.na(resp))) {
+      stop("Responses must be numeric scores.", call. = FALSE)
+    }
+
+    # keep the numeric responses with the dimensions and names of the input
+    resp <- matrix(resp_num, nrow = nrow(resp), dimnames = dimnames(resp))
+  }
+
+  # read logical responses as 0 and 1
+  if (is.logical(resp)) {
+    resp <- matrix(as.numeric(resp), nrow = nrow(resp), dimnames = dimnames(resp))
+  }
+
+  # flag the items that have an observed response outside their score categories
+  max_cat <- matrix(cats - 1, nrow = nrow(resp), ncol = ncol(resp), byrow = TRUE)
+  bad_item <- which(colSums(!is.na(resp) & (resp < 0 | resp > max_cat | resp != round(resp)),
+    na.rm = TRUE) > 0)
+
+  # stop when any observed response is invalid
+  if (length(bad_item) > 0L) {
+    stop(
+      "Responses outside the score categories 0, ..., (cats - 1) are found for item(s) ",
+      paste0(id[bad_item], " (column ", bad_item, ")", collapse = ", "), ".",
+      call. = FALSE
+    )
+  }
+
+  resp
+}
+
+# Find the indices of the DRM and PRM items in the output of breakdown()
 idxfinder <- function(x) {
 
   # find the index of drm items
@@ -66,7 +146,7 @@ idxfinder <- function(x) {
 
 }
 
-# a function to calculate a mean and variance at each theta point
+# Compute the mean and variance of a discrete distribution given its nodes and weights
 cal_moment <- function(node, weight) {
   mu <- sum(node * weight)
   sigma2 <- sum(node^2 * weight) - mu^2
@@ -90,8 +170,6 @@ cal_moment <- function(node, weight) {
 # Returns:
 #   list of length nitem; element [[k]] is an nstd x cats[k] integer
 #   matrix as described above.
-#
-# This direct one-hot construction allocates only the final per-item matrices.
 build_freqcat <- function(data, cats) {
 
   # number of examinees and items in the response matrix
@@ -135,8 +213,8 @@ build_freqcat <- function(data, cats) {
 }
 
 
-# This function divides the item response data sets into the two DRM responses (correct and incorrect)
-# and one PRM item parts.
+# Split the response data into sparse matrices of DRM correct responses,
+# DRM incorrect responses, PRM category indicators, and all category indicators.
 #' @importFrom Matrix Matrix
 divide_data <- function(data, idx.item, freq.cat) {
 

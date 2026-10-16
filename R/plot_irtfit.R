@@ -8,13 +8,13 @@
 #' category 1.
 #'
 #' @inheritParams plot.info
-#' @param x x An object of class `irtfit` obtained from [irtQ::irtfit()].
-#' @param item.loc An integer specifying the position of the item to be plotted
-#'   (i.e., the *n*th item in the item set). See **Details** below.
-##' @param type A character string indicating the type of residual plot to be
-##'  displayed. Available options are:
-##'  - `"icc"` for the raw residual plot
-##'  - `"sr"` for the standardized residual plot
+#' @param x An object of class `irtfit` obtained from [irtQ::irtfit()].
+#' @param item.loc An integer giving the position of the item to plot in the
+#'   `item_df` element of `x`. See **Details** below.
+#' @param type A character string indicating the type of residual plot to be
+#'   displayed. Available options are:
+#'   - `"icc"` for the raw residual plot
+#'   - `"sr"` for the standardized residual plot
 #'   - `"both"` for displaying both plots
 #'
 #'   Default is `"both"`.
@@ -26,11 +26,11 @@
 #'
 #'   Default is `"wald"`. See **Details** below.
 #' @param show.table A logical value indicating whether to return the
-#'   contingency table used for drawing the residual plots of the specified
-#'   item. If `TRUE`, the function returns the same contingency table stored in the
-#'   internal `contingency.plot` object of the `irtfit` object. Default is `TRUE`.
-#' @param layout.col An integer specifying the number of columns in the panel layout
-#'   when plotting residuals for a polytomous item. Default is 2.
+#'   contingency table used to draw the residual plots of the item, taken from
+#'   the `contingency.plot` element of `x`. Default is `TRUE`.
+#' @param layout.col An integer specifying the number of columns in the panel
+#'   layout for a polytomous item when `type` is `"icc"` or `"sr"`. With
+#'   `type = "both"`, each plot uses one column. Default is 2.
 #' @param xlab.text A character string specifying the title for the x-axis.
 #'   If omitted, a default label is used.
 #' @param ylab.text A character string specifying the title for the y-axis.
@@ -44,44 +44,47 @@
 #' @param point.size A numeric value specifying the size of points. Default is 2.5.
 #' @param strip.size A numeric value specifying the size of facet label text. Default is 12.
 #' @param ylim.icc A numeric vector of length two specifying the y-axis limits
-#'   for the raw residual plot. Default is c(0, 1).
-#' @param ylim.sr.adjust Logical. If `TRUE`, the y-axis range for the
-#'   standardized residual plot is automatically adjusted based on the maximum
-#'   residual value for each item. If `FALSE`, the range is fixed according to
-#'   the values specified in the `ylim.sr` argument. Default is `FALSE`.
+#'   for the raw residual plot. Default is `c(0, 1)`.
+#' @param ylim.sr.adjust Logical. If `TRUE`, the y-axis limits of the
+#'   standardized residual plot are set to \eqn{\pm} the largest absolute
+#'   standardized residual of the item plus 1, rounded to an integer. If
+#'   `FALSE`, `ylim.sr` is used. Default is `FALSE`.
 #' @param ylim.sr A numeric vector of length two specifying the y-axis limits
-#'   for the standardized residual plot. Default is c(-4, 4).
+#'   for the standardized residual plot. Default is `c(-4, 4)`.
 #' @param ... Additional arguments passed to [ggplot2::ggplot()] from the
 #'   \pkg{ggplot2} package.
 #'
 #' @details All plots are generated using the \pkg{ggplot2} package.
 #'
-#'   Once the IRT model fit analysis is completed using [irtQ::irtfit()], the
-#'   resulting object of class `irtfit` can be used to draw raw and standardized
-#'   residual plots.These plots are primarily based on the information stored in
-#'   the internal object `contingency.plot`.
+#'   The object of class `irtfit` returned by [irtQ::irtfit()] is used to draw
+#'   raw and standardized residual plots. The plots are based mainly on the
+#'   `contingency.plot` element of the object.
 #'
-#'   Because residual plots are generated for one item at a time, you must
-#'   specify which item to evaluate by providing an integer value for the
-#'   `item.loc` argument, indicating the item's position in the test form.
-#'   For example, to draw residual plots for the third item, set `item.loc = 3`.
+#'   Residual plots are drawn for one item at a time. Set `item.loc` to the
+#'   position of the item in the `item_df` element of the `irtfit` object; for
+#'   example, `item.loc = 3` selects the third item. Items with fewer than two
+#'   responses are removed by [irtQ::irtfit()], so positions can differ from
+#'   those in the original item metadata.
 #'
-#'   For the raw residual plot, the `ci.method` argument determines the method
-#'   used to estimate confidence intervals. The available methods are:
-#'   - `"wald"`: Wald interval based on the normal approximation (Laplace, 1812)
+#'   For the raw residual plot, the `ci.method` argument sets the method used
+#'   to compute the confidence intervals of the observed proportions:
+#'   - `"wald"`: Wald-type interval based on the normal approximation
+#'   (Laplace, 1820), \eqn{\hat{p} \pm z_{1 - \alpha/2} \sqrt{P(1 - P)/N}},
+#'   where \eqn{\hat{p}} is the observed proportion, \eqn{P} is the
+#'   model-expected probability, and \eqn{N} is the group size. The limits are
+#'   truncated to the interval from 0 to 1.
 #'   - `"wilson"`: Wilson score interval (Wilson, 1927)
-#'   - `"wilson.cr"`: Wilson score interval with continuity correction (Newcombe, 1998)
+#'   - `"wilson.cr"`: Wilson score interval with continuity correction
+#'   (Newcombe, 1998)
 #'
 #'   For more information, see
 #'   <https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval>.
-#'   Note that the width of the confidence interval is governed by the
-#'   \eqn{\alpha}-level specified in the `alpha` argument of the
-#'   [irtQ::irtfit()] function.
+#'   The confidence level is \eqn{1 - \alpha}, where \eqn{\alpha} is the
+#'   `alpha` argument of [irtQ::irtfit()].
 #'
-#'   For the standardized residual plot, residuals exceeding the threshold
-#'   specified in the `overSR` argument of the [irtQ::irtfit()] function
-#'   are displayed as circles. Residuals that do not exceed the threshold
-#'   are displayed as crosses.
+#'   In the standardized residual plot, residuals whose absolute values exceed
+#'   the `overSR` argument of [irtQ::irtfit()] are drawn as red circles, and
+#'   the others as blue crosses. Dashed lines mark \eqn{\pm} `overSR`.
 #'
 #' @return This method displays the IRT raw residual plot, standardized
 #'   residual plot, or both for the specified item. When `show.table = TRUE`, a
@@ -90,13 +93,13 @@
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
-#' @seealso [irtfit()]
+#' @seealso [irtQ::irtfit()]
 #'
 #' @references Hambleton, R. K., Swaminathan, H., & Rogers, H. J. (1991).
 #'   *Fundamentals of item response theory*. Newbury Park, CA: Sage.
 #'
-#'   Laplace, P. S. (1820). *Theorie analytique des probabilites* (in French).
-#'   Courcier.
+#'   Laplace, P. S. (1820). *Theorie analytique des probabilites* (3rd ed., in
+#'   French). Paris: Courcier.
 #'
 #'   Newcombe, R. G. (1998). Two-sided confidence intervals for the single
 #'   proportion: comparison of seven methods. *Statistics in Medicine, 17*(8),
@@ -182,8 +185,13 @@ plot.irtfit <- function(x,
     }
   }
 
+  # stop when the item location does not point to an evaluated item
+  if (!item.loc %in% seq_len(nrow(x$item_df))) {
+    stop(paste0("'item.loc' must be an integer between 1 and ", nrow(x$item_df), "."), call. = FALSE)
+  }
+
   # prepare data
-  # extract an meta information of an item in which residual plot is drawn
+  # extract the metadata of the item to plot
   item_meta <- x$item_df[item.loc, ]
 
   # obtain the number of score categories of the item
@@ -218,14 +226,14 @@ plot.irtfit <- function(x,
   # extract the standard errors
   se <- dplyr::select(ctg.tb, dplyr::starts_with("se"))
 
-  # extract standardize the raw residuals
+  # extract the standardized residuals
   std.rsd <- dplyr::select(ctg.tb, dplyr::starts_with("std.rsd"), theta = "point")
 
   # find a z-score corresponding to the two-sided significance level
   zscore <- stats::qnorm(1 - alpha / 2)
 
-  # a data.frame including the standardized residuals and and information
-  # to see if the standardized residuals are greater than a specified SR criterion.
+  # standardized residuals with an indicator of whether their absolute
+  # values exceed overSR
   resid_df <-
     std.rsd %>%
     reshape2::melt(id.vars = "theta", variable.name = "score", value.name = "std.rsd") %>%
@@ -234,7 +242,7 @@ plot.irtfit <- function(x,
       gsub(pattern = "std.rsd.", replacement = "", x = paste0("Score: ", .x))
     })
 
-  # when the item is a DRM item
+  # when the item is dichotomous
   if (score.cats == 2) {
     resid_df <-
       resid_df %>%
@@ -277,7 +285,7 @@ plot.irtfit <- function(x,
     )
   )
 
-  # restrict the confidence intervals from 0 to 1 when Wald statistic is used
+  # truncate the Wald interval limits to the range from 0 to 1
   if (ci.method == "wald") {
     ci[ci < 0] <- 0
     ci[ci > 1] <- 1
@@ -314,7 +322,12 @@ plot.irtfit <- function(x,
 
   ## -------------------------------------------------------------------------
   # draw plots
+  # check the type of plot
   type <- tolower(type)
+  if (!(length(type) == 1L && type %in% c("both", "icc", "sr"))) {
+    stop("'type' must be one of \"both\", \"icc\", or \"sr\".", call. = FALSE)
+  }
+
   # (1) draw ICC plots
   if (type == "icc") {
     if (missing(xlab.text)) xlab.text <- expression(theta)
@@ -353,8 +366,9 @@ plot.irtfit <- function(x,
     if (missing(xlab.text)) xlab.text <- expression(theta)
     if (missing(ylab.text)) ylab.text <- "Standardized Residual"
     if (missing(main.text)) main.text <- paste0("Standardized Residuals: ", item_meta$id)
-    point.color <- c("blue", "red")
-    point.shape <- c(4, 1)
+    # fix the color and shape of each level, so that a plot with one level keeps its meaning
+    point.color <- c("0" = "blue", "1" = "red")
+    point.shape <- c("0" = 4, "1" = 1)
 
     # find a maximum value of the absolute standardized residuals
     # use the maximum value as the ylim value
@@ -387,7 +401,7 @@ plot.irtfit <- function(x,
 
   ## -------------------------------------------------------------------------
   if (type == "both") {
-    xlab.text <- expression(theta)
+    if (missing(xlab.text)) xlab.text <- expression(theta)
     if (missing(ylab.text)) ylab.text <- c("Probability", "Standardized Residual")
     if (missing(main.text)) {
       main.text <- c(
@@ -421,8 +435,9 @@ plot.irtfit <- function(x,
       ggplot2::theme(strip.text.x = ggplot2::element_text(size = strip.size, face = "bold"))
 
     # (2) draw standardized residual plots
-    point.color <- c("blue", "red")
-    point.shape <- c(4, 1)
+    # fix the color and shape of each level, so that a plot with one level keeps its meaning
+    point.color <- c("0" = "blue", "1" = "red")
+    point.shape <- c("0" = 4, "1" = 1)
 
     # find a maximum value of the absolute standardized residuals
     # use the maximum value as the ylim value
@@ -451,7 +466,7 @@ plot.irtfit <- function(x,
       ggplot2::geom_hline(yintercept = c(-overSR, overSR), linetype = "dashed")
 
     # combine the two plots in a window
-    gridExtra::grid.arrange(p1, p2, ncol = 2) # For multitple plots
+    gridExtra::grid.arrange(p1, p2, ncol = 2) # place the two plots side by side
   }
 
   # return the contingency table

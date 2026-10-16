@@ -2,7 +2,7 @@
 % Please edit documentation in R/simdat.R
 \name{simdat}
 \alias{simdat}
-\title{Simulated Response Data}
+\title{Simulate Response Data}
 \usage{
 simdat(
   x = NULL,
@@ -18,11 +18,9 @@ simdat(
 )
 }
 \arguments{
-\item{x}{A data frame containing item metadata. This metadata is required to
-retrieve essential information for each item (e.g., number of score
-categories, IRT model type, etc.) necessary for calibration. You can create
-an empty item metadata frame using the function \code{\link[=shape_df]{shape_df()}}. See
-\strong{below} for more details. Default is \code{NULL}.}
+\item{x}{A data frame containing item metadata (e.g., number of score
+categories, IRT model, and item parameters). It can be created with
+\code{\link[=shape_df]{shape_df()}}. See \strong{Details}. Default is \code{NULL}.}
 
 \item{theta}{A numeric vector of ability (theta) values.}
 
@@ -33,7 +31,7 @@ dichotomous IRT models.}
 IRT models.}
 
 \item{g.drm}{A numeric vector of guessing parameters for dichotomous IRT
-models.}
+models. A single value is used for all dichotomous items.}
 
 \item{a.prm}{A numeric vector of item discrimination (slope) parameters for
 polytomous IRT models.}
@@ -44,19 +42,21 @@ polytomous IRT models.}
 \item{cats}{A numeric vector indicating the number of score categories for
 each item.}
 
-\item{pr.model}{A character vector specifying the polytomous IRT model used
-to simulate responses for each polytomous item. Each element should be
-either "GRM" (graded response model) or "GPCM" (generalized partial credit
-model).}
+\item{pr.model}{A character vector specifying the IRT model of each
+polytomous item, in the order the polytomous items appear in \code{cats}. Each
+element is either \code{"GRM"} (graded response model) or \code{"GPCM"}
+(generalized partial credit model). A single value is used for all
+polytomous items.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 }
 \value{
-A matrix or vector of simulated item responses.
-If a matrix is returned, rows correspond to examinees (theta values) and
-columns to items.
+A numeric matrix of simulated item responses with one row per
+examinee (theta value) and one column per item, in the item order of \code{x}
+or \code{cats}. Responses range from 0 to K - 1 for an item with K score
+categories. The matrix has no row or column names.
 }
 \description{
 This function generates simulated response data for single-format or
@@ -86,8 +86,7 @@ The subsequent columns should contain the item parameters for the specified
 models. For dichotomous items, the fourth, fifth, and sixth columns
 represent item discrimination (slope), item difficulty, and item guessing
 parameters, respectively. When \code{"1PLM"} or \code{"2PLM"} is specified in the
-third column, \code{NA}s must be entered in the sixth column for the guessing
-parameters.
+third column, the sixth column is ignored and can be \code{NA}.
 
 For polytomous items, the item discrimination (slope) parameter should
 appear in the fourth column, and the item difficulty (or threshold)
@@ -95,16 +94,15 @@ parameters for category boundaries should occupy the fifth through the last
 columns. When the number of unique score categories differs across items,
 unused parameter cells should be filled with \code{NA}s.
 
-In the \pkg{irtQ} package, the threshold parameters for GPCM items are
-expressed as the item location (or overall difficulty) minus the threshold
-values for each score category. Note that when a GPCM item has \emph{K} unique
-score categories, \emph{K - 1} threshold parameters are required, since the
-threshold for the first category boundary is always fixed at 0. For
-example, if a GPCM item has five score categories, four threshold
-parameters must be provided.
+In the \pkg{irtQ} package, the threshold parameters of a GPCM item are
+\eqn{b_v = \beta - \tau_v}, the overall item location minus the threshold
+of each score category. A GPCM item with \emph{K} unique score categories
+requires \emph{K - 1} threshold parameters, because the term for the lowest
+score category is fixed at 0 and is not supplied. For example, a GPCM item
+with five score categories requires four threshold parameters.
 
 An example of a data frame for a single-format test is shown below:
-\tabular{lrlrrrrr}{
+\tabular{lrlrrr}{
 ITEM1  \tab 2 \tab 1PLM \tab 1.000 \tab  1.461 \tab         NA \cr
 ITEM2  \tab 2 \tab 2PLM \tab 1.921 \tab -1.049 \tab         NA \cr
 ITEM3  \tab 2 \tab 3PLM \tab 1.736 \tab  1.501 \tab  0.203 \cr
@@ -129,19 +127,19 @@ details about the IRT models used in the \pkg{irtQ} package. A convenient
 way to create a data frame for the argument \code{x} is by using the function
 \code{\link[=shape_df]{shape_df()}}.
 
-The second approach is to simulate response data by directly specifying
-item parameters, instead of providing a metadata data frame via the \code{x}
-argument (see examples below). In this case, the following arguments must
-also be specified: \code{theta}, \code{cats}, \code{pr.model}, and \code{D}.
+The second approach is to specify the item parameters directly instead of
+\code{x} (see Examples). In this case, \code{theta} and \code{cats} are required, along
+with \code{a.drm} and \code{b.drm} for dichotomous items and \code{a.prm}, \code{d.prm}, and
+\code{pr.model} for polytomous items.
 
 The \code{g.drm} argument is only required when simulating dichotomous item
 responses under the 3PL model. It can be omitted entirely if all
 dichotomous items follow the 1PL or 2PL model. However, if the test
 includes a mixture of 1PL, 2PL, and 3PL items, the \code{g.drm} vector must be
-specified for all items, using \code{NA} for non-3PL items. For example, if a
-test consists of four dichotomous items where the first two follow the 3PL
-model and the third and fourth follow the 1PL and 2PL models respectively,
-then \code{g.drm = c(0.2, 0.1, NA, NA)} should be used.
+specified for all dichotomous items, using \code{NA} for non-3PL items. For
+example, if a test consists of four dichotomous items where the first two
+follow the 3PL model and the third and fourth follow the 1PL and 2PL
+models respectively, then \code{g.drm = c(0.2, 0.1, NA, NA)} should be used.
 
 For dichotomous items, each element in \code{cats} should be set to 2. For
 polytomous items, the number of unique score categories should be specified
@@ -183,7 +181,7 @@ pr.model <- c("GPCM", "GPCM", "GRM")
 
 # Simulate the response data
 simdat(
-  theta = theta, a.drm = a.drm, b.drm = b.drm, g.drm = NULL,
+  theta = theta, a.drm = a.drm, b.drm = b.drm, g.drm = g.drm,
   a.prm = a.prm, d.prm = d.prm, cats = cats, pr.model = pr.model, D = 1
 )
 

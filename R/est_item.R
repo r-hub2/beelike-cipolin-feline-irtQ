@@ -1,12 +1,15 @@
 #' Fixed ability parameter calibration
 #'
 #' This function performs fixed ability parameter calibration (FAPC), often
-#' called Stocking's (1988) Method A, which is the maximum likelihood estimation
-#' of item parameters given ability estimates (Baker & Kim, 2004; Ban et al.,
-#' 2001; Stocking, 1988). It can also be considered a special case of joint
-#' maximum likelihood estimation in which only one cycle of item parameter
-#' estimation is conducted, conditioned on the given ability estimates
-#' (Birnbaum, 1968). FAPC is a potentially useful method for calibrating pretest
+#' called Stocking's (1988) Method A, which estimates item parameters by
+#' maximum likelihood given ability estimates (Baker & Kim, 2004; Ban et al.,
+#' 2001; Stocking, 1988). When prior distributions are specified for item
+#' parameters (by default, for the guessing parameters of 3PLM items), the
+#' estimates are the modes of the posterior distribution (Bayes modal
+#' estimates). It can also be considered a special case of joint maximum
+#' likelihood estimation in which only one cycle of item parameter estimation
+#' is conducted, conditioned on the given ability estimates (Birnbaum, 1968).
+#' FAPC is a potentially useful method for calibrating pretest
 #' (or newly developed) items in computerized adaptive testing (CAT), as it
 #' enables placing their parameter estimates on the same scale as operational
 #' items. In addition, it can be used to recalibrate operational items in the
@@ -20,48 +23,79 @@
 #'   an empty item metadata frame using the function [irtQ::shape_df()].
 #'
 #'   When `use.startval = TRUE`, the item parameters specified in the metadata
-#'   will be used as starting values for parameter estimation. If `x = NULL`,
-#'   both `model` and `cats` arguments must be specified. See [irtQ::est_irt()]
+#'   will be used as starting values for parameter estimation; otherwise they
+#'   are ignored. If `x = NULL`, the models and numbers of score categories are
+#'   taken from the `model` and `cats` arguments. See [irtQ::est_irt()]
 #'   or [irtQ::simdat()] for more details about the item metadata. Default is
 #'   `NULL`.
-#' @param score A numeric vector of examinees' ability estimates (theta values).
-#' The length of this vector must match the number of rows in the response data.
+#' @param score A numeric vector of examinees' ability estimates (theta values),
+#'   which are treated as known. It must have one finite value per row of
+#'   `data`, in the same order as the rows.
 #' @param model A character vector specifying the IRT model to fit each item.
 #'   Available values are:
 #'   - `"1PLM"`, `"2PLM"`, `"3PLM"`, `"DRM"` for dichotomous items
 #'   - `"GRM"`, `"GPCM"` for polytomous items
 #'
 #'   Here, `"GRM"` denotes the graded response model and `"GPCM"` the
-#'   (generalized) partial credit model. Note that `"DRM"` serves as a general
-#'   label covering all three dichotomous IRT models. If a single model name is
-#'   provided, it is recycled for all items. This argument is only used when `x
-#'   = NULL`. Default is `NULL`.
+#'   (generalized) partial credit model. Note that `"DRM"` is a general label
+#'   for dichotomous items; items labeled `"DRM"` are fitted with the 3PLM, and
+#'   a warning is issued. If a single model name is provided, it is recycled for
+#'   all items. This argument is only used when `x = NULL`. Default is `NULL`.
 #' @param cats Numeric vector specifying the number of score categories per
 #'   item. For dichotomous items, this should be 2. If a single value is
 #'   supplied, it will be recycled across all items. When `cats = NULL` and all
 #'   models specified in the `model` argument are dichotomous (`"1PLM"`,
 #'   `"2PLM"`, `"3PLM"`, or `"DRM"`), the function defaults to 2 categories per
 #'   item. This argument is used only when `x = NULL`. Default is `NULL`.
-#' @param control A named list of options passed directly to [stats::nlminb()]. 
-#'   These parameters define settings for the item parameter estimation process, 
-#'   such as the maximum number of iterations. By default:
-#'   `control = list(eval.max = 500, iter.max = 200, x.tol = 1e-4)`, where  
-#'   - `eval.max` = 500 limits the number of function evaluations  
-#'   - `iter.max` = 200 caps the number of internal optimizer iterations  
-#'   - `x.tol` = 1e-4 sets the absolute change threshold in parameter values  
-#'     below which [stats::nlminb()] considers the solution to have converged  
-#'   Users may additionally supply other `nlminb()` control options  
-#'   (such as `abs.tol`, `rel.tol`, `trace`, etc.) as needed.
+#' @param item.id Character vector of item identifiers. If `NULL`, the IDs in
+#'   `x` are used, or IDs are generated automatically when `x = NULL`. A
+#'   provided `item.id` replaces any IDs in `x` and must have one value per
+#'   item. Default is `NULL`.
+#' @param control A named list of control options for [stats::nlminb()], which
+#'   maximizes the objective of each item (see Details). The default is
+#'   `list(eval.max = 500, iter.max = 200, x.tol = 1e-4)`, where
+#'   - `eval.max` is the maximum number of objective function evaluations,
+#'   - `iter.max` is the maximum number of optimizer iterations, and
+#'   - `x.tol` is the X-convergence tolerance of [stats::nlminb()].
+#'
+#'   A partial list may be supplied; options that are not supplied keep their
+#'   default values. Other options of [stats::nlminb()], such as `rel.tol` or
+#'   `trace`, can also be supplied.
 #' @param verbose Logical. If `FALSE`, all progress messages are suppressed.
 #'   Default is `TRUE`.
 #'
-#' @details In most cases, the function [irtQ::est_item()] returns successfully
+#' @details The parameters of each item are estimated separately by maximizing
+#'   the log-likelihood of its responses given the abilities in `score` (plus
+#'   the log prior densities when priors are used), except that the 1PLM items
+#'   share one slope, estimated jointly with their difficulties, when
+#'   `fix.a.1pl = FALSE`. Missing responses are omitted. Items without any
+#'   response are excluded from the estimation with a warning.
+#'
+#'   In most cases, the function [irtQ::est_item()] returns successfully
 #'   converged item parameter estimates using its default internal starting
 #'   values. However, if convergence issues arise during calibration, one
 #'   possible solution is to use alternative starting values. If item parameter
 #'   values are already specified in the item metadata (i.e., the `x` argument),
 #'   they can be used as starting values for item parameter calibration by
 #'   setting `use.startval = TRUE`.
+#'
+#'   A maximum likelihood estimate does not exist for an item with a score
+#'   category that has no responses, which includes an item whose responses are
+#'   all the same. The estimates of such an item can be extreme or remain near
+#'   their starting values, and their standard errors are unreliable (a standard
+#'   error of 99999 means that it could not be obtained). After the items
+#'   without any response are excluded, one warning lists the IDs of the
+#'   remaining items of this kind. A parameter with a prior distribution, such
+#'   as the guessing parameter of a 3PLM item with `use.gprior = TRUE`, can
+#'   still be stable.
+#'
+#'   When prior distributions are used, the item parameters are Bayes modal
+#'   estimates, and `loglikelihood` is the log-likelihood at these estimates
+#'   without the log prior densities.
+#'
+#'   The print method of this class has an argument `digits` that is not used.
+#'   It prints the log-likelihood with the number of significant digits given
+#'   by `getOption("digits")` (7 by default).
 #'
 #' @return This function returns an object of class `est_item`. The returned
 #'   object contains the following components:
@@ -73,19 +107,33 @@
 #'   according to the item metadata format.}
 #'
 #'   \item{se.est}{A data frame of standard errors for the item parameter
-#'   estimates, computed based on the observed information functions}
+#'   estimates, computed from the inverse of the observed information matrix
+#'   (the Hessian of the negative log-likelihood, plus the negative second
+#'   derivatives of the log prior densities when priors are used). The abilities
+#'   in `score` are treated as known, so their estimation error is not reflected
+#'   in the standard errors.}
 #'
-#'   \item{pos.par}{A data frame indicating the position of each item parameter
-#'   within the estimation vector. Useful for interpreting the variance-covariance
-#'   matrix.}
+#'   \item{pos.par}{A data frame of the positions of the estimated item
+#'   parameters in `covariance`. The rows of the excluded items are `NA`, and a
+#'   slope shared by 1PLM items appears only in the row of the first 1PLM
+#'   item.}
 #'
 #'   \item{covariance}{A variance-covariance matrix of the item parameter
-#'   estimates.}
+#'   estimates. Items are estimated separately, so the covariances between the
+#'   parameters of different items are 0, except among the 1PLM items that
+#'   share a common slope.}
 #'
-#'   \item{loglikelihood}{The total log-likelihood value computed across all
-#'   estimated items based on the complete response data.}
+#'   \item{loglikelihood}{The log-likelihood of the observed responses given
+#'   the abilities in `score`, summed over the items, at the final estimates.
+#'   The log prior densities of the item parameters are not included. Printed
+#'   results report -2 times this value as "-2loglikelihood".}
 #'
-#'   \item{data}{A data frame of examinees' response data.}
+#'   \item{group.par}{A named numeric vector with the mean (`mu`) and the
+#'   standard deviation (`sigma`) of the abilities in `score`.}
+#'
+#'   \item{data}{A data frame of the response data used in the estimation,
+#'   with missing responses as `NA` and without the excluded items (see
+#'   `deleted.item`).}
 #'
 #'   \item{score}{A vector of examinees' ability estimates used as fixed values
 #'   during item parameter estimation.}
@@ -95,17 +143,21 @@
 #'   \item{convergence}{A message indicating whether item parameter estimation
 #'   successfully converged.}
 #'
-#'   \item{nitem}{The total number of items in the response data.}
+#'   \item{nitem}{The number of items in `data` as supplied, including the
+#'   excluded items.}
 #'
-#'   \item{deleted.item}{Items with no response data. These items are excluded
-#'   from the item parameter estimation.}
+#'   \item{deleted.item}{A numeric vector of the positions of the items without
+#'   any response, which are excluded from the estimation (empty if there are
+#'   none). Their rows in `par.est` and `se.est` are `NA`.}
 #'
-#'   \item{npar.est}{The total number of parameters estimated.}
+#'   \item{npar.est}{The number of estimated item parameters.}
 #'
-#'   \item{n.response}{An integer vector indicating the number of valid responses
-#'   for each item used in the item parameter estimation.}
+#'   \item{n.response}{A numeric vector of the numbers of non-missing responses
+#'   to the items, with 0 for the excluded items.}
 #'
 #'   \item{TotalTime}{Total computation time in seconds.}
+#'
+#'   \item{call}{The matched call.}
 #'
 #'   Note that you can easily extract components from the output using the
 #'   [irtQ::getirt()] function.
@@ -185,7 +237,7 @@
 #' summary(mod3)
 #'
 #' # Extract both item parameter and standard error estimates
-#' getirt(mod2, what = "estimates")
+#' getirt(mod3, what = "estimates")
 #'
 #' }
 #'
@@ -258,6 +310,15 @@ est_item <- function(x = NULL,
     # confirm and correct all item metadata information
     x <- confirm_df(x)
 
+    # override the item IDs in x when item.id is supplied
+    if (!is.null(item.id)) {
+      # stop when item.id does not have one value per item of x
+      if (length(item.id) != nrow(x)) {
+        stop("The length of 'item.id' must be equal to the number of items in 'x'.", call. = FALSE)
+      }
+      x$id <- item.id
+    }
+
     # extract score categories for all items
     cats <- x$cats
 
@@ -315,6 +376,21 @@ est_item <- function(x = NULL,
     data[data == missing] <- NA
   }
 
+  # stop when a response is not one of the score categories 0, ..., cats - 1
+  # (character and factor columns are checked by their values)
+  check_resp_range(data = resp_as_numeric(data), cats = cats, id = x$id)
+
+  # transform scores to a vector if the score has other formats
+  if (is.matrix(score) | is.data.frame(score)) {
+    score <- as.numeric(data.matrix(score))
+  }
+
+  # stop when the scores do not give one finite ability value per examinee
+  if (length(score) != nstd || !all(is.finite(score))) {
+    stop("'score' must contain one finite ability value (no missing value) for each examinee (row) of 'data'.",
+         call. = FALSE)
+  }
+
   # check the number of item responses across all items
   n.resp <- colSums(!is.na(data))
 
@@ -328,7 +404,8 @@ est_item <- function(x = NULL,
     x <- x[-loc_allmiss, ]
     model <- x[, 3]
     cats <- x[, 2]
-    data <- data[, loc_nomiss]
+    # keep the data a data frame even when one item is left
+    data <- data[, loc_nomiss, drop = FALSE]
     memo2 <- paste0(
       paste0("item ", loc_allmiss, collapse = ", "),
       " is/are excluded in the item parameter estimation because the item(s) has/have no item response data."
@@ -338,13 +415,11 @@ est_item <- function(x = NULL,
     loc_allmiss <- NULL
   }
 
-  # computes the group parameter estimates: mean & var of ability parameters
-  group.par <- c(mu = mean(score), sigma = stats::sd(score))
+  # warn about the items whose maximum likelihood estimates do not exist
+  check_item_mle(data = resp_as_numeric(data), cats = cats, id = x$id)
 
-  # transform scores to a vector if the score has other formats
-  if (is.matrix(score) | is.data.frame(score)) {
-    score <- as.numeric(data.matrix(score))
-  }
+  # compute the mean and standard deviation of the abilities
+  group.par <- c(mu = mean(score), sigma = stats::sd(score))
 
   # copy scores to theta values
   theta <- score
@@ -398,10 +473,11 @@ est_item <- function(x = NULL,
   idx.prm <- idx.item$idx.prm
 
   # then, divide items into three groups
-  # (1) DRM 1PL items with the constrained slop
+  # (1) DRM 1PL items with the constrained slope
   # (2) other DRM items
   # (3) PRM items
-  if (sum(loc_else) == 0) {
+  # (no item other than the constrained 1PLM items when loc_else is empty)
+  if (length(loc_else) == 0) {
     drm.else <- NULL
   } else {
     drm.else <- loc_else
@@ -486,8 +562,8 @@ est_item <- function(x = NULL,
     convergence <- c(convergence, est$convergence)
     if (est$convergence > 0L) noconv_items <- c(noconv_items, loc_1p_const)
 
-    # negative loglikelihood value
-    objective <- c(objective, est$objective)
+    # negative log-likelihood value without the log prior densities
+    objective <- c(objective, est$objective.data)
   }
 
   # all other items
@@ -565,8 +641,8 @@ est_item <- function(x = NULL,
         convergence <- c(convergence, est$convergence)
         if (est$convergence > 0L) noconv_items <- c(noconv_items, loc_else[i])
 
-        # negative loglikelihood value
-        objective <- c(objective, est$objective)
+        # negative log-likelihood value without the log prior densities
+        objective <- c(objective, est$objective.data)
       }
 
       # in case of a PRM item
@@ -642,8 +718,8 @@ est_item <- function(x = NULL,
         convergence <- c(convergence, est$convergence)
         if (est$convergence > 0L) noconv_items <- c(noconv_items, loc_else[i])
 
-        # negative loglikelihood value
-        objective <- c(objective, est$objective)
+        # negative log-likelihood value without the log prior densities
+        objective <- c(objective, est$objective.data)
       }
     }
   }
@@ -653,11 +729,13 @@ est_item <- function(x = NULL,
   if (sum(convergence) == 0L) {
     note <- "All item parameters were successfully converged."
   } else {
+    # report the positions in the original data when items with no responses were removed
+    if (length(loc_allmiss) > 0L) noconv_items <- loc_nomiss[noconv_items]
     note <- paste0(paste0("Item ", sort(noconv_items), collapse = ", "), " was(were) not successfully converged.")
   }
 
   ## ---------------------------------------------------------------
-  # compute the sum of loglikelihood values
+  # compute the sum of the log-likelihood values without the log prior densities
   llike <- -sum(objective)
 
   ## ---------------------------------------------------------------

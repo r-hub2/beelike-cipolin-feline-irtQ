@@ -19,21 +19,29 @@ categories, model types) for a single group, or a list of such data frames
 for multiple groups. See \code{\link[=est_irt]{est_irt()}} or \code{\link[=simdat]{simdat()}} for item
 metadata format. You can also create metadata using \code{\link[=shape_df]{shape_df()}}.}
 
-\item{file}{A character string specifying the destination file path (with a
-".txt" extension).}
+\item{file}{A character string giving the path of the file to be written.
+It must be supplied. flexMIRT parameter files usually end in "-prm.txt".}
 
-\item{norm.pop}{A numeric vector of length two specifying the mean and
-standard deviation of the normal population ability distribution for a
-single group, or a list of such vectors for multiple groups. When a list is
-provided, each internal vector must contain the mean and standard deviation
-for a group's ability distribution (e.g., \code{norm.pop = list(c(0, 1), c(0, 0.8), c(0.5, 1.2))} for three groups). If \code{mgroup = TRUE} and a single
-vector is provided (e.g., \code{norm.pop = c(0, 1)}), it will be recycled across
-all groups. The default is \code{c(0, 1)}.}
+\item{norm.pop}{A numeric vector of length two giving the mean and the
+variance of the normal ability distribution of a single group, or a list
+of such vectors, one per group (e.g.,
+\code{norm.pop = list(c(0, 1), c(0, 0.64), c(0.5, 1.44))} for three
+groups). The second value is written to the variance field of the file.
+If \code{mgroup = TRUE} and a single vector is given, it is used for all
+groups. Default is \code{c(0, 1)}.}
 
-\item{rePar}{A logical value indicating whether the item parameters are
-reparameterized. If \code{TRUE}, item intercepts and logits of guessing
-parameters are assumed. If \code{FALSE}, item difficulty and guessing parameters
-are assumed.}
+\item{rePar}{Logical. Indicates how the parameters in \code{x} are given. If
+\code{TRUE} (default), \code{x} is taken to hold flexMIRT slope-intercept values:
+slopes, intercepts, and logits of the guessing parameters, and for GPCM
+items the scoring function and intercept values of the nominal model;
+they are written as they are. If \code{FALSE}, \code{x} is taken to hold
+\pkg{irtQ} item metadata (slopes, difficulty or step parameters, and
+guessing parameters), which is converted to the flexMIRT
+parameterization. Item metadata from \pkg{irtQ} (for example, from
+\code{\link[=shape_df]{shape_df()}} or \code{\link[=est_irt]{est_irt()}}) must be written with
+\code{rePar = FALSE}. Note that the meaning is the reverse of the \code{rePar}
+argument of \code{\link[=bring.flexmirt]{bring.flexmirt()}}, where \code{TRUE} converts the values
+of the file to \pkg{irtQ} metadata.}
 
 \item{mgroup}{A logical value indicating whether the file includes multiple
 groups. Default is \code{FALSE}.}
@@ -42,13 +50,24 @@ groups. Default is \code{FALSE}.}
 are automatically generated (e.g., "Group1", "Group2", ...).}
 }
 \value{
-This function creates a flexMIRT-style "-prm.txt" file at the
-specified path.
+Called for its side effect of writing the file to \code{file}. The value
+is returned invisibly and is not meant to be used.
 }
 \description{
 This function writes a flexMIRT-compatible "-prm.txt" file (Cai,
-2017). It currently supports only unidimensional IRT models. This function
-was developed by modifying \code{read.flexmirt()} from Pritikin & Falk (2020).
+2017). It supports unidimensional IRT models only. This function was
+developed by modifying \code{read.flexmirt()} from Pritikin & Falk (2020).
+}
+\details{
+The function writes items of the models \code{"1PLM"}, \code{"2PLM"},
+\code{"3PLM"}, \code{"DRM"}, \code{"GRM"}, and \code{"GPCM"}. Dichotomous items are written
+as flexMIRT 3PL (\code{"3PLM"} and \code{"DRM"}) or graded (\code{"1PLM"} and \code{"2PLM"})
+items, so \code{\link[=bring.flexmirt]{bring.flexmirt()}} reads them back as \code{"3PLM"} or
+\code{"2PLM"} items. Every item and every group is written as one line, whatever
+the width of the console. The parameters are written without rescaling.
+flexMIRT uses the logistic metric (D = 1); when \code{x} was calibrated with
+another scaling constant, multiply the slopes by that constant before
+writing.
 }
 \examples{
 \donttest{
@@ -63,6 +82,11 @@ temp_prm <- file.path(tempdir(), "single_group_temp-prm.txt")
 # 1-(3) Write the "-prm.txt" file
 write.flexmirt(x, file = temp_prm, norm.pop = c(0, 1), rePar = FALSE)
 
+# 1-(4) Read the file back and compare the item parameters
+x_back <- bring.flexmirt(file = temp_prm, type = "par")$Group1$full_df
+head(x_back)
+max(abs(as.matrix(x[, 4:7]) - as.matrix(x_back[, 4:7])), na.rm = TRUE)
+
 ## 2. Create a "-prm.txt" file for multiple groups
 ##    using simulated multi-group data
 # 2-(1) Extract the item metadata
@@ -71,9 +95,9 @@ x <- simMG$item.prm
 # Set the name of the "-prm.txt" file
 temp_prm <- file.path(tempdir(), "mg_group_temp-prm1.txt")
 
-# Write the "-prm.txt" file
+# Write the "-prm.txt" file, giving the mean and variance of each group
 write.flexmirt(x,
-  file = temp_prm, norm.pop = list(c(0, 1), c(0.5, 0.8), c(-0.3, 1.3)),
+  file = temp_prm, norm.pop = list(c(0, 1), c(0.5, 0.64), c(-0.3, 1.69)),
   rePar = FALSE, mgroup = TRUE, group.name = c("GR1", "GR2", "GR3")
 )
 

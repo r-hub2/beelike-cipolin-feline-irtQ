@@ -1,4 +1,5 @@
-# This function computes the log of the prior distribution
+# This function computes the log density of the prior distribution of item parameters; for the slope prior
+# (is.aprior = TRUE), the density is evaluated at D * val, so the prior is placed on the slope multiplied by D
 logprior <- function(val, is.aprior = FALSE, D = NULL, dist = c("lnorm", "beta", "norm"), par.1, par.2) {
   dist <- match.arg(dist)
   if (is.aprior) {
@@ -17,7 +18,9 @@ logprior <- function(val, is.aprior = FALSE, D = NULL, dist = c("lnorm", "beta",
 }
 
 
-# This function computes the first and second derivative of the prior distribution
+# This function returns the negative log prior density with its first and second derivatives with respect to val
+# as the "gradient" and "hessian" attributes; for the slope prior, the density is evaluated at D * val and the
+# derivatives are taken with respect to val
 logprior_deriv <- function(val, is.aprior = FALSE, D = NULL, dist = c("lnorm", "beta", "norm"), par.1, par.2) {
   if (is.aprior) {
     switch(dist,

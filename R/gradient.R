@@ -1,155 +1,8 @@
-# This function analytically computes a gradient for scoring
-grad_score <- function(theta, elm_item, freq.cat, idx.drm, idx.prm,
-                       method = c("ML", "MAP", "MLF"), D = 1, norm.prior = c(0, 1)) {
-  # For DRM items
-  if (!is.null(idx.drm)) {
-    # extract the response and item parameters
-    r_i <- freq.cat[idx.drm, 2]
-    a <- elm_item$pars[idx.drm, 1]
-    b <- elm_item$pars[idx.drm, 2]
-    g <- elm_item$pars[idx.drm, 3]
-
-    # compute the gradient
-    grad_drm <-
-      grad_score_drm(theta = theta, a = a, b = b, g = g, r_i = r_i, D = D)
-  } else {
-    # assign 0 to the gradient
-    grad_drm <- 0
-  }
-
-  # For PRM items
-  if (!is.null(idx.prm)) {
-    # count the number of the PRM items
-    n.prm <- length(idx.prm)
-
-    # compute the gradients for all items
-    grad_prm <- c()
-    for (i in 1:n.prm) {
-      # extract the response, model, and item parameters
-      par.tmp <- stats::na.exclude(elm_item$par[idx.prm[i], ])
-      a <- par.tmp[1]
-      d <- par.tmp[-1]
-      pr.mod <- elm_item$model[idx.prm[i]]
-      cats.tmp <- elm_item$cats[idx.prm[i]]
-      r_i <- freq.cat[idx.prm[i], c(1:cats.tmp)]
-
-      # compute the gradient
-      grad_prm[i] <-
-        grad_score_prm(theta = theta, a = a, d = d, r_i = r_i, pr.mod = pr.mod, D = D)
-    }
-
-    # sum of gradients for all PRM items
-    grad_prm <- sum(grad_prm)
-  } else {
-    # assign 0 to the gradient
-    grad_prm <- 0
-  }
-
-  # sum of the gradients for DRM and PRM items
-  grad <- sum(grad_drm, grad_prm)
-
-  # extract the gradient vector when MAP method is used
-  if (method == "MAP") {
-    # compute a gradient of prior distribution
-    rst.prior <-
-      logprior_deriv(
-        val = theta, is.aprior = FALSE, D = NULL, dist = "norm",
-        par.1 = norm.prior[1], par.2 = norm.prior[2]
-      )
-
-    # extract the gradient
-    grad.prior <- attributes(rst.prior)$gradient
-
-    # add the gradient
-    grad <- sum(grad, grad.prior)
-  }
-
-  # return results
-  grad
-}
-
-
-# This function computes a gradient of DRM items
-grad_score_drm <- function(theta, a, b, g, r_i, D = 1) {
-  # compute the probabilities of correct answers
-  p <- drm(theta = theta, a = a, b = b, g = g, D = D)
-
-  # compute the gradient
-  grad <- -D * sum((a * (p - g) * (r_i - p)) / ((1 - g) * p))
-
-  # return the gradient
-  grad
-}
-
-
-# This function computes a gradient of PRM items
-grad_score_prm <- function(theta, a, d, r_i, pr.mod, D = 1) {
-  if (pr.mod == "GRM") {
-    # count the number of d parameters
-    m <- length(d)
-
-    # calculate all the probabilities greater than equal to each threshold
-    allPst <- drm(theta = theta, a = a, b = d, g = 0, D = D)
-    allPst[allPst > 9999999999e-10] <- 9999999999e-10
-    allPst[allPst < 1e-10] <- 1e-10
-    allQst <- 1 - allPst[, , drop = FALSE]
-
-    # calculate category probabilities
-    P <- cbind(1, allPst) - cbind(allPst, 0)
-    P[P > 9999999999e-10] <- 9999999999e-10
-    P[P < 1e-10] <- 1e-10
-
-    # compute the component values to get a gradient
-    Da <- D * a
-    deriv_Pstth <- (Da * allPst) * allQst
-    deriv_Pth <- c(0, deriv_Pstth) - c(deriv_Pstth, 0)
-    frac_rp <- r_i / P
-
-    # compute the gradient
-    grad <- -sum(frac_rp * deriv_Pth)
-  }
-
-  if (pr.mod == "GPCM") {
-    # include zero for the step parameter of the first category
-    d <- c(0, d)
-
-    # check the number of step parameters
-    m <- length(d) - 1
-
-    # calculate category probabilities
-    Da <- D * a
-    z <- Da * (theta - d)
-    cumsum_z <- t(Rfast::colCumSums(z))
-    if (any(cumsum_z > 700)) {
-      cumsum_z <- (cumsum_z / max(cumsum_z)) * 700
-    }
-    if (any(cumsum_z < -700)) {
-      cumsum_z <- -(cumsum_z / min(cumsum_z)) * 700
-    }
-    numer <- exp(cumsum_z) # numerator
-    denom <- sum(numer) # denominator
-    P <- numer / denom
-
-    # compute the component values to get a gradient
-    frac_rp <- r_i / P
-    denom2 <- denom^2
-    d1th_z <- Da * (1:(m + 1))
-    d1th_denom <- sum(numer * d1th_z)
-    deriv_Pth <- (numer / denom2) * (d1th_z * denom - d1th_denom)
-
-    # compute the gradients
-    grad <- -sum(frac_rp * deriv_Pth)
-  }
-
-  # return the results
-  grad
-}
-
-
-# This function analytically computes a gradient vector of dichotomous item parameters
-grad_item_drm <- function(item_par, f_i, r_i, s_i, theta, mod = c("1PLM", "2PLM", "3PLM"), D = 1,
-                          nstd, fix.a = FALSE, fix.g = TRUE, a.val = 1, g.val = .2, n.1PLM = NULL,
-                          aprior = list(dist = "lnorm", params = c(1, 0.5)),
+# This function analytically computes the gradient vector of the negative log-likelihood (plus the negative log
+# priors) of dichotomous item parameters
+grad_item_drm <- function(item_par, f_i, r_i, theta, mod = c("1PLM", "2PLM", "3PLM"), D = 1,
+                          fix.a = FALSE, fix.g = TRUE, a.val = 1, g.val = .2, n.1PLM = NULL,
+                          aprior = list(dist = "lnorm", params = c(0, 0.5)),
                           bprior = list(dist = "norm", params = c(0.0, 1.0)),
                           gprior = list(dist = "beta", params = c(5, 16)),
                           use.aprior = FALSE,
@@ -159,7 +12,7 @@ grad_item_drm <- function(item_par, f_i, r_i, s_i, theta, mod = c("1PLM", "2PLM"
   # `p_cache`: optional drm() probability matrix for the active branch.
   # When supplied by make_drm_optim_fns(), the same P(theta) is reused
   # across loglike_drm / grad_item_drm / hess_item_drm at the same
-  # (item_par, theta) - saving 2 of the 3 drm() calls per nlminb point.
+  # (item_par, theta), which saves two of the three drm() calls per nlminb point.
   # When NULL (e.g. callers outside the optim factory), each branch
   # calls drm() directly.
   # count the number of item parameters to be estimated
@@ -256,7 +109,6 @@ grad_item_drm <- function(item_par, f_i, r_i, s_i, theta, mod = c("1PLM", "2PLM"
     b <- item_par[2]
 
     # compute the probabilities of correct and incorrect
-    # p <- drm(theta=theta, a=a, b=b, g=0, D=D) + 1e-8
     # (reuse the cached P matrix when supplied by the optim factory)
     p <- if (is.null(p_cache)) drm(theta = theta, a = a, b = b, g = 0, D = D) else p_cache
 
@@ -432,9 +284,10 @@ grad_item_drm <- function(item_par, f_i, r_i, s_i, theta, mod = c("1PLM", "2PLM"
 }
 
 
-# This function analytically computes a gradient vector of polytomous item parameters
-grad_item_prm <- function(item_par, r_i, theta, pr.mod, D = 1, nstd, fix.a = FALSE, a.val = 1,
-                          aprior = list(dist = "lnorm", params = c(1, 0.5)),
+# This function analytically computes the gradient vector of the negative log-likelihood (plus the negative log
+# priors) of polytomous item parameters
+grad_item_prm <- function(item_par, r_i, theta, pr.mod, D = 1, fix.a = FALSE, a.val = 1,
+                          aprior = list(dist = "lnorm", params = c(0, 0.5)),
                           bprior = list(dist = "norm", params = c(0.0, 1.0)),
                           use.aprior = FALSE,
                           use.bprior = FALSE,
@@ -532,7 +385,7 @@ grad_item_prm <- function(item_par, r_i, theta, pr.mod, D = 1, nstd, fix.a = FAL
       m <- length(d) - 1
 
       # calculate category probabilities (theta_d, numer, denom, P);
-      # reuse cached values when supplied - the entire exp(cumsum) block
+      # reuse cached values when supplied; the entire exp(cumsum) block
       # that loglike_prm already computed is skipped on cache hit.
       # Da is a scalar (D * a) and is not cached: negligible to recompute.
       Da <- D * a
@@ -540,15 +393,15 @@ grad_item_prm <- function(item_par, r_i, theta, pr.mod, D = 1, nstd, fix.a = FAL
         theta_d <- (Rfast::Outer(x = theta, y = d, oper = "-"))
         z <- Da * theta_d
         cumsum_z <- t(Rfast::colCumSums(z))
-        if (any(cumsum_z > 700)) {
-          cumsum_z <- (cumsum_z / max(cumsum_z)) * 700
-        }
-        if (any(cumsum_z < -700)) {
-          cumsum_z <- -(cumsum_z / min(cumsum_z)) * 700
+        # subtract the row maximum so that exp() and the powers of the denominator stay finite
+        if (any(abs(cumsum_z) > 100)) {
+          cumsum_z <- cumsum_z - Rfast::rowMaxs(cumsum_z, value = TRUE)
         }
         numer <- exp(cumsum_z) # numerator
         denom <- Rfast::rowsums(numer)
         P <- (numer / denom)
+        # keep the probabilities above zero so that their logarithms are finite
+        P[P < .Machine$double.xmin] <- .Machine$double.xmin
       } else {
         theta_d <- prob_cache$theta_d
         numer <- prob_cache$numer
@@ -622,15 +475,15 @@ grad_item_prm <- function(item_par, r_i, theta, pr.mod, D = 1, nstd, fix.a = FAL
         theta_d <- (Rfast::Outer(x = theta, y = d, oper = "-"))
         z <- Da * theta_d
         cumsum_z <- t(Rfast::colCumSums(z))
-        if (any(cumsum_z > 700)) {
-          cumsum_z <- (cumsum_z / max(cumsum_z)) * 700
-        }
-        if (any(cumsum_z < -700)) {
-          cumsum_z <- -(cumsum_z / min(cumsum_z)) * 700
+        # subtract the row maximum so that exp() and the powers of the denominator stay finite
+        if (any(abs(cumsum_z) > 100)) {
+          cumsum_z <- cumsum_z - Rfast::rowMaxs(cumsum_z, value = TRUE)
         }
         numer <- exp(cumsum_z) # numerator
         denom <- Rfast::rowsums(numer)
         P <- (numer / denom)
+        # keep the probabilities above zero so that their logarithms are finite
+        P[P < .Machine$double.xmin] <- .Machine$double.xmin
       } else {
         theta_d <- prob_cache$theta_d
         numer <- prob_cache$numer
@@ -682,9 +535,10 @@ grad_item_prm <- function(item_par, r_i, theta, pr.mod, D = 1, nstd, fix.a = FAL
 
 
 
-# This function is used to compute the standard errors of item parameter estimates using the cross-product method.
+# This function returns, for each row of theta, the gradient of the negative log-likelihood of an item with respect
+# to its parameters; info_xpd() uses it to build the cross-product information matrix
 grad_llike <- function(item_par, f_i, r_i, theta, n.theta, mod = c("1PLM", "2PLM", "3PLM", "GRM", "GPCM"),
-                       D = 1, fix.a.1pl = TRUE, fix.a.gpcm = FALSE, fix.g = FALSE, a.val.1pl = 1, a.val.gpcm = 1,
+                       D = 1, fix.a.gpcm = FALSE, fix.g = FALSE, a.val.1pl = 1, a.val.gpcm = 1,
                        g.val = .2, n.1PLM = NULL) {
   # for dichotomous models
   if (mod %in% c("1PLM", "2PLM", "3PLM")) {
@@ -693,14 +547,14 @@ grad_llike <- function(item_par, f_i, r_i, theta, n.theta, mod = c("1PLM", "2PLM
       # compute the gradient vectors
       grad <- grad_item_drm_se(
         item_par = item_par, f_i = f_i, r_i = r_i, theta = theta,
-        mod = mod, D = D, fix.a = fix.a.1pl, n.1PLM = n.1PLM
+        mod = mod, D = D, n.1PLM = n.1PLM
       )
     } else {
       # for all other dichotomous models
       # compute the gradient vectors
       grad <- grad_item_drm_se(
         item_par = item_par, f_i = f_i, r_i = r_i, theta = theta,
-        mod = mod, D = D, fix.a = fix.a.1pl, fix.g = fix.g,
+        mod = mod, D = D, fix.g = fix.g,
         a.val = a.val.1pl, g.val = g.val, n.1PLM = NULL
       )
     }
@@ -718,10 +572,10 @@ grad_llike <- function(item_par, f_i, r_i, theta, n.theta, mod = c("1PLM", "2PLM
 }
 
 
-# This function analytically computes a matrix of gradients of dichotomous item parameters across all examinees
-# This function is used to compute the cross-product information matrix
+# This function analytically computes a matrix of negative log-likelihood gradients of dichotomous item parameters,
+# with one row per theta value; info_xpd() uses it for the cross-product information matrix
 grad_item_drm_se <- function(item_par, f_i, r_i, theta, mod = c("1PLM", "2PLM", "3PLM", "DRM"), D = 1,
-                             fix.a = FALSE, fix.g = TRUE, a.val = 1, g.val = .2, n.1PLM = NULL) {
+                             fix.g = TRUE, a.val = 1, g.val = .2, n.1PLM = NULL) {
   # count the number of item parameters to be estimated
   n.par <- length(item_par)
 
@@ -746,8 +600,8 @@ grad_item_drm_se <- function(item_par, f_i, r_i, theta, mod = c("1PLM", "2PLM", 
     grad <- cbind(gr_a, gr_b)
   }
 
-  # (2) 1PLM: the slope parameters are fixed to be a specified value
-  if (is.null(n.1PLM)) {
+  # (2) 1PLM with a fixed slope
+  if (is.null(n.1PLM) && mod == "1PLM") {
     # assign a and b parameters
     a <- a.val
     b <- item_par
@@ -767,7 +621,7 @@ grad_item_drm_se <- function(item_par, f_i, r_i, theta, mod = c("1PLM", "2PLM", 
 
   # (3) 2PLM
   if (mod == "2PLM") {
-    # make vectors of a and b parameters for all 1PLM items
+    # assign the item parameters
     a <- item_par[1]
     b <- item_par[2]
 
@@ -789,7 +643,7 @@ grad_item_drm_se <- function(item_par, f_i, r_i, theta, mod = c("1PLM", "2PLM", 
 
   # (4) 3PLM
   if (!fix.g & mod == "3PLM") {
-    # make vectors of a and b parameters for all 1PLM items
+    # assign the item parameters
     a <- item_par[1]
     b <- item_par[2]
     g <- item_par[3]
@@ -818,7 +672,7 @@ grad_item_drm_se <- function(item_par, f_i, r_i, theta, mod = c("1PLM", "2PLM", 
 
   # (5) 3PLM: the guessing parameters are fixed to be specified value
   if (fix.g & mod == "3PLM") {
-    # make vectors of a and b parameters for all 1PLM items
+    # assign the item parameters
     a <- item_par[1]
     b <- item_par[2]
     g <- g.val
@@ -847,12 +701,9 @@ grad_item_drm_se <- function(item_par, f_i, r_i, theta, mod = c("1PLM", "2PLM", 
   grad
 }
 
-# This function analytically computes a matrix of gradients of polytomous item parameters across all examinees
-# This function is used to compute the cross-product information matrix
+# This function analytically computes a matrix of negative log-likelihood gradients of polytomous item parameters,
+# with one row per theta value; info_xpd() uses it for the cross-product information matrix
 grad_item_prm_se <- function(item_par, r_i, theta, n.theta, pr.mod, D = 1, fix.a = FALSE, a.val = 1) {
-  # transform item parameters as numeric values
-  # item_par <- as.numeric(item_par)
-
   # count the number of item parameters to be estimated
   n.par <- length(item_par)
 
@@ -860,7 +711,7 @@ grad_item_prm_se <- function(item_par, r_i, theta, n.theta, pr.mod, D = 1, fix.a
   # compute the gradients
   # (1) GRM
   if (pr.mod == "GRM") {
-    # make vectors of a and b parameters for all 1PLM items
+    # assign the slope and threshold parameters
     a <- item_par[1]
     d <- item_par[-1]
 
@@ -898,7 +749,7 @@ grad_item_prm_se <- function(item_par, r_i, theta, n.theta, pr.mod, D = 1, fix.a
   if (pr.mod == "GPCM") {
     if (!fix.a) {
       # For GPCM
-      # make vectors of a and b parameters for all 1PLM items
+      # assign the slope parameter
       a <- item_par[1]
 
       # include zero for the step parameter of the first category
@@ -912,20 +763,19 @@ grad_item_prm_se <- function(item_par, r_i, theta, n.theta, pr.mod, D = 1, fix.a
       theta_d <- (Rfast::Outer(x = theta, y = d, oper = "-"))
       z <- Da * theta_d
       cumsum_z <- t(Rfast::colCumSums(z))
-      if (any(cumsum_z > 700)) {
-        cumsum_z <- (cumsum_z / max(cumsum_z)) * 700
-      }
-      if (any(cumsum_z < -700)) {
-        cumsum_z <- -(cumsum_z / min(cumsum_z)) * 700
+      # subtract the row maximum so that exp() and the powers of the denominator stay finite
+      if (any(abs(cumsum_z) > 100)) {
+        cumsum_z <- cumsum_z - Rfast::rowMaxs(cumsum_z, value = TRUE)
       }
       numer <- exp(cumsum_z) # numerator
       denom <- Rfast::rowsums(numer)
       P <- (numer / denom)
+      # keep the probabilities above zero so that their logarithms are finite
+      P[P < .Machine$double.xmin] <- .Machine$double.xmin
 
       # compute the component values to get a gradient vector
       dsmat <- array(0, c((m + 1), (m + 1)))
       dsmat[-1, -1][upper.tri(x = dsmat[-1, -1], diag = TRUE)] <- 1
-      # tr_dsmat <- t(dsmat)
       frac_rp <- r_i / P
       w1 <- D * theta_d
       w1cum <- t(Rfast::colCumSums(w1))
@@ -951,7 +801,7 @@ grad_item_prm_se <- function(item_par, r_i, theta, n.theta, pr.mod, D = 1, fix.a
       grad <- cbind(gr_a, gr_b)
     } else {
       # for PCM
-      # make vectors of a and b parameters for all 1PLM items
+      # assign the fixed slope parameter
       a <- a.val
 
       # include zero for the step parameter of the first category
@@ -965,15 +815,15 @@ grad_item_prm_se <- function(item_par, r_i, theta, n.theta, pr.mod, D = 1, fix.a
       theta_d <- (Rfast::Outer(x = theta, y = d, oper = "-"))
       z <- Da * theta_d
       cumsum_z <- t(Rfast::colCumSums(z))
-      if (any(cumsum_z > 700)) {
-        cumsum_z <- (cumsum_z / max(cumsum_z)) * 700
-      }
-      if (any(cumsum_z < -700)) {
-        cumsum_z <- -(cumsum_z / min(cumsum_z)) * 700
+      # subtract the row maximum so that exp() and the powers of the denominator stay finite
+      if (any(abs(cumsum_z) > 100)) {
+        cumsum_z <- cumsum_z - Rfast::rowMaxs(cumsum_z, value = TRUE)
       }
       numer <- exp(cumsum_z) # numerator
       denom <- Rfast::rowsums(numer)
       P <- (numer / denom)
+      # keep the probabilities above zero so that their logarithms are finite
+      P[P < .Machine$double.xmin] <- .Machine$double.xmin
 
       # compute the component values to get a gradient vector
       dsmat <- array(0, c((m + 1), (m + 1)))

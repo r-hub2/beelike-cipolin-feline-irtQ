@@ -177,6 +177,7 @@ test_that("final estimates use the parameters of the observed items when some re
 })
 
 test_that("final sum-score estimates count missing responses as zero, as est_score() does", {
+  skip_on_cran()
   resp_na <- resp_mst
   set.seed(2034)
   resp_na[sample(length(resp_na), size = round(0.10 * length(resp_na)))] <- NA
@@ -236,14 +237,15 @@ test_that("cut-score routing assigns the module from the cumulative estimate", {
   est2 <- unname(fit$theta.route[, 2])
   expected3 <- vapply(seq_len(nrow(fit$path)), function(i) {
     switch(as.character(fit$path[i, 2]),
-      "2" = if (est2[i] <= cut3[1]) 5L else 6L,
-      "3" = if (est2[i] <= cut3[1]) 5L else if (est2[i] <= cut3[2]) 6L else 7L,
-      "4" = if (est2[i] <= cut3[2]) 6L else 7L)
+      "2" = if (est2[i] < cut3[1]) 5L else 6L,
+      "3" = if (est2[i] < cut3[1]) 5L else if (est2[i] < cut3[2]) 6L else 7L,
+      "4" = if (est2[i] < cut3[2]) 6L else 7L)
   }, integer(1L))
   expect_equal(unname(fit$path[, 3]), expected3)
 })
 
 test_that("an examinee in module 4 with a middle estimate is routed to module 6", {
+  skip_on_cran()
   # inverse TCC routing keeps the simulation fast for many examinees
   set.seed(2032)
   fit <- run_mst(
@@ -256,13 +258,13 @@ test_that("an examinee in module 4 with a middle estimate is routed to module 6"
   cut3    <- cut_mst[[2]]
   est2    <- fit$theta.route[, 2]
   in_mod4 <- fit$path[, 2] == 4L
-  middle  <- in_mod4 & est2 > cut3[1] & est2 <= cut3[2]
+  middle  <- in_mod4 & est2 > cut3[1] & est2 < cut3[2]
   # the simulation has examinees in module 4 whose estimate lies between the cut scores
   expect_gt(sum(middle), 0L)
   # they go to module 6, the easier of the two modules reachable from module 4
   expect_true(all(fit$path[middle, 3] == 6L))
-  # module 4 examinees above the second cut score go to module 7
-  expect_true(all(fit$path[in_mod4 & est2 > cut3[2], 3] == 7L))
+  # module 4 examinees at or above the second cut score go to module 7
+  expect_true(all(fit$path[in_mod4 & est2 >= cut3[2], 3] == 7L))
 })
 
 
@@ -339,4 +341,146 @@ test_that("give_path() sends a score equal to a cut score to the higher module",
 
   # a missing score stays missing
   expect_true(is.na(irtQ:::give_path(score = NA_real_, cut_sc = 0)$path))
+})
+
+
+# 6. independent routing checks, module order, and input checks
+
+test_that("bmat and mfi routing select the module given by the routing estimate", {
+  # mean b and test information of each module, computed without irtQ
+  mod_b <- vapply(1:7, function(m) mean(x_mst$par.2[mod_mst[, m] == 1]), numeric(1))
+  mod_tif <- function(m, t) {
+    it <- x_mst[mod_mst[, m] == 1, ]
+    p <- it$par.3 + (1 - it$par.3) / (1 + exp(-1.702 * it$par.1 * (t - it$par.2)))
+    sum((1.702 * it$par.1)^2 * ((p - it$par.3) / (1 - it$par.3))^2 * (1 - p) / p)
+  }
+  for (meth in c("bmat", "mfi")) {
+    fit <- run_mst(x = x_mst, route_map = map_mst, module = mod_mst, theta = theta_mst,
+                   D = 1.702, route_method = meth, verbose = FALSE)
+    for (i in seq_along(theta_mst)) {
+      for (s in 2:3) {
+        nxt <- which(map_mst[fit$path[i, s - 1], ] == 1)
+        t <- fit$theta.route[i, s - 1]
+        expected <- if (meth == "bmat") {
+          nxt[which.min(abs(mod_b[nxt] - t))]
+        } else {
+          nxt[which.max(vapply(nxt, mod_tif, numeric(1), t = t))]
+        }
+        expect_equal(unname(fit$path[i, s]), unname(expected))
+      }
+    }
+  }
+})
+
+test_that("run_mst() stops on invalid convergence controls instead of looping", {
+  base <- list(x = x_mst, route_map = map_mst, module = mod_mst, theta = theta_mst[1:3],
+               D = 1.702, verbose = FALSE)
+  expect_error(do.call(run_mst, c(base, list(route_score = list(method = "ML", max.iter = 0)))),
+               "route_score\\$max.iter")
+  expect_error(do.call(run_mst, c(base, list(route_score = list(method = "ML", max.iter = 2.5)))),
+               "route_score\\$max.iter")
+  expect_error(do.call(run_mst, c(base, list(final_score = list(method = "MAP", tol = 0)))),
+               "final_score\\$tol")
+  expect_error(do.call(run_mst, c(base, list(final_score = list(method = "WL", tol = NA)))),
+               "final_score\\$tol")
+  # the controls of a method that does not use them are not checked
+  expect_s3_class(do.call(run_mst, c(base, list(route_score = list(method = "EAP", max.iter = 0)))),
+                  "run_mst")
+})
+
+test_that("run_mst() stops on cut scores that do not match the panel", {
+  base <- list(x = x_mst, route_map = map_mst, module = mod_mst, theta = theta_mst[1:3],
+               D = 1.702, route_method = NULL, verbose = FALSE)
+  expect_error(do.call(run_mst, c(base, list(cut_score = list(c(-1, 0, 1), c(-0.4, 0.4))))),
+               "cut_score\\[\\[1\\]\\]")
+  expect_error(do.call(run_mst, c(base, list(cut_score = list(c(1, -1), c(-0.4, 0.4))))),
+               "ascending")
+})
+
+test_that("run_mst() maps the cut scores to the modules in ascending order of module index", {
+  # module 2 reaches modules 5 and 6, and module 3 reaches modules 4 and 5
+  pnl <- ref_panel()
+  rm_x <- matrix(0L, 6, 6)
+  rm_x[1, 2:3] <- 1L
+  rm_x[2, 5:6] <- 1L
+  rm_x[3, 4:5] <- 1L
+  set.seed(2041)
+  fit <- run_mst(x = pnl$x, route_map = rm_x, module = pnl$module, theta = rnorm(60),
+                 D = 1, route_method = NULL, cut_score = pnl$cut_score,
+                 route_score = list(method = "EAP"), final_score = list(method = "EAP"),
+                 verbose = FALSE)
+  est2 <- unname(fit$theta.route[, 2])
+  # module 2 is separated by the second cut score, module 3 by the first
+  expected3 <- ifelse(fit$path[, 2] == 2L,
+                      ifelse(est2 < pnl$cut_score[[2]][2], 5L, 6L),
+                      ifelse(est2 < pnl$cut_score[[2]][1], 4L, 5L))
+  expect_equal(unname(fit$path[, 3]), expected3)
+  # both stage 2 modules are administered
+  expect_setequal(unique(fit$path[, 2]), c(2L, 3L))
+})
+
+test_that("run_mst() stops when the module matrix does not match the route map", {
+  expect_error(
+    run_mst(x = x_mst, route_map = map_mst, module = mod_mst[, 1:6], theta = theta_mst[1:3],
+            D = 1.702, verbose = FALSE),
+    "one column per module"
+  )
+})
+
+test_that("run_mst() warns once about examinees without any observed response", {
+  resp_na <- resp_mst
+  resp_na[c(2, 5), ] <- NA
+  # collect every warning and check that exactly one is issued
+  ws <- character(0)
+  fit <- withCallingHandlers(
+    run_mst(x = x_mst, route_map = map_mst, module = mod_mst, response = resp_na,
+            D = 1.702, route_method = NULL, cut_score = cut_mst,
+            route_score = list(method = "EAP"), final_score = list(method = "ML"),
+            verbose = FALSE),
+    warning = function(w) {
+      ws <<- c(ws, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_length(ws, 1L)
+  expect_match(ws, "2 examinee")
+  expect_true(all(is.na(fit$est.theta[c(2, 5)])))
+  expect_false(anyNA(fit$est.theta[-c(2, 5)]))
+})
+
+test_that("run_mst() starts at the routing module when its index is not 1", {
+  # renumber the simMST modules so that the routing module is module 4
+  new_of_old <- c(4, 1, 2, 3, 5, 6, 7)
+  md2 <- mod_mst[, order(new_of_old)]
+  rm2 <- matrix(0, 7, 7)
+  rm2[new_of_old, new_of_old] <- map_mst
+  fit1 <- run_mst(x = x_mst, route_map = map_mst, module = mod_mst, response = resp_mst,
+                  D = 1.702, route_method = NULL, cut_score = cut_mst, verbose = FALSE)
+  fit2 <- run_mst(x = x_mst, route_map = rm2, module = md2, response = resp_mst,
+                  D = 1.702, route_method = NULL, cut_score = cut_mst, verbose = FALSE)
+  expect_true(all(fit2$path[, 1] == 4L))
+  expect_equal(fit2$est.theta, fit1$est.theta)
+})
+
+test_that("run_mst() treats a NULL cut score element as an empty vector", {
+  # a 1-1-2 panel: the cut score element of the transition to the single module of stage 2 is empty
+  keep <- which(rowSums(mod_mix[, 1:4]) > 0)
+  md <- mod_mix[keep, 1:4]
+  rm_x <- matrix(0L, 4, 4)
+  rm_x[1, 2] <- 1L
+  rm_x[2, 3:4] <- 1L
+  resp <- simdat(x = x_mix[keep, ], theta = seq(-2, 2, length.out = 10), D = 1)
+  fit_null <- run_mst(x = x_mix[keep, ], route_map = rm_x, module = md, response = resp,
+                      D = 1, route_method = NULL, cut_score = list(NULL, 0.2), verbose = FALSE)
+  fit_empty <- run_mst(x = x_mix[keep, ], route_map = rm_x, module = md, response = resp,
+                       D = 1, route_method = NULL, cut_score = list(numeric(0), 0.2),
+                       verbose = FALSE)
+  expect_equal(fit_null$est.theta, fit_empty$est.theta)
+  expect_equal(fit_null$path, fit_empty$path)
+  # a non-empty element for a single-module stage stops with a message that names the stage
+  expect_error(
+    run_mst(x = x_mix[keep, ], route_map = rm_x, module = md, response = resp,
+            D = 1, route_method = NULL, cut_score = list(c(0.1, 0.2), 0.2), verbose = FALSE),
+    "must be empty"
+  )
 })

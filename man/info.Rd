@@ -5,7 +5,7 @@
 \alias{info.default}
 \alias{info.est_item}
 \alias{info.est_irt}
-\title{Item and Test Information Function}
+\title{Item and Test Information Functions}
 \usage{
 info(x, ...)
 
@@ -23,7 +23,9 @@ number of categories, IRT model types, etc.); or an object of class
 
 See \code{\link[=est_irt]{est_irt()}} or \code{\link[=simdat]{simdat()}} for more details about the item
 metadata. This data frame can be easily created using the
-\code{\link[=shape_df]{shape_df()}} function.}
+\code{\link[=shape_df]{shape_df()}} function. An item with \code{cats = 2} under the \code{"GRM"} or
+\code{"GPCM"} model has one threshold in \code{par.2}, must have \code{NA} in \code{par.3},
+and is computed as a 2PLM item.}
 
 \item{...}{Further arguments passed to or from other methods.}
 
@@ -31,7 +33,7 @@ metadata. This data frame can be easily created using the
 information are computed.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 
 \item{tif}{Logical. If \code{TRUE}, the test information function
@@ -48,16 +50,14 @@ the theta points (e.g., \code{"theta.1"}, \code{"theta.2"}, ...).}
 
 \item{tif}{A numeric vector containing the test information values at each
 theta value, computed as the sum of item information values across all
-items. This component is included only when \code{tif = TRUE}.}
+items. This component is \code{NULL} when \code{tif = FALSE}.}
 
 \item{theta}{A numeric vector of theta values at which the item and test
 information functions are evaluated. This matches the user-supplied
 \code{theta} argument.}
 
-The returned object is of class \code{info} and can be visualized using
-the function \code{\link[=plot.info]{plot.info()}}. This output structure is consistent across
-input types (\code{data.frame}, \code{est_item}, \code{est_irt}), and facilitates
-downstream plotting, comparison, or export of information function values.
+The structure is the same for all input types (\code{data.frame}, \code{est_item},
+and \code{est_irt}).
 }
 \description{
 This function computes item and test information functions (Hambleton et
@@ -74,11 +74,13 @@ The input \code{x} must follow a specific data frame format if not already
 an \code{est_irt} or \code{est_item} object. The structure of this data frame
 is explained in the documentation of \code{\link[=est_irt]{est_irt()}} and \code{\link[=simdat]{simdat()}}.
 Items of different models (e.g., 3PLM, GPCM) can be combined in a single test.
+For an \code{est_irt} or \code{est_item} object, the item parameter estimates and the
+scaling constant \code{D} are taken from the object, and a \code{D} supplied through
+\code{...} is ignored.
 
-The information is computed for each item appropriately and aggregated for
-the TIF if \code{tif = TRUE}. The TIF is often used to assess where the test
-provides the most precision, and is critical when designing adaptive tests
-or evaluating test coverage across the ability continuum.
+Item information is computed under each item's IRT model and summed over
+items to give the TIF when \code{tif = TRUE}. The TIF shows where on the theta
+scale the test measures most precisely.
 
 The returned object is a list of class \code{"info"}, which contains the item
 information matrix and the test information vector. The \code{plot()} method for

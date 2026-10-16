@@ -1,15 +1,15 @@
 #' Frequency Distribution Table for Total Scores
 #'
 #' Computes a frequency distribution table for a vector of total (raw)
-#' scores - frequency, percentage, and cumulative percentage for each score
-#' value - commonly reported alongside classical test theory (CTT) item
-#' analysis results. This is the same function [ctt()] calls internally to
-#' build the total-score frequency distribution included in its output, but
-#' it is also exported and fully usable on its own for any vector of integer
-#' total scores.
+#' scores: the frequency, percentage, and cumulative percentage of each score
+#' value, as commonly reported with classical test theory (CTT) item
+#' analysis results. [ctt()] calls this function to build the total-score
+#' frequency distribution in its output, and it can also be used on its own
+#' for any vector of integer total scores.
 #'
-#' @param score A numeric vector of total (raw) scores, one value per
-#'   examinee.
+#' @param score A numeric vector of integer total (raw) scores, one value per
+#'   examinee. A factor is converted through its labels (for example, the
+#'   level `"12"` becomes the score 12), not through its level codes.
 #' @param missing A value indicating missing scores in `score`, analogous to
 #'   the `missing` argument in [irtQ::est_irt()] and [irtQ::score_resp()]. Any
 #'   element equal to `missing` is recoded to `NA` before tabulation. Default
@@ -24,14 +24,13 @@
 #' conventionally reported. Percentages are computed relative to the number
 #' of non-missing scores and rounded to two decimal places; cumulative
 #' percentages are the running sum of the unrounded percentages, rounded to
-#' two decimal places only in the final output, so that rounding error does
-#' not accumulate across rows and the final cumulative percentage totals
-#' almost exactly 100 (subject only to ordinary rounding).
+#' two decimal places only in the final output, so rounding error does not
+#' accumulate and the last cumulative percentage is 100.
 #'
-#' This function assumes scores already lie on an integer (or otherwise
-#' evenly spaced discrete) scale, as is standard for a raw total score; it
-#' does not bin or group continuous values, and raises an error if any
-#' non-integer score is supplied rather than silently dropping it.
+#' This function requires integer scores, as is standard for a raw total
+#' score. It does not bin or group values, and it stops with an error when a
+#' score is not a whole number. A score within 1e-8 of a whole number, such as
+#' the result of a floating-point sum, is counted as that whole number.
 #'
 #' The output table always spans `min(score)` to `max(score)`, so its size
 #' scales with the observed score *range*, not the sample size; a single
@@ -57,8 +56,11 @@
 #' @export
 freq_score <- function(score, missing = NA) {
 
-  # coerce to a plain numeric vector so factor/character input does not
-  # silently break the arithmetic below
+  # a factor is converted through its labels, not its level codes
+  if (is.factor(score)) score <- as.character(score)
+
+  # coerce to a plain numeric vector; a character score such as "12" becomes
+  # a number
   score <- as.numeric(score)
 
   # recode a user-specified missing-value sentinel to NA before tabulation,
@@ -81,12 +83,15 @@ freq_score <- function(score, missing = NA) {
   }
 
   # this function only supports integer-valued scores (see @details); a
-  # non-integer score would silently fall outside the seq.int()-based bins
-  # below and be dropped without any other warning, so check explicitly here
-  if (!isTRUE(all.equal(score, round(score)))) {
+  # non-integer score would fall outside the integer bins below, so check
+  # every score explicitly here
+  if (any(!is.finite(score) | abs(score - round(score)) > 1e-8)) {
     stop("`score` must contain only integer-valued scores; freq_score() ",
          "does not bin or group non-integer values.", call. = FALSE)
   }
+
+  # round each score so that it matches its integer bin exactly
+  score <- round(score)
 
   # full range of integer score values (including any with zero observed
   # frequency), from the observed minimum to the observed maximum

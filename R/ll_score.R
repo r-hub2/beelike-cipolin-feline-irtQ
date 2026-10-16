@@ -1,4 +1,5 @@
-# This function computes a negative log likelihood or likelihood for scoring
+# Compute the negative log-likelihood (negative log-posterior for MAP) or, when
+# logL = FALSE, the likelihood of ability values for scoring
 #' @importFrom Rfast rowprods rowsums colsums
 ll_score <- function(theta, elm_item, freq.cat, method = c("ML", "WL", "MAP", "MLF"),
                      idx.drm, idx.prm, D = 1, norm.prior = c(0, 1),
@@ -33,7 +34,7 @@ ll_score <- function(theta, elm_item, freq.cat, method = c("ML", "WL", "MAP", "M
 
   # compute the probabilities for PRM items
   if (!is.null(idx.prm)) {
-    # count the number of examinees
+    # count the number of theta values
     nstd <- length(theta)
 
     # check what poly models were used
@@ -42,7 +43,7 @@ ll_score <- function(theta, elm_item, freq.cat, method = c("ML", "WL", "MAP", "M
     for (mod in pr.mod) {
       # extract the response, model, and item parameters
       lg.prm <- elm_item$model == mod
-      par.tmp <- elm_item$par[lg.prm, , drop = FALSE]
+      par.tmp <- elm_item$pars[lg.prm, , drop = FALSE]
       r_i <- freq.cat[lg.prm, , drop = FALSE]
       a <- par.tmp[, 1]
       d <- par.tmp[, -1, drop = FALSE]
@@ -68,10 +69,10 @@ ll_score <- function(theta, elm_item, freq.cat, method = c("ML", "WL", "MAP", "M
 
   # compute the log-likelihood
   if (logL) {
-    # sum of the loglikelihood
+    # sum the log-likelihood over items
     rst <- Rfast::colsums(log(prob.rp.drm)) + Rfast::colsums(log(prob.rp.prm))
 
-    # compute the negative loglikelihood values
+    # negate, adding the log prior for MAP
     rst <- switch(method,
       ML = -rst,
       WL = -rst,

@@ -7,16 +7,19 @@
 \format{
 A list of length three:
 \describe{
-\item{item.prm}{A data frame in item metadata format consisting of 200
-dichotomous items and 30 polytomous items.
+\item{item.prm}{A data frame of item metadata (columns \code{id} to \code{par.4};
+\code{id} is a factor) consisting of 200 dichotomous items and 30 polytomous
+items.
 \itemize{
 \item Dichotomous items: Calibrated using the IRT 2PL model.
 \item Polytomous items: Calibrated using the Generalized Partial Credit Model
 (GPCM), with four score categories (0, 1, 2, 3).}
 }
 
-\item{res.dat}{A matrix of item responses from 30,000 examinees (rows) to 230
-items (columns). \code{NA} marks an item that was not administered to the examinee.
+\item{res.dat}{A numeric matrix of item responses from 30,000 examinees
+(rows) to 230 items (columns). Each examinee answered 45 items (40
+dichotomous and 5 polytomous items). \code{NA} marks an item that was not
+administered to the examinee.
 The columns are named \code{Item.dc.1} to \code{Item.dc.200} and \code{Item.py.1} to
 \code{Item.py.30}, not by the \code{id} column of \code{item.prm} (\code{V1} to \code{V230}); the
 columns follow the row order of \code{item.prm}.}

@@ -110,9 +110,11 @@ fit <- est_irt(
 fit
 ```
 
-Printing the fitted object reports the number of EM cycles, the number of
-quadrature points, the first- and second-order convergence checks, and the
-log-likelihood. A fuller estimation summary is available from `summary(fit)`.
+Printing the fitted object reports the number of EM cycles (printed as
+"E-step cycles"), the number of quadrature points, the two checks labeled
+"First-order test" and "Second-order test" (see `test.1` and `test.2` in
+`?est_irt`), and the log-likelihood. A fuller estimation summary is available
+from `summary(fit)`.
 
 `getirt()` extracts parts of the fitted object, such as the item parameter
 estimates.
@@ -141,7 +143,9 @@ cor(scores$est.theta, theta)
 
 `sx2_fit()` computes the S-X2 item fit statistic, and `irtfit()` computes
 chi-square and likelihood-ratio statistics, infit and outfit, and the
-contingency tables behind the residual plots.
+contingency tables behind the residual plots. For a fitted `est_irt` object,
+`sx2_fit()` uses the latent distribution stored in the object to compute the
+expected frequencies.
 
 ```{r sx2}
 sx2 <- sx2_fit(fit)

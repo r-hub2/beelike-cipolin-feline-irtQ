@@ -46,8 +46,8 @@ sx2_fit(x, ...)
 }
 \arguments{
 \item{x}{A data frame containing item metadata (e.g., item parameters, number
-of categories, IRT model types, etc.); or an object of class \code{est_irt}
-obtained from \code{\link[=est_irt]{est_irt()}}, or \code{est_item} from \code{\link[=est_item]{est_item()}}.
+of categories, IRT model types, etc.), or an object of class \code{est_irt} or
+\code{est_item} obtained from \code{\link[=est_irt]{est_irt()}} or \code{\link[=est_item]{est_item()}}.
 
 See \code{\link[=est_irt]{est_irt()}} or \code{\link[=simdat]{simdat()}} for more details about the item
 metadata. This data frame can be easily created using the
@@ -55,50 +55,69 @@ metadata. This data frame can be easily created using the
 
 \item{...}{Additional arguments passed to or from other methods.}
 
-\item{data}{A matrix of examinees' item responses corresponding to the items
-specified in the \code{x} argument. Rows represent examinees and columns
-represent items.}
+\item{data}{A matrix of examinees' item responses, with rows for examinees
+and columns for items in the same order as the items in \code{x}. Responses to
+an item with K score categories must be integers from 0 to K - 1. Missing
+responses must be coded as \code{NA}; they are replaced with 0 before the
+statistics are computed, with a warning.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 
 \item{alpha}{A numeric value specifying the significance level (\eqn{\alpha})
 for the hypothesis test associated with the \eqn{S\text{-}X^2} statistic.
 Default is 0.05.}
 
-\item{min.collapse}{An integer specifying the minimum expected frequency
-required per cell before adjacent cells are collapsed. Default is 1. See
-\strong{Details}.}
+\item{min.collapse}{A numeric value giving the minimum expected frequency
+per cell. Cells with smaller expected frequencies are merged with adjacent
+cells. Default is 1. See \strong{Details}.}
 
-\item{norm.prior}{A numeric vector of length two specifying the mean and
-standard deviation of the normal prior distribution. These values are used
-to generate the Gaussian quadrature points and weights. Ignored if \code{method}
-is \code{"ML"}, \code{"MLF"}, \code{"WL"}, or \code{"INV.TCC"}. Default is \code{c(0, 1)}.}
+\item{norm.prior}{A numeric vector of length two giving the mean and standard
+deviation of the normal latent ability distribution used to generate the
+quadrature points and weights. Ignored when \code{weights} is supplied. For an
+\code{est_irt} object, see \code{weights}. Default is \code{c(0, 1)}.}
 
 \item{nquad}{An integer specifying the number of Gaussian quadrature points
-used to approximate the normal prior distribution. Default is 30.}
+used to approximate the normal latent ability distribution. Ignored when
+\code{weights} is supplied. For an \code{est_irt} object, see \code{weights}. Default is
+30.}
 
 \item{weights}{A two-column matrix or data frame containing the quadrature
 points (first column) and their corresponding weights (second column) for
 the latent ability distribution. If omitted, default values are generated
-using \code{\link[=gen.weight]{gen.weight()}} according to the \code{norm.prior} and \code{nquad} arguments.}
+using \code{\link[=gen.weight]{gen.weight()}} according to the \code{norm.prior} and \code{nquad}
+arguments.
 
-\item{pcm.loc}{An optional integer vector indicating the row indices of items
-that follow the partial credit model (PCM), where slope parameters are
-fixed. Default is \code{NULL}.}
+For an \code{est_irt} object, when \code{weights}, \code{norm.prior}, and \code{nquad} are all
+omitted, the latent distribution stored in the object (\code{x$weights}), which
+was used or estimated in the calibration, is used. Otherwise, \code{weights} is
+used if given, and a normal distribution given by \code{norm.prior} and \code{nquad}
+is used if not. For an \code{est_item} object, which stores no latent
+distribution, the normal distribution is used when \code{weights} is omitted.}
+
+\item{pcm.loc}{An optional integer vector giving the row indices of partial
+credit model (PCM) items whose slope parameters are fixed. It is used only
+to count the item parameters for the degrees of freedom. Default is \code{NULL}.}
 }
 \value{
-A list containing the following components:
-\item{fit_stat}{A data frame summarizing the \eqn{S\text{-}X^2} fit statistics
-for all items, including the chi-square value, degrees of freedom, critical
-value, and p-value.}
-\item{item_df}{A data frame containing the item metadata as specified in the
-input argument \code{x}.}
-\item{exp_freq}{A list of collapsed expected frequency tables for all items.}
-\item{obs_freq}{A list of collapsed observed frequency tables for all items.}
-\item{exp_prob}{A list of collapsed expected probability tables for all items.}
-\item{obs_prop}{A list of collapsed observed proportion tables for all items.}
+A list with the following components:
+\item{fit_stat}{A data frame with one row per item and the columns \code{id},
+\code{chisq} (the \eqn{S\text{-}X^2} statistic), \code{df}, \code{crit.val} (the critical
+value at \code{alpha}), and \code{p} (the p-value).}
+\item{item_df}{The item metadata used in the analysis.}
+\item{exp_freq}{A list of collapsed expected frequency tables, one per item,
+with summed score groups in rows and score categories in columns.}
+\item{obs_freq}{A list of collapsed observed frequency tables in the same
+layout as \code{exp_freq}.}
+\item{exp_prob}{A list of matrices of expected proportions within each
+summed score group.}
+\item{obs_prop}{A list of matrices of observed proportions within each
+summed score group.}
+
+For a polytomous item, categories merged within a summed score group are
+stored in the leftmost columns of that row, and the remaining cells are
+\code{NA}.
 }
 \description{
 Computes the \eqn{S\text{-}X^2} item fit statistic proposed by
@@ -107,34 +126,74 @@ models by comparing observed and expected item response frequencies across
 summed score groups.
 }
 \details{
-The accuracy of the \eqn{\chi^{2}} approximation in item fit statistics can be
-compromised when expected cell frequencies in contingency tables are too small
-(Orlando & Thissen, 2000). To address this issue, Orlando and Thissen (2000)
-proposed collapsing adjacent summed score groups to ensure a minimum expected
-frequency of at least 1.
+For item \eqn{i} and summed score group \eqn{s} with \eqn{N_s} examinees,
+let \eqn{O_{isk}} and \eqn{E_{isk}} be the observed and expected proportions
+of score category \eqn{k}. The statistic is
+\eqn{S\text{-}X^2_i = \sum_s \sum_k N_s (O_{isk} - E_{isk})^2 / E_{isk}},
+which has the form of Orlando and Thissen (2000) for a dichotomous item.
+The expected proportions are
+\eqn{E_{isk} = \sum_q P_{ik}(\theta_q) f^{*i}(s - k \mid \theta_q) A(\theta_q)
+/ \sum_q f(s \mid \theta_q) A(\theta_q)},
+where \eqn{f} and \eqn{f^{*i}} are the summed score likelihoods with and
+without item \eqn{i}, computed by the Lord-Wingersky recursion, and
+\eqn{\theta_q} and \eqn{A(\theta_q)} are the quadrature points and weights.
 
-However, applying this collapsing approach directly to polytomous item data
-can result in excessive information loss (Kang & Chen, 2008). To mitigate this,
-Kang and Chen (2008) instead collapsed adjacent response categories \emph{within}
-each summed score group, maintaining a minimum expected frequency of 1 per
-category. The same collapsing strategies are implemented in \code{\link[=sx2_fit]{sx2_fit()}}.
-If a different minimum expected frequency is desired, it can be specified via
-the \code{min.collapse} argument.
+The latent ability distribution used to compute the expected proportions is
+given by \code{weights}, or by a normal distribution generated from \code{norm.prior}
+and \code{nquad} when \code{weights} is omitted. For an \code{est_irt} object, the latent
+distribution stored in the object is used when \code{weights}, \code{norm.prior}, and
+\code{nquad} are all omitted.
 
-When an item is labeled as "DRM" in the item metadata, it is treated as a 3PLM
-item when computing the degrees of freedom for the \eqn{S\text{-}X^2} statistic.
+The lowest and highest possible summed scores are excluded. For an item with
+\eqn{K} score categories, the \eqn{K - 1} lowest remaining summed scores are
+pooled into one group, and so are the \eqn{K - 1} highest. When the test is
+so short that the two pooled ranges overlap, each summed score is counted
+once, in the lower group.
 
-Additionally, any missing responses in the \code{data} are automatically replaced
-with incorrect responses (i.e., 0s).
+The accuracy of the \eqn{\chi^{2}} approximation can be compromised when
+expected cell frequencies are too small (Orlando & Thissen, 2000). For
+dichotomous items, Orlando and Thissen (2000) merged adjacent summed score
+groups so that every expected frequency is at least 1. For polytomous items,
+this approach can discard too much information, so Kang and Chen (2008)
+instead merged adjacent score categories \emph{within} each summed
+score group. \code{\link[=sx2_fit]{sx2_fit()}} follows both strategies, working from the ends
+of the table toward the middle, and \code{min.collapse} sets the minimum expected
+frequency.
+
+The degrees of freedom are \eqn{G(K - 1) - m - C}, where \eqn{G} is the
+number of summed score groups after collapsing, \eqn{m} is the number of
+item parameters, and \eqn{C} is the number of category cells removed by
+merging. The number of item parameters \eqn{m} is determined by the IRT model
+of each item: 1 for the 1PLM, 2 for the 2PLM, 3 for the 3PLM, and the number
+of score categories \eqn{K} for the GRM and GPCM; an item listed in
+\code{pcm.loc} has \eqn{m = K - 1}, and an item labeled \code{"DRM"} is counted as a
+3PLM item. This also applies to \code{est_irt} and \code{est_item} objects: parameters
+fixed during estimation (for example, with \code{fix.g = TRUE}, or the items fixed
+in FIPC) are still counted, and GPCM items estimated with
+\code{fix.a.gpcm = TRUE} are counted as PCM items only when they are given in
+\code{pcm.loc}. When no degrees of freedom remain after collapsing (\code{df} of 0 or
+less), \code{crit.val} and \code{p} are \code{NA}, and a warning names the item.
+
+The test must contain at least two items. Responses in \code{data} must be
+integer scores from 0 to the number of score categories minus 1, with one
+column per item. Character and factor responses are read as numbers, logical
+responses as 0 and 1, and other responses stop the function with an error.
+Missing responses in \code{data} are replaced with 0 (the lowest score category),
+and a warning is issued.
 }
 \section{Methods (by class)}{
 \itemize{
 \item \code{sx2_fit(default)}: Default method for computing \eqn{S\text{-}X^{2}} fit
 statistics from a data frame \code{x} containing item metadata.
 
-\item \code{sx2_fit(est_item)}: An object created by the function \code{\link[=est_item]{est_item()}}.
+\item \code{sx2_fit(est_item)}: Method for an object of class \code{est_item} created by
+\code{\link[=est_item]{est_item()}}. The item parameter estimates, response data, and \code{D}
+are taken from the object.
 
-\item \code{sx2_fit(est_irt)}: An object created by the function \code{\link[=est_irt]{est_irt()}}.
+\item \code{sx2_fit(est_irt)}: Method for an object of class \code{est_irt} created by
+\code{\link[=est_irt]{est_irt()}}. The item parameter estimates, response data, and \code{D}
+are taken from the object. When \code{weights}, \code{norm.prior}, and \code{nquad} are all
+omitted, the latent distribution stored in the object (\code{x$weights}) is used.
 
 }}
 \examples{

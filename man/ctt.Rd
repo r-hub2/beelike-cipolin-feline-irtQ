@@ -20,7 +20,8 @@ ctt(
 examinees in rows and items in columns. Item scores must range from 0 to
 \code{cats[j] - 1} for each item j (0/1 for a dichotomous item; 0, 1, 2, ...
 for a polytomous/partial-credit item). An error is raised when a score
-is not a whole number between 0 and \code{cats[j] - 1}.}
+is not a whole number between 0 and \code{cats[j] - 1}; a score within 1e-8
+of a whole number is treated as that whole number.}
 
 \item{item.id}{A character vector of item identifiers, in the same order
 as the columns of \code{data}. If \code{NULL} (default), item IDs are generated
@@ -39,13 +40,12 @@ two (i.e., \code{max(max(data[, j]) + 1, 2)}); supply \code{cats} explicitly
 whenever the maximum possible score may not have been observed in the
 sample. Each value must be a whole number of at least 2.}
 
-\item{correct}{Logical. Both the raw (uncorrected) item-total correlation -
-where an item is correlated with the total score that includes its own
-contribution - and the corrected item-total correlation - excluding its
-own contribution - are always computed and reported as separate columns.
-This argument only controls which of the two is used for flagging: if
-\code{TRUE}, flagging is based on the corrected value; if \code{FALSE} (default),
-on the raw value.}
+\item{correct}{Logical. Both the raw item-total correlation (the item
+score correlated with a total score that includes the item) and the
+corrected item-total correlation (correlated with a total score that
+excludes the item) are always computed and reported as separate columns.
+This argument only selects which of the two is used for flagging: the
+corrected value if \code{TRUE}, the raw value if \code{FALSE} (default).}
 
 \item{missing}{A value indicating missing responses in \code{data}, analogous
 to the \code{missing} argument in \code{\link[=est_irt]{est_irt()}} and \code{\link[=score_resp]{score_resp()}}.
@@ -55,33 +55,43 @@ listwise from all statistics computed by this function.}
 
 \item{flag}{Logical. If \code{TRUE} (default), items are flagged when their
 difficulty or discrimination falls outside the thresholds given in
-\code{crit.p} and \code{crit.dis}.}
+\code{crit.p} and \code{crit.dis}, or when their discrimination is undefined.}
 
 \item{crit.p}{A numeric vector of length two giving the lower and upper
-difficulty bounds used for flagging: difficulty below the first value is
-flagged as too difficult, and difficulty above the second value is
-flagged as too easy. Default is \code{c(0.10, 0.95)}.}
+difficulty bounds used for flagging: an item with difficulty below the
+first value is flagged as too difficult ("difficulty too low"), and an
+item with difficulty above the second value is flagged as too easy
+("difficulty too high"). Default is \code{c(0.10, 0.95)}.}
 
 \item{crit.dis}{A single numeric value giving the minimum acceptable
-discrimination (item-total correlation); items strictly below this value
-are flagged as poorly discriminating. Default is \code{0.20}.}
+discrimination (item-total correlation); an item whose discrimination is
+strictly below this value is flagged as poorly discriminating
+("discrimination too low"). An item whose discrimination is undefined
+(a constant item, or a constant reference total score) is flagged
+"discrimination undefined". Default is \code{0.20}.}
 }
 \value{
 An object of class \code{"ctt"}, a list with elements:
-\item{item}{A data frame with one row per item, containing the item
-label, number of score categories, difficulty, the raw (uncorrected)
-item-total correlation (\code{discrimination_raw}), the corrected
-(item-excluded) item-total correlation (\code{discrimination_corrected}),
-alpha-with-item-removed, and, if \code{flag = TRUE}, a \code{flag} column.}
-\item{crit}{A list echoing the \code{crit.p} and \code{crit.dis} thresholds used for
-flagging.}
+\item{item}{A data frame with one row per item and the columns \code{item}
+(item ID), \code{cats} (number of score categories), \code{difficulty},
+\code{discrimination_raw} (raw item-total correlation),
+\code{discrimination_corrected} (corrected item-total correlation),
+\code{alpha_removed} (alpha with the item removed), and, if \code{flag = TRUE},
+\code{flag} (the criteria the item meets, among "difficulty too low",
+"difficulty too high", "discrimination too low", and "discrimination
+undefined", separated by "; ", or \code{""} when none). Statistics are
+rounded to three decimal places.}
+\item{crit}{A list with elements \code{crit.p}, \code{crit.dis}, and \code{correct}, the
+thresholds and the correlation used for flagging (\code{correct = TRUE} for
+the corrected item-total correlation, \code{FALSE} for the raw one).}
 \item{alpha}{A one-row test-level summary data frame containing
 \code{n_examinee}, \code{n_item}, \code{alpha}, \code{alpha_std}, \code{sem}, \code{mean_difficulty},
 \code{mean_discrimination_raw}, and \code{mean_discrimination_corrected}. Both the
 raw (\code{alpha}) and standardized (\code{alpha_std}) forms of Cronbach's alpha
-are always included; standardized alpha standardizes every item to unit
-variance before combining them, which differs meaningfully from raw
-alpha mainly when items vary widely in scale or format.}
+are always included; standardized alpha standardizes every item with
+nonzero variance to unit variance before combining them, which differs
+meaningfully from raw alpha mainly when items vary widely in scale or
+format.}
 \item{freq}{The total-score frequency distribution table returned by
 \code{\link[=freq_score]{freq_score()}} (\code{score}, \code{freq}, \code{pct}, \code{cum_pct}).}
 \item{call}{The matched call, as used by the \code{print()}/\code{summary()}
@@ -119,11 +129,12 @@ raw (uncorrected) item-total correlation, which correlates the item with
 the total score that includes the item's own contribution, and the
 corrected (item-excluded) item-total correlation, which excludes it. For a
 dichotomous item, the raw item-total correlation is mathematically
-equivalent to the point-biserial correlation. \code{correct} selects which of
-the two feeds the discrimination flagging criterion (\code{crit.dis}); both are
-always reported as separate columns regardless of \code{correct} (this mirrors
-how, e.g., \code{psych::alpha()} reports the raw item-total correlation as
-\code{raw.r} and the corrected version as \code{r.drop}).
+equivalent to the point-biserial correlation. A correlation is \code{NA} when
+the item score or the reference total score is constant. \code{correct} selects
+which of the two feeds the discrimination flagging criterion (\code{crit.dis});
+both are always reported as separate columns regardless of \code{correct} (this
+mirrors how, e.g., \code{psych::alpha()} reports the raw item-total correlation
+as \code{raw.r} and the corrected version as \code{r.drop}).
 
 Alpha-with-item-removed for item j is Cronbach's alpha (see below)
 recomputed using only the remaining items, so that a value above the
@@ -135,34 +146,36 @@ reported. Raw alpha uses the standard variance-based formula
 \deqn{\alpha = \frac{k}{k - 1}\left(1 - \frac{\sum_{j} \sigma_j^2}{\sigma_X^2}\right),}
 where \eqn{k} is the number of items, \eqn{\sigma_j^2} is the variance of
 item j, and \eqn{\sigma_X^2} is the variance of the total score X. Raw
-alpha reflects the reliability of the actual (unweighted) total score
-obtained by simply summing the item scores - the score most tests
-actually use for reporting and decisions. Standardized alpha instead first
-standardizes every item to unit variance before combining them,
+alpha reflects the reliability of the unweighted total score obtained by
+summing the item scores, which is the score most tests use for reporting
+and decisions. Standardized alpha is raw alpha computed after
+standardizing every item with nonzero variance to unit variance. When no
+item is constant, it equals
 \deqn{\alpha_{std} = \frac{k \bar{r}}{1 + (k - 1)\bar{r}},}
-where \eqn{\bar{r}} is the average pairwise correlation among all items.
-Standardized alpha differs meaningfully from raw alpha mainly when items
-vary substantially in scale or format (e.g., a mix of dichotomous and
-polytomous items with very different score ranges); when all items share
-the same scale and format, the two are typically close, and raw alpha
-remains the more directly interpretable of the two since it matches the
-reliability of the score actually used in practice. See Cronbach (1951)
-for the original derivation of coefficient alpha, and Osburn (2000) for a
-discussion contrasting the raw (covariance-based) and standardized
-(correlation-based) forms.
+where \eqn{\bar{r}} is the average pairwise correlation among the items. A
+constant item cannot be standardized, so it stays in the item count
+\eqn{k} with zero variance, as in raw alpha, and \eqn{\bar{r}} is the
+average correlation among the items that vary. When only one item varies,
+standardized alpha is 0, as is raw alpha; it is \code{NA} when no item varies or
+the standardized total score is constant. Standardized alpha differs
+meaningfully from raw alpha mainly when items vary substantially in scale or
+format (e.g., a mix of dichotomous and polytomous items with very different
+score ranges); when all items share the same scale and format, the two are
+typically close, and raw alpha remains the more directly interpretable of
+the two since it matches the reliability of the score actually used in
+practice. See Cronbach (1951) for the original derivation of coefficient
+alpha, and Osburn (2000) for a discussion contrasting the raw
+(covariance-based) and standardized (correlation-based) forms.
 
 The standard error of measurement (SEM) is
 \eqn{SEM = SD(X)\sqrt{1 - \alpha}} (using raw alpha), the standard CTT
 relationship between test reliability and measurement precision.
 
-The total-score frequency distribution is computed internally by
-\code{\link[=freq_score]{freq_score()}}, using the row sums of \code{data} after applying the same
-\code{missing} recoding and listwise deletion of incomplete rows used
-throughout the rest of this function, so that the frequency distribution
-reflects exactly the same set of examinees and the same total-score
-definition used elsewhere in the analysis. \code{\link[=freq_score]{freq_score()}} is also
-exported separately, for callers who only need a frequency distribution
-for an arbitrary vector of integer total scores.
+The total-score frequency distribution is computed by \code{\link[=freq_score]{freq_score()}} from
+the row sums of \code{data} after the same \code{missing} recoding and listwise
+deletion, so it covers the same examinees as the other statistics.
+\code{\link[=freq_score]{freq_score()}} can also be called directly on any vector of integer total
+scores.
 }
 \examples{
 # A dichotomous example: simulate the responses of 300 examinees to 15

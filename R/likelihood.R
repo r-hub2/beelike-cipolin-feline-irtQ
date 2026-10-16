@@ -20,10 +20,19 @@
 #   data_prm : sparse cbind of category-indicator columns across PRM items
 #              (one column per (item, score-category) pair)
 #   theta    : numeric vector of quadrature points
-#   D        : scaling constant (1 = logistic; 1.7 ~= normal-ogive)
+#   D        : scaling constant (1 for the logistic metric; 1.702 approximates the normal ogive)
 #
 # Returns:
-#   list with single element $L: nstd x ntheta numeric matrix of likelihoods.
+#   list with two elements:
+#     $L      : nstd x ntheta numeric matrix of likelihoods.  For an examinee
+#               whose likelihoods sum to less than exp(-700) over the grid (a
+#               long test whose likelihood underflows in exp()), the row is
+#               divided by exp(row maximum of the log-likelihood) so that its
+#               largest element is 1.
+#     $offset : numeric vector of length nstd holding the log of that divisor
+#               (0 for every row that is not rescaled).  The log-likelihood of
+#               examinee i is log(L[i, ]) + offset[i]; posterior() is
+#               unaffected because the divisor cancels within a row.
 #' @importFrom Matrix tcrossprod
 likelihood <- function(elm_item, idx.drm = NULL, idx.prm = NULL,
                        data_drm = NULL, data_prm = NULL, theta, D = 1) {
@@ -36,8 +45,8 @@ likelihood <- function(elm_item, idx.drm = NULL, idx.prm = NULL,
     # P(correct response) at each (theta, item) pair: ntheta x n.drm matrix
     # produced by drm() vectorized over theta and items simultaneously
     ps <- drm(
-      theta = theta, a = elm_item$pars[idx.drm, 1], b = elm_item$par[idx.drm, 2],
-      g = elm_item$par[idx.drm, 3], D = D
+      theta = theta, a = elm_item$pars[idx.drm, 1], b = elm_item$pars[idx.drm, 2],
+      g = elm_item$pars[idx.drm, 3], D = D
     )
 
     # P(incorrect response) = 1 - P(correct), same shape
@@ -77,13 +86,13 @@ likelihood <- function(elm_item, idx.drm = NULL, idx.prm = NULL,
 
     # category probabilities cannot be computed in a single vectorized
     # call because items can have different numbers of score categories
-    # (and different models, GRM vs GPCM) - so we loop item by item
+    # (and different models, GRM vs GPCM), so the loop runs item by item
     for (k in 1:n.prm) {
 
       # item-k parameter row, dropping NA padding columns (unused threshold
       # slots that exist when this item has fewer categories than the
       # widest item in the test bank)
-      par.tmp <- stats::na.exclude(elm_item$par[idx.prm[k], ])
+      par.tmp <- stats::na.exclude(elm_item$pars[idx.prm[k], ])
 
       # P(category j | theta_q) at each quadrature point: ntheta x cats[k]
       # matrix; prm() dispatches on pr.model to GRM or GPCM internally
@@ -97,8 +106,9 @@ likelihood <- function(elm_item, idx.drm = NULL, idx.prm = NULL,
     # single ntheta x sum(cats) matrix; column order matches data_prm
     prob.prm <- do.call(what = "cbind", prob.prm)
 
-    # element-wise log; drm()/prm() bound their outputs away from 0 and 1
-    # internally, so log() never produces -Inf or NaN here
+    # element-wise log; grm() bounds the probabilities to [1e-10, 1 - 1e-10]
+    # and gpcm() bounds them below by the smallest positive normalized double,
+    # so log() never produces -Inf or NaN here
     log_prob.prm <- log(prob.prm)
 
     # log-likelihood for PRM items per (examinee, quadrature point):
@@ -122,9 +132,34 @@ likelihood <- function(elm_item, idx.drm = NULL, idx.prm = NULL,
   # may be the integer 0 placeholder, which broadcasts elementwise.
   # base::as.matrix() densifies the sparse-Matrix output of tcrossprod()
   # so that exp() returns a plain numeric matrix usable downstream.
-  L <- exp(base::as.matrix(llike_drm + llike_prm))
+  llike <- base::as.matrix(llike_drm + llike_prm)
 
-  # return the likelihood matrix wrapped in a list to keep a stable
-  # interface for callers that index with $L (Estep, Estep_fipc, pcd2)
-  list(L = L)
+  # convert to the likelihood scale
+  L <- exp(llike)
+
+  # log-scale offset of each examinee (0 unless the row is rescaled below)
+  offset <- numeric(nrow(L))
+
+  # find the rows whose likelihoods underflow: their sum over the grid is below
+  # exp(-700), so every element is close to the double underflow limit or below it
+  idx.uf <- which(rowSums(L) < exp(-700))
+
+  # recompute those rows only after subtracting the row maximum of the
+  # log-likelihood, and keep that maximum as the offset; all other rows keep
+  # exactly the same likelihoods as exp(llike)
+  if (length(idx.uf) > 0L) {
+    row.max <- apply(llike[idx.uf, , drop = FALSE], 1, max)
+
+    # a row with no finite log-likelihood cannot be rescaled
+    idx.ok <- is.finite(row.max)
+    idx.uf <- idx.uf[idx.ok]
+    row.max <- row.max[idx.ok]
+    L[idx.uf, ] <- exp(llike[idx.uf, , drop = FALSE] - row.max)
+    offset[idx.uf] <- row.max
+  }
+
+  # return the likelihood matrix and the log-scale offsets; callers that
+  # need the marginal log-likelihood add the offsets back (Estep, est_irt,
+  # est_mg), while posterior() can use $L directly (Estep, pcd2)
+  list(L = L, offset = offset)
 }

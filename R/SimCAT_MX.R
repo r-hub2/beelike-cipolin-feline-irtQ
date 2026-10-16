@@ -8,14 +8,17 @@
 #'
 #' @format A list of length three:
 #' \describe{
-#'   \item{item.prm}{A data frame in item metadata format consisting of 200
-#'   dichotomous items and 30 polytomous items.
+#'   \item{item.prm}{A data frame of item metadata (columns `id` to `par.4`;
+#'   `id` is a factor) consisting of 200 dichotomous items and 30 polytomous
+#'   items.
 #'   - Dichotomous items: Calibrated using the IRT 2PL model.
 #'   - Polytomous items: Calibrated using the Generalized Partial Credit Model
 #'   (GPCM), with four score categories (0, 1, 2, 3).}
 #'
-#'   \item{res.dat}{A matrix of item responses from 30,000 examinees (rows) to 230
-#'   items (columns). `NA` marks an item that was not administered to the examinee.
+#'   \item{res.dat}{A numeric matrix of item responses from 30,000 examinees
+#'   (rows) to 230 items (columns). Each examinee answered 45 items (40
+#'   dichotomous and 5 polytomous items). `NA` marks an item that was not
+#'   administered to the examinee.
 #'   The columns are named `Item.dc.1` to `Item.dc.200` and `Item.py.1` to
 #'   `Item.py.30`, not by the `id` column of `item.prm` (`V1` to `V230`); the
 #'   columns follow the row order of `item.prm`.}

@@ -1,31 +1,46 @@
 #' Summary of Item Calibration Results
 #'
-#' This S3 method summarizes the IRT calibration results from an object of class `est_irt`,
-#' `est_mg`, or `est_item`, which are returned by the functions [irtQ::est_irt()],
-#' [irtQ::est_mg()], and [irtQ::est_item()], respectively.
+#' Summarizes the item calibration results in an object of class `est_irt`,
+#' `est_mg`, or `est_item`, returned by [irtQ::est_irt()], [irtQ::est_mg()],
+#' and [irtQ::est_item()], respectively.
 #'
 #' @param object An object of class `est_irt`, `est_mg`, or `est_item`.
-#' @param ... Additional arguments passed to or from other methods (currently not used).
+#' @param ... Additional arguments passed to or from other methods (currently
+#'   not used).
 #'
-#' @return A list of internal components extracted from the given object. In addition,
-#' the summary method prints an overview of the IRT calibration results to the console.
+#' @details \pkg{irtQ} exports its own generic `summary()`, which calls the
+#'   method of the class of `object` and therefore works as [base::summary()]
+#'   for other objects. Printing a summary object rounds the tables of item and
+#'   group parameter estimates to the number of decimal places given in the
+#'   `digits` argument of the print method (default
+#'   `max(2L, getOption("digits") - 5L)`).
+#'
+#' @return An object of class `summary.est_irt`, `summary.est_mg`, or
+#'   `summary.est_item`: a list of selected components of `object` (the call,
+#'   the numbers of items and examinees, the estimation settings and
+#'   convergence messages, the log-likelihood, AIC and BIC (not for
+#'   `est_item`), and the item and group parameter estimates). Printing the
+#'   object displays an overview of the calibration results.
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
 #' @seealso [irtQ::est_irt()], [irtQ::est_mg()], [irtQ::est_item()]
 #' @examples
 #' \donttest{
-#' # Fit the 1PL model to LSAT6 data and constrain the slope parameters to be equal
-#' fit.1pl <- est_irt(data = LSAT6, D = 1, model = "1PLM", cats = 2, fix.a.1pl = FALSE)
+#' # Fit the 1PL model to the LSAT6 data, constraining the slopes to be equal
+#' fit.1pl <- est_irt(data = LSAT6, D = 1, model = "1PLM", cats = 2,
+#'                    fix.a.1pl = FALSE, verbose = FALSE)
 #'
 #' # Display the calibration summary
 #' summary(fit.1pl)
 #' }
 #'
+#' @order 1
 #' @export
 summary <- function(object, ...) UseMethod("summary")
 
 #' @describeIn summary An object created by the function [irtQ::est_irt()].
+#' @order 2
 #' @export
 summary.est_irt <- function(object, ...) {
   call.expr <- deparse(object$call)
@@ -35,6 +50,7 @@ summary.est_irt <- function(object, ...) {
   Etol <- object$Etol
   weights <- object$weights
   npar.est <- object$npar.est
+  npar.detail <- object$npar.detail
   fix.loc <- object$fix.loc
   niter <- object$niter
   maxpar.diff <- object$maxpar.diff
@@ -52,7 +68,7 @@ summary.est_irt <- function(object, ...) {
 
   out <- list(
     call.expr = call.expr, nitem = nitem, ncase = ncase, MaxE = MaxE, Etol = Etol,
-    weights = weights, npar.est = npar.est, fix.loc = fix.loc, niter = niter,
+    weights = weights, npar.est = npar.est, npar.detail = npar.detail, fix.loc = fix.loc, niter = niter,
     maxpar.diff = maxpar.diff, EMtime = EMtime, SEtime = SEtime, TotalTime = TotalTime,
     test.1 = test.1, test.2 = test.2, var.note = var.note, loglikelihood = loglikelihood,
     aic = aic, bic = bic, estimates = estimates, group.par = group.par
@@ -62,6 +78,7 @@ summary.est_irt <- function(object, ...) {
 }
 
 #' @describeIn summary An object created by the function [irtQ::est_mg()].
+#' @order 3
 #' @export
 summary.est_mg <- function(object, ...) {
   call.expr <- deparse(object$call)
@@ -71,6 +88,7 @@ summary.est_mg <- function(object, ...) {
   Etol <- object$Etol
   weights <- object$weights
   npar.est <- object$npar.est
+  npar.detail <- object$npar.detail
   niter <- object$niter
   maxpar.diff <- object$maxpar.diff
   EMtime <- object$EMtime
@@ -87,7 +105,7 @@ summary.est_mg <- function(object, ...) {
   group.name <- names(object$loglikelihood$group)
   ngroup <- length(group.name)
   fix.loc <- object$fix.loc
-  if (is.null(fix.loc$overal)) {
+  if (is.null(fix.loc$overall)) {
     fix.loc$group <- purrr::map(.x = 1:ngroup, ~ {
       NULL
     })
@@ -96,7 +114,7 @@ summary.est_mg <- function(object, ...) {
 
   out <- list(
     call.expr = call.expr, nitem = nitem, ncase = ncase, MaxE = MaxE, Etol = Etol,
-    weights = weights, npar.est = npar.est, fix.loc = fix.loc, niter = niter,
+    weights = weights, npar.est = npar.est, npar.detail = npar.detail, fix.loc = fix.loc, niter = niter,
     maxpar.diff = maxpar.diff, EMtime = EMtime, SEtime = SEtime, TotalTime = TotalTime,
     test.1 = test.1, test.2 = test.2, var.note = var.note, loglikelihood = loglikelihood,
     aic = aic, bic = bic, estimates = estimates, group.par = group.par, group.name = group.name,
@@ -108,6 +126,7 @@ summary.est_mg <- function(object, ...) {
 
 
 #' @describeIn summary An object created by the function [irtQ::est_item()].
+#' @order 4
 #' @export
 summary.est_item <- function(object, ...) {
   call.expr <- deparse(object$call)

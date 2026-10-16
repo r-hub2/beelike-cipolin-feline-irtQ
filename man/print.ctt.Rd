@@ -9,11 +9,9 @@
 \arguments{
 \item{x}{An object of class \code{"ctt"}, as returned by \code{\link[=ctt]{ctt()}}.}
 
-\item{digits}{Number of decimal places used when rounding numeric values
-for display. Default is \code{3}. Note that the item- and test-level
-statistics bundled into \code{x} are already rounded to 3 decimal places
-before \code{\link[=ctt]{ctt()}} returns them, so a \code{digits} value greater than 3 here
-cannot recover precision that was already discarded upstream.}
+\item{digits}{Number of decimal places used for display. Default is \code{3}.
+The statistics in \code{x} are already rounded to three decimal places by
+\code{\link[=ctt]{ctt()}}, so a value above 3 adds no precision.}
 
 \item{...}{Additional arguments passed to or from other methods (currently
 not used).}

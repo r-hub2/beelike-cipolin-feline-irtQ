@@ -27,10 +27,10 @@
 )
 }
 \arguments{
-\item{x}{x An object of class \code{irtfit} obtained from \code{\link[=irtfit]{irtfit()}}.}
+\item{x}{An object of class \code{irtfit} obtained from \code{\link[=irtfit]{irtfit()}}.}
 
-\item{item.loc}{An integer specifying the position of the item to be plotted
-(i.e., the \emph{n}th item in the item set). See \strong{Details} below.}
+\item{item.loc}{An integer giving the position of the item to plot in the
+\code{item_df} element of \code{x}. See \strong{Details} below.}
 
 \item{type}{A character string indicating the type of residual plot to be
 displayed. Available options are:
@@ -53,12 +53,12 @@ confidence intervals for the raw residual plot. Available options are:
 Default is \code{"wald"}. See \strong{Details} below.}
 
 \item{show.table}{A logical value indicating whether to return the
-contingency table used for drawing the residual plots of the specified
-item. If \code{TRUE}, the function returns the same contingency table stored in the
-internal \code{contingency.plot} object of the \code{irtfit} object. Default is \code{TRUE}.}
+contingency table used to draw the residual plots of the item, taken from
+the \code{contingency.plot} element of \code{x}. Default is \code{TRUE}.}
 
-\item{layout.col}{An integer specifying the number of columns in the panel layout
-when plotting residuals for a polytomous item. Default is 2.}
+\item{layout.col}{An integer specifying the number of columns in the panel
+layout for a polytomous item when \code{type} is \code{"icc"} or \code{"sr"}. With
+\code{type = "both"}, each plot uses one column. Default is 2.}
 
 \item{xlab.text}{A character string specifying the title for the x-axis.
 If omitted, a default label is used.}
@@ -90,15 +90,15 @@ Default is 1.}
 \item{strip.size}{A numeric value specifying the size of facet label text. Default is 12.}
 
 \item{ylim.icc}{A numeric vector of length two specifying the y-axis limits
-for the raw residual plot. Default is c(0, 1).}
+for the raw residual plot. Default is \code{c(0, 1)}.}
 
-\item{ylim.sr.adjust}{Logical. If \code{TRUE}, the y-axis range for the
-standardized residual plot is automatically adjusted based on the maximum
-residual value for each item. If \code{FALSE}, the range is fixed according to
-the values specified in the \code{ylim.sr} argument. Default is \code{FALSE}.}
+\item{ylim.sr.adjust}{Logical. If \code{TRUE}, the y-axis limits of the
+standardized residual plot are set to \eqn{\pm} the largest absolute
+standardized residual of the item plus 1, rounded to an integer. If
+\code{FALSE}, \code{ylim.sr} is used. Default is \code{FALSE}.}
 
 \item{ylim.sr}{A numeric vector of length two specifying the y-axis limits
-for the standardized residual plot. Default is c(-4, 4).}
+for the standardized residual plot. Default is \code{c(-4, 4)}.}
 
 \item{...}{Additional arguments passed to \code{\link[ggplot2:ggplot]{ggplot2::ggplot()}} from the
 \pkg{ggplot2} package.}
@@ -120,34 +120,37 @@ category 1.
 \details{
 All plots are generated using the \pkg{ggplot2} package.
 
-Once the IRT model fit analysis is completed using \code{\link[=irtfit]{irtfit()}}, the
-resulting object of class \code{irtfit} can be used to draw raw and standardized
-residual plots.These plots are primarily based on the information stored in
-the internal object \code{contingency.plot}.
+The object of class \code{irtfit} returned by \code{\link[=irtfit]{irtfit()}} is used to draw
+raw and standardized residual plots. The plots are based mainly on the
+\code{contingency.plot} element of the object.
 
-Because residual plots are generated for one item at a time, you must
-specify which item to evaluate by providing an integer value for the
-\code{item.loc} argument, indicating the item's position in the test form.
-For example, to draw residual plots for the third item, set \code{item.loc = 3}.
+Residual plots are drawn for one item at a time. Set \code{item.loc} to the
+position of the item in the \code{item_df} element of the \code{irtfit} object; for
+example, \code{item.loc = 3} selects the third item. Items with fewer than two
+responses are removed by \code{\link[=irtfit]{irtfit()}}, so positions can differ from
+those in the original item metadata.
 
-For the raw residual plot, the \code{ci.method} argument determines the method
-used to estimate confidence intervals. The available methods are:
+For the raw residual plot, the \code{ci.method} argument sets the method used
+to compute the confidence intervals of the observed proportions:
 \itemize{
-\item \code{"wald"}: Wald interval based on the normal approximation (Laplace, 1812)
+\item \code{"wald"}: Wald-type interval based on the normal approximation
+(Laplace, 1820), \eqn{\hat{p} \pm z_{1 - \alpha/2} \sqrt{P(1 - P)/N}},
+where \eqn{\hat{p}} is the observed proportion, \eqn{P} is the
+model-expected probability, and \eqn{N} is the group size. The limits are
+truncated to the interval from 0 to 1.
 \item \code{"wilson"}: Wilson score interval (Wilson, 1927)
-\item \code{"wilson.cr"}: Wilson score interval with continuity correction (Newcombe, 1998)
+\item \code{"wilson.cr"}: Wilson score interval with continuity correction
+(Newcombe, 1998)
 }
 
 For more information, see
 \url{https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval}.
-Note that the width of the confidence interval is governed by the
-\eqn{\alpha}-level specified in the \code{alpha} argument of the
-\code{\link[=irtfit]{irtfit()}} function.
+The confidence level is \eqn{1 - \alpha}, where \eqn{\alpha} is the
+\code{alpha} argument of \code{\link[=irtfit]{irtfit()}}.
 
-For the standardized residual plot, residuals exceeding the threshold
-specified in the \code{overSR} argument of the \code{\link[=irtfit]{irtfit()}} function
-are displayed as circles. Residuals that do not exceed the threshold
-are displayed as crosses.
+In the standardized residual plot, residuals whose absolute values exceed
+the \code{overSR} argument of \code{\link[=irtfit]{irtfit()}} are drawn as red circles, and
+the others as blue crosses. Dashed lines mark \eqn{\pm} \code{overSR}.
 }
 \examples{
 ## Import the "-prm.txt" output file from flexMIRT
@@ -193,8 +196,8 @@ plot(x = fit, item.loc = 3, type = "sr", ci.method = "wald",
 Hambleton, R. K., Swaminathan, H., & Rogers, H. J. (1991).
 \emph{Fundamentals of item response theory}. Newbury Park, CA: Sage.
 
-Laplace, P. S. (1820). \emph{Theorie analytique des probabilites} (in French).
-Courcier.
+Laplace, P. S. (1820). \emph{Theorie analytique des probabilites} (3rd ed., in
+French). Paris: Courcier.
 
 Newcombe, R. G. (1998). Two-sided confidence intervals for the single
 proportion: comparison of seven methods. \emph{Statistics in Medicine, 17}(8),

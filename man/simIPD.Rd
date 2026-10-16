@@ -8,43 +8,47 @@
 A named list with eight elements:
 \describe{
 \item{item_par}{A data frame with 360 rows and 6 columns containing the
-\strong{original} (pre-drift) item parameters in \code{irtQ} format
+\strong{original} (pre-drift) item metadata
 (columns: \code{id}, \code{cats}, \code{model}, \code{par.1},
-\code{par.2}, \code{par.3}).  All items follow the 3PLM.}
-\item{key_item}{An integer vector of length 90 giving the row indices
-(in \code{item_par}) of the \emph{key items} - items selected by a
-preliminary CAT simulation as highly exposed and therefore most relevant
-for IPD analysis.}
+\code{par.2}, \code{par.3}). All items follow the 3PLM.}
+\item{key_item}{A numeric vector of length 90 giving the row indices
+(in \code{item_par}) of the \emph{key items}, that is, the items
+identified by a preliminary CAT simulation as the most frequently
+administered and therefore most relevant for IPD analysis.}
 \item{item.skip}{An integer vector of length 270 giving the row indices of
-non-key items that should be excluded from RIPD analysis
+non-key items that should be excluded from the IPD analysis
 (i.e., the complement of \code{key_item} in \code{1:360}).
-Pass this vector to the \code{item.skip} argument of \code{ripd()}.}
-\item{ipd_item}{An integer vector of length 18 giving the row indices of
-items that were subjected to IPD manipulation.  These 18 items (5\% of
-the 360-item pool) had both their discrimination (\emph{a}) and difficulty
-(\emph{b}) parameters decreased by 0.5.  All 18 items are members of
-\code{key_item}.}
-\item{foc_resp}{An integer matrix of dimensions 3000 x 360 containing the
-\strong{focal group} CAT response data.  Each row is one examinee; each
-column corresponds to an item in \code{item_par}.  Because CAT
+Pass this vector to the \code{item.skip} argument of \code{ripd()} or
+\code{pcd2()}.}
+\item{ipd_item}{A numeric vector of length 18 giving the row indices of
+items that were subjected to IPD manipulation. These 18 items (5\% of
+the 360-item pool) had both their discrimination (\emph{a}) and
+difficulty (\emph{b}) parameters decreased by 0.5. All 18 items are
+members of \code{key_item}.}
+\item{foc_resp}{A numeric matrix of dimensions 3000 x 360 containing the
+\strong{focal group} CAT response data. Each row is one examinee; each
+column corresponds to an item in \code{item_par} (the column names are
+the item IDs). Because CAT
 administers only 30 items per examinee, approximately 92\% of entries
-are \code{NA}.  Responses were generated using the \emph{drifted} item
-parameters (all focal examinees were exposed to IPD items;
-exposure rate = 100\%).}
+are \code{NA}. Responses were generated using the \emph{drifted} item
+parameters (the drifted parameters were used for every focal group
+examinee who received an IPD item).}
 \item{foc_score}{A numeric vector of length 3000 containing the
-\strong{focal group} final maximum likelihood (ML) theta estimates
-obtained from the CAT.}
-\item{ref_resp}{An integer matrix of dimensions 3000 x 360 containing the
-\strong{synthetic reference group} CAT response data (same sparsity
-structure as \code{foc_resp}).  The reference group was constructed by:
-(1) using \code{foc_score} as true ability values (1F scaling, i.e.,
+\strong{focal group} final maximum likelihood (ML) ability estimates
+obtained from the CAT, bounded to the range -5 to 5.}
+\item{ref_resp}{A numeric matrix of dimensions 3000 x 360 containing the
+\strong{synthetic reference group} CAT response data (each examinee also
+has 30 observed responses and about 92\% of the entries are \code{NA}).
+The reference group was constructed by:
+(1) using \code{foc_score} as true ability values (1F condition, i.e.,
 the reference group has the same size as the focal group);
 (2) generating item responses from the \emph{original} (non-drifted)
 item parameters; and (3) running an independent CAT simulation.
 This synthetic reference group mirrors the construction described in
 Lim & Han (2026).}
 \item{ref_score}{A numeric vector of length 3000 containing the
-\strong{synthetic reference group} final ML theta estimates.}
+\strong{synthetic reference group} final ML ability estimates, bounded
+to the range -5 to 5.}
 }
 }
 \usage{
@@ -52,12 +56,13 @@ simIPD
 }
 \description{
 A simulated dataset designed to illustrate the use of the \code{\link{ripd}}
-function for detecting item parameter drift (IPD) in computerized adaptive
-testing (CAT). The dataset represents one replication of a CAT-based IPD
+and \code{\link{pcd2}} functions for detecting item parameter drift (IPD) in
+computerized adaptive testing (CAT). The dataset represents one replication of a CAT-based IPD
 simulation study in which 5\% of a 360-item pool (18 items) had both their
 discrimination (\emph{a}) and difficulty (\emph{b}) parameters drift
-downward by 0.5, under a 30-item adaptive test where all focal group
-examinees were exposed to the drifted items (100\% exposure rate).
+downward by 0.5, under a 30-item adaptive test in which the drift affected
+all focal group examinees (the 100\% drift exposure condition of Lim & Han,
+2026).
 
 The data reflect a workflow of IPD detection using the residual-based IPD
 (RIPD) framework (Lim & Han, 2026): a focal group of examinees takes a
@@ -71,8 +76,9 @@ used to detect which items have drifted between the two groups.
 \itemize{
 \item Item pool: 360 three-parameter logistic model (3PLM) items
 \item Test length: 30 items per examinee
-\item Item selection: Maximum Fisher Information (MFI) with target
-exposure rate 0.30
+\item Item selection: maximum Fisher information (MFI), with the fade-away
+exposure control method (maximum exposure rate 0.30) and initial
+abilities drawn from \eqn{U(-1, 1)}
 \item Focal group: \eqn{n = 3{,}000}; true abilities drawn from
 \eqn{N(0, 1)}
 \item Reference group: \eqn{n = 3{,}000} (1F); true abilities =
@@ -80,17 +86,18 @@ exposure rate 0.30
 \item IPD items: 18 (5\% of 360), randomly drawn from \code{key_item}
 \item IPD manipulation: both \emph{a} and \emph{b} decreased by 0.50
 \item Interim scoring: EAP; final scoring: ML
-\item Scaling constant: \eqn{D = 1.7}
+\item Scaling factor: \eqn{D = 1.7}
 \item Random seed: 2024
 }
 
 \strong{Note on reference group size:}
 A 1F reference group (same size as the focal group) is used here for
-compactness.  In practice, larger synthetic reference groups (e.g., 3F - 8F)
-are recommended to improve RIPD detection power (Lim & Han, 2026).
-A larger reference group can be created by replicating the focal theta
-estimates: e.g., \code{rep(foc_score, times = 3)} for a 3F group, then
-re-running the CAT simulation with the original item parameters.
+compactness. In practice, larger synthetic reference groups improve RIPD
+detection power; Lim and Han (2026) suggest a reference group at least 8 to
+10 times the focal group size (8F to 10F). A larger reference group can be
+created by replicating the focal ability estimates, e.g.,
+\code{rep(foc_score, times = 8)} for an 8F group, and re-running the CAT
+simulation with the original item parameters using a CAT simulation program.
 }
 \examples{
 data(simIPD)

@@ -11,7 +11,8 @@ ctt_alpha(data, item.id = NULL, cats = NULL, correct = FALSE, missing = NA)
 examinees in rows and items in columns. Item scores must range from 0 to
 \code{cats[j] - 1} for each item j (0/1 for a dichotomous item; 0, 1, 2, ...
 for a polytomous/partial-credit item). An error is raised when a score
-is not a whole number between 0 and \code{cats[j] - 1}.}
+is not a whole number between 0 and \code{cats[j] - 1}; a score within 1e-8
+of a whole number is treated as that whole number.}
 
 \item{item.id}{A character vector of item identifiers, in the same order
 as the columns of \code{data}. If \code{NULL} (default), item IDs are generated
@@ -30,16 +31,10 @@ two (i.e., \code{max(max(data[, j]) + 1, 2)}); supply \code{cats} explicitly
 whenever the maximum possible score may not have been observed in the
 sample. Each value must be a whole number of at least 2.}
 
-\item{correct}{Logical. Both the raw (uncorrected) item-total correlation -
-where an item (or, in \code{\link[=ctt_distr]{ctt_distr()}}, a response option/category) is
-correlated with the total score that includes its own contribution -
-and the corrected item-total correlation - excluding its own
-contribution - are always computed and reported as separate columns
-(see \strong{Details}/\strong{Value}). This argument only controls which of the
-two is used for flagging: if \code{TRUE}, flagging (in \code{\link[=ctt_item]{ctt_item()}}'s \code{flag}
-column, \code{\link[=ctt_alpha]{ctt_alpha()}}'s summary discrimination figure, and, in
-\code{\link[=ctt_distr]{ctt_distr()}}, the \code{crit.distractor} check) is based on the corrected
-value; if \code{FALSE} (default), on the raw value.}
+\item{correct}{Logical. Accepted for consistency with \code{\link[=ctt_item]{ctt_item()}} and
+\code{\link[=ctt]{ctt()}}. Both the raw and corrected mean item-total correlations are
+always reported and \code{ctt_alpha()} has no flagging step, so \code{correct}
+does not change the result.}
 
 \item{missing}{A value indicating missing responses in \code{data}, analogous
 to the \code{missing} argument in \code{\link[=est_irt]{est_irt()}} and \code{\link[=score_resp]{score_resp()}}.
@@ -48,26 +43,32 @@ is \code{NA}. Examinees with any remaining missing item response are excluded
 listwise from all statistics computed by this function.}
 }
 \value{
-A one-row data frame containing:
+A one-row data frame with the following columns. Values other than
+the counts are rounded to three decimal places.
 \item{n_examinee}{number of examinees included (after listwise deletion).}
 \item{n_item}{number of items.}
-\item{alpha}{Cronbach's alpha, raw (covariance-based) form.}
-\item{alpha_std}{Cronbach's alpha, standardized (correlation-based) form -
-equivalent to computing raw alpha after first standardizing every item
-to unit variance. See \strong{Details} for when this differs meaningfully
-from \code{alpha}.}
-\item{sem}{the standard error of measurement (based on raw alpha).}
+\item{alpha}{Cronbach's alpha, raw (covariance-based) form; \code{NA} when the
+total score has zero variance.}
+\item{alpha_std}{Cronbach's alpha, standardized (correlation-based) form:
+raw alpha computed after standardizing every item with nonzero variance
+to unit variance, with a constant item kept in the item count as in
+\code{alpha}; \code{NA} when it is undefined. It equals
+\code{k * r_bar / (1 + (k - 1) * r_bar)} when no item is constant. See
+\strong{Details} for when it differs meaningfully from \code{alpha}.}
+\item{sem}{the standard error of measurement (based on raw alpha); \code{NA}
+when \code{alpha} is \code{NA}.}
 \item{mean_difficulty}{average item difficulty.}
 \item{mean_discrimination_raw}{average raw (uncorrected) item-total
-correlation across items.}
+correlation across items with a defined value; \code{NA} when there is none.}
 \item{mean_discrimination_corrected}{average corrected (item-excluded)
-item-total correlation across items.}
+item-total correlation across items with a defined value; \code{NA} when
+there is none.}
 }
 \description{
-Computes a test-level classical test theory (CTT) reliability summary -
-Cronbach's alpha (both the raw and standardized forms), the standard error
-of measurement (SEM), and the average item difficulty and discrimination -
-from scored item response data.
+Computes a test-level classical test theory (CTT) reliability summary
+from scored item response data: Cronbach's alpha (raw and standardized
+forms), the standard error of measurement (SEM), and the average item
+difficulty and discrimination.
 }
 \details{
 Two forms of Cronbach's alpha are always computed and reported as separate
@@ -77,28 +78,33 @@ Raw alpha (\code{alpha}) uses the standard variance-based formula,
 \verb{alpha = (k / (k - 1)) * (1 - sum(item variances) / total-score variance)}, where k is the number of items. This formula is a general
 reliability coefficient that applies unchanged to dichotomous and
 polytomous item scores alike, and it reflects the reliability of the
-actual (unweighted) total score obtained by simply summing the item
-scores - the score most tests actually use for reporting and decisions.
+unweighted total score obtained by summing the item scores, which is the
+score most tests use for reporting and decisions.
 In everyday terms, raw alpha asks: "if every item kept its own natural
 scale and spread, how consistently do these items agree with each other?"
 
-Standardized alpha (\code{alpha_std}) instead first standardizes every item to
-the same scale (unit variance) before combining them, using the
-equivalent formula \code{alpha_std = (k * r_bar) / (1 + (k - 1) * r_bar)},
-where \code{r_bar} is the average pairwise correlation among all items. In
-everyday terms, standardized alpha asks: "if every item counted equally
-regardless of how much it happens to vary in this particular sample, how
-consistently would these items agree with each other?" Because it removes
-the influence of any single item's variance, standardized alpha is most
-useful when items differ substantially in scale or format (e.g., a mix of
-dichotomous and polytomous items with very different score ranges); when
-all items share the same scale and format (as with a dichotomous
-selected-response test scored 0/1), raw and standardized alpha are
-typically close, and raw alpha remains the more directly interpretable of
-the two since it matches the reliability of the score actually used in
-practice. See Cronbach (1951) for the original derivation of coefficient
-alpha, and Osburn (2000) for a discussion contrasting the raw
-(covariance-based) and standardized (correlation-based) forms.
+Standardized alpha (\code{alpha_std}) is raw alpha computed after standardizing
+every item with nonzero variance to unit variance. When no item is constant,
+it equals \code{alpha_std = (k * r_bar) / (1 + (k - 1) * r_bar)}, where \code{r_bar}
+is the average pairwise correlation among the items. A constant item has no
+defined correlation and cannot be standardized, so it stays in the item
+count k with zero variance, as in raw alpha, and \code{r_bar} is the average
+correlation among the items that vary. When only one item varies,
+\code{alpha_std} is 0, as is raw alpha; it is \code{NA} when no item varies or the
+standardized total score is constant. In everyday terms, standardized alpha
+asks: "if every item counted equally regardless of how much it happens to
+vary in this particular sample, how consistently would these items agree
+with each other?" Because it removes the influence of any single item's
+variance, standardized alpha is most useful when items differ substantially
+in scale or format (e.g., a mix of dichotomous and polytomous items with
+very different score ranges); when all items share the same scale and format
+(as with a dichotomous selected-response test scored 0/1), raw and
+standardized alpha are typically close, and raw alpha remains the more
+directly interpretable of the two since it matches the reliability of the
+score actually used in practice. See Cronbach (1951) for the original
+derivation of coefficient alpha, and Osburn (2000) for a discussion
+contrasting the raw (covariance-based) and standardized (correlation-based)
+forms.
 
 The standard error of measurement (SEM) is computed as
 \verb{SEM = SD(total score) * sqrt(1 - alpha)} (using raw alpha), following the
@@ -106,24 +112,20 @@ standard CTT relationship between test reliability and measurement
 precision.
 
 Average difficulty and average discrimination are the simple means of the
-per-item difficulty and discrimination values computed by \code{\link[=ctt_item]{ctt_item()}}
-(any \code{NA} per-item value, e.g. from a constant item, is excluded via
-\code{na.rm = TRUE}). As in \code{\link[=ctt_item]{ctt_item()}}, both the raw (uncorrected) and
-corrected (item-excluded) item-total correlations are always averaged and
-reported as separate columns. \code{ctt_alpha()} itself has no flagging step,
-so \code{correct} has no further effect here beyond being passed through to
-\code{\link[=ctt_item]{ctt_item()}} for internal consistency.
+per-item values computed by \code{\link[=ctt_item]{ctt_item()}}, ignoring \code{NA} values (e.g., the
+discrimination of a constant item). As in \code{\link[=ctt_item]{ctt_item()}}, the raw and
+corrected item-total correlations are averaged separately and both are
+reported. \code{ctt_alpha()} has no flagging step, so \code{correct} does not
+change the result.
 
-Because \code{mean_difficulty}/\code{mean_discrimination_raw}/
-\code{mean_discrimination_corrected} are averaged with \code{na.rm = TRUE}, they
-inherit \code{\link[=ctt_item]{ctt_item()}}'s \code{cats}-auto-inference rule: when \code{cats} is not
-supplied, it is inferred as the observed maximum score plus one, with a
-minimum of two. An item that every examinee scores 0 on therefore enters
-the average with a difficulty of 0 and is flagged as "difficulty too low"
-by \code{\link[=ctt_item]{ctt_item()}}. For a polytomous item whose highest score category is not
-observed in the sample, however, \code{cats} is inferred too small and the
-difficulty is biased upward, so supply \code{cats} explicitly whenever the
-maximum possible score may not have been observed.
+Average difficulty depends on \code{cats}. When \code{cats} is not supplied, it is
+inferred for each item as the observed maximum score plus one, with a
+minimum of two, as in \code{\link[=ctt_item]{ctt_item()}}. An item that every examinee scores 0
+on therefore enters the average with a difficulty of 0. For a polytomous
+item whose highest score category is not observed in the sample, \code{cats}
+is inferred too small and the item's difficulty is biased upward, so
+supply \code{cats} explicitly whenever the maximum possible score may not have
+been observed.
 }
 \references{
 Cronbach, L. J. (1951). Coefficient alpha and the internal structure of

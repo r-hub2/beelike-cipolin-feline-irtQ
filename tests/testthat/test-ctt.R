@@ -4,7 +4,7 @@
 ctt_item <- irtQ:::ctt_item
 ctt_alpha <- irtQ:::ctt_alpha
 
-# ── ctt_item(): dichotomous ─────────────────────────────────────────────────
+# ---- ctt_item(): dichotomous -------------------------------------------------
 
 test_that("ctt_item() computes difficulty and item-total correlations matching a from-scratch calculation", {
   set.seed(1)
@@ -78,7 +78,7 @@ test_that("ctt_item() errors with fewer than two items", {
   expect_error(ctt_item(data = dat), "at least two items")
 })
 
-# ── ctt_alpha() ──────────────────────────────────────────────────────────────
+# ---- ctt_alpha() --------------------------------------------------------------
 
 test_that("ctt_alpha() raw alpha matches the standard variance-based formula", {
   set.seed(4)
@@ -127,7 +127,7 @@ test_that("ctt_alpha() returns NA alpha when total score has zero variance", {
   expect_true(is.na(out$sem))
 })
 
-# ── ctt(): combined wrapper + print/summary S3 methods ──────────────────────
+# ---- ctt(): combined wrapper + print/summary S3 methods ----------------------
 
 test_that("ctt() bundles the same item/alpha content as calling the pieces separately", {
   set.seed(7)
@@ -169,7 +169,7 @@ test_that("ctt() works on the bundled LSAT6 dataset without error", {
   expect_true(out$alpha$alpha >= 0 && out$alpha$alpha <= 1)
 })
 
-# ── score and cats validation ───────────────────────────────────────────────
+# ---- score and cats validation -----------------------------------------------
 
 test_that("the CTT functions stop when an item score is out of range", {
   dat <- data.frame(I1 = c(0, 1, 1, 0, 1), I2 = c(1, 0, 3, 1, 0),
@@ -222,7 +222,7 @@ test_that("an item that every examinee scores 0 on has two inferred categories",
   expect_equal(alpha_out$mean_difficulty, round(mean(out$difficulty), 3))
 })
 
-# ── listwise deletion, row names, and constant items ────────────────────────
+# ---- listwise deletion, row names, and constant items ------------------------
 
 test_that("ctt() reports listwise deletion once and matches the result on complete data", {
   set.seed(21)
@@ -261,4 +261,211 @@ test_that("ctt_alpha() gives no warning for a constant item", {
                     I3 = c(1, 1, 0, 0, 1, 0))
   expect_no_warning(out <- ctt_alpha(data = dat))
   expect_false(is.na(out$alpha_std))
+})
+
+# ---- input checks ------------------------------------------------------------
+
+test_that("the CTT functions stop when fewer than two examinees remain", {
+  dat <- data.frame(a = 1, b = 0, c = 1)
+  expect_error(ctt(data = dat), "two examinees")
+  expect_error(ctt_item(data = dat), "two examinees")
+  expect_error(ctt_alpha(data = dat), "two examinees")
+})
+
+test_that("ctt_item() checks the flagging thresholds only when flagging", {
+  set.seed(31)
+  dat <- data.frame(matrix(rbinom(30 * 4, 1, 0.5), nrow = 30))
+  expect_error(ctt_item(data = dat, crit.p = 0.1), "crit.p")
+  expect_error(ctt_item(data = dat, crit.p = c(0.95, 0.1)), "crit.p")
+  expect_error(ctt_item(data = dat, crit.p = c(0.1, NA)), "crit.p")
+  expect_error(ctt_item(data = dat, crit.dis = NA_real_), "crit.dis")
+  expect_error(ctt_item(data = dat, crit.dis = c(0.2, 0.3)), "crit.dis")
+  expect_error(ctt(data = dat, crit.p = 0.1), "crit.p")
+  expect_no_error(ctt_item(data = dat, flag = FALSE, crit.p = 0.1))
+})
+
+# ---- standardized alpha with a constant item ---------------------------------
+
+test_that("ctt_alpha() keeps a constant item in the item count of the standardized alpha", {
+  set.seed(3)
+  th <- rnorm(200)
+  dat <- data.frame(sapply(1:6, function(j) as.integer(th + rnorm(200) > (j - 3) / 2)))
+  dat$K <- 1L
+  out <- ctt_alpha(data = dat)
+
+  # raw alpha of the standardized items, with the constant item at zero variance
+  z <- as.data.frame(scale(dat[, 1:6]))
+  z$K <- 0
+  alpha_ref <- 7 / 6 * (1 - 6 / stats::var(rowSums(z)))
+  expect_equal(out$alpha_std, round(alpha_ref, 3))
+  expect_equal(out$alpha_std, 0.674)
+  expect_equal(ctt(dat)$alpha$alpha_std, 0.674)
+})
+
+test_that("ctt_alpha() standardized alpha is at most 1 and NA when undefined", {
+  a <- c(0, 0, 1, 1, 1, 0, 1, 0, 1, 0)
+  b <- 1 - a
+  b[1] <- 0
+  out <- ctt_alpha(data = data.frame(a = a, b = b, c = 1))
+  expect_equal(out$alpha, -6.667)
+  expect_equal(out$alpha_std, -6.674)
+
+  # a zero denominator of the standardized form
+  dat_zero <- data.frame(a = c(1, NA, 0), b = c(0, 1, 1))
+  out_zero <- suppressWarnings(ctt(data = dat_zero))
+  expect_true(is.na(out_zero$alpha$alpha_std))
+
+  # every item constant: all summaries are NA, not NaN
+  out_const <- ctt_alpha(data = data.frame(a = c(1, 1, 1), b = c(0, 0, 0)))
+  expect_true(is.na(out_const$alpha_std))
+  expect_false(is.nan(out_const$mean_discrimination_raw))
+  expect_true(is.na(out_const$mean_discrimination_raw))
+  expect_true(is.na(out_const$mean_discrimination_corrected))
+})
+
+# ---- scores close to whole numbers -------------------------------------------
+
+test_that("ctt() treats scores within tolerance of whole numbers as whole numbers", {
+  dat <- data.frame(a = c(1, 0, 1, 1, 0, 1), b = c(1, 1, 0, 1, 0, 1),
+                    c = c(1, 0, 1, 1, 0, 1))
+  dat_near <- dat
+  dat_near$c[1] <- 1 + 3e-9
+
+  out <- ctt(data = dat_near)
+  out_exact <- ctt(data = dat)
+  expect_equal(sum(out$freq$freq), nrow(dat))
+  expect_equal(out$freq$cum_pct[nrow(out$freq)], 100)
+  expect_identical(out$freq, out_exact$freq)
+  expect_identical(out$item, out_exact$item)
+  expect_identical(out$alpha, out_exact$alpha)
+})
+
+# ---- flag for an undefined discrimination ------------------------------------
+
+test_that("ctt_item() flags an item whose discrimination is undefined", {
+  set.seed(1)
+  dat <- data.frame(matrix(rbinom(40 * 4, 1, 0.5), nrow = 40))
+  dat$P <- 1
+  out <- ctt_item(data = dat, cats = c(2, 2, 2, 2, 3))$item
+  expect_equal(out$difficulty[5], 0.5)
+  expect_true(is.na(out$discrimination_raw[5]))
+  expect_equal(out$flag[5], "discrimination undefined")
+  expect_false(any(grepl("undefined", out$flag[1:4])))
+
+  # the flag does not depend on which correlation is used for flagging
+  out_corr <- ctt_item(data = dat, cats = c(2, 2, 2, 2, 3), correct = TRUE)$item
+  expect_equal(out_corr$flag[5], "discrimination undefined")
+
+  # no flag column when flagging is off
+  expect_false("flag" %in% names(ctt_item(data = dat, flag = FALSE)$item))
+
+  # the undefined item counts in the number of flagged items
+  expect_output(print(ctt(data = dat, cats = c(2, 2, 2, 2, 3))),
+                "Flagged items: 1 of 5")
+
+  # an extreme item can carry both a difficulty and an undefined flag
+  dat_zero <- data.frame(I1 = c(0, 1, 1, 0, 1, 1), I2 = c(0, 0, 0, 0, 0, 0),
+                         I3 = c(1, 1, 0, 0, 1, 0))
+  expect_equal(ctt_item(data = dat_zero)$item$flag[2],
+               "difficulty too low; discrimination undefined")
+})
+
+# ---- correlation used for flagging -------------------------------------------
+
+test_that("ctt() records which item-total correlation is used for flagging", {
+  set.seed(32)
+  dat <- data.frame(matrix(rbinom(50 * 5, 1, 0.6), nrow = 50))
+
+  expect_identical(names(ctt(data = dat)$crit), c("crit.p", "crit.dis", "correct"))
+  expect_identical(ctt(data = dat)$crit$correct, FALSE)
+  expect_identical(ctt(data = dat, correct = TRUE)$crit$correct, TRUE)
+  expect_identical(summary(ctt(data = dat, correct = TRUE))$crit$correct, TRUE)
+  expect_identical(ctt_item(data = dat, flag = FALSE)$crit$correct, FALSE)
+  expect_identical(ctt_item(data = dat)$crit$crit.dis, 0.2)
+
+  # the full report names the correlation
+  expect_output(print(summary(ctt(data = dat))),
+                "discrimination >= 0.2 (raw item-total correlation)",
+                fixed = TRUE)
+  expect_output(print(summary(ctt(data = dat, correct = TRUE))),
+                "discrimination >= 0.2 (corrected item-total correlation)",
+                fixed = TRUE)
+
+  # an object without crit$correct omits the correlation name
+  smry <- summary(ctt(data = dat))
+  smry$crit$correct <- NULL
+  lines <- utils::capture.output(print(smry))
+  expect_true(any(grepl("discrimination >= 0.2$", lines)))
+  expect_false(any(grepl("item-total correlation)", lines, fixed = TRUE)))
+})
+
+# ---- hand-checked values for a mixed-format data set -------------------------
+
+dat_mixed <- data.frame(
+  I1 = c(1, 1, 1, 0, 1, 0, 1, 0, 0, 1),
+  I2 = c(1, 1, 0, 1, 1, 0, 0, 0, 0, 1),
+  I3 = c(2, 1, 2, 0, 1, 0, 1, 1, 0, 2),
+  I4 = c(1, 0, 1, 0, 1, 1, 0, 0, 0, 1)
+)
+
+test_that("ctt_item() gives alpha with the item removed and both discrimination columns", {
+  out <- ctt_item(data = dat_mixed, flag = FALSE)$item
+
+  # values agree with psych::alpha() (alpha.drop$raw_alpha, raw.r, r.drop)
+  expect_equal(out$alpha_removed, c(0.583, 0.786, 0.605, 0.718))
+  expect_equal(out$discrimination_raw, c(0.866, 0.574, 0.889, 0.688))
+  expect_equal(out$discrimination_corrected, c(0.761, 0.330, 0.696, 0.484))
+})
+
+test_that("ctt_alpha() summarizes a mixed-format data set", {
+  out <- ctt_alpha(data = dat_mixed)
+  expect_equal(out$alpha, 0.746)
+  expect_equal(out$alpha_std, 0.751)
+  expect_equal(out$sem, 0.927)
+  expect_equal(out$mean_difficulty, 0.525)
+  expect_equal(out$mean_discrimination_raw, 0.754)
+  expect_equal(out$mean_discrimination_corrected, 0.568)
+})
+
+test_that("correct selects the correlation used for the discrimination flag", {
+  raw_flag <- ctt_item(data = dat_mixed, crit.dis = 0.5)$item$flag
+  corrected_flag <- ctt_item(data = dat_mixed, crit.dis = 0.5,
+                             correct = TRUE)$item$flag
+  expect_equal(raw_flag, rep("", 4))
+  expect_equal(corrected_flag,
+               c("", "discrimination too low", "", "discrimination too low"))
+})
+
+test_that("print.ctt() omits the flagged items line when flag is FALSE", {
+  out <- ctt(data = dat_mixed, flag = FALSE)
+  lines <- utils::capture.output(print(out))
+  expect_false(any(grepl("Flagged items", lines, fixed = TRUE)))
+  expect_true(any(grepl("Flagged items: 0 of 4", utils::capture.output(print(ctt(data = dat_mixed))),
+                        fixed = TRUE)))
+})
+
+test_that("print.summary.ctt() applies digits to the item table", {
+  lines <- utils::capture.output(print(summary(ctt(data = dat_mixed)), digits = 2))
+  expect_true("    V1     2         0.6                0.87                      0.76" %in% lines)
+})
+
+# ---- boundary cases ----------------------------------------------------------
+
+test_that("a score within rounding error of 0 is counted as 0", {
+  dat <- data.frame(a = c(1, 0, 1, 0.3 - (0.1 + 0.2)), b = c(1, 1, 0, 0),
+                    c = c(0, 1, 1, 1))
+  out <- ctt(data = dat)
+  expect_equal(out$freq$freq[out$freq$score == 1], 1L)
+  expect_equal(sum(out$freq$freq), 4)
+  expect_equal(ctt_distr(data = dat)$distr$freq[1], 2L)
+  expect_error(ctt(data = data.frame(a = c(1, 0, -1e-6), b = c(1, 1, 0))),
+               "whole numbers")
+})
+
+test_that("ctt_alpha() gives a standardized alpha of 0 when one item varies", {
+  dat <- data.frame(a = c(0, 1, 1, 0, 1), b = 1, c = 1)
+  out <- ctt_alpha(data = dat)
+  expect_equal(out$alpha, 0)
+  expect_equal(out$alpha_std, 0)
+  expect_equal(ctt(dat)$alpha$alpha_std, 0)
 })

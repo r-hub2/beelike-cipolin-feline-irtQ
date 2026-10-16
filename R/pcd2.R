@@ -1,8 +1,8 @@
-#' Pseudo-count D2 method
+#' Pseudo-Count D2 Method for Item Parameter Drift Detection
 #'
-#' This function calculates the Pseudo-count \eqn{D^{2}} statistic
+#' This function calculates the pseudo-count \eqn{D^{2}} statistic
 #' to evaluate item parameter drift, as described by Cappaert et al. (2018) and
-#' Stone (2000). The Pseudo-count \eqn{D^{2}} statistic is designed to detect
+#' Stone (2000). The pseudo-count \eqn{D^{2}} statistic is designed to detect
 #' item parameter drift efficiently without requiring item recalibration, making
 #' it especially valuable in computerized adaptive testing (CAT) environments.
 #' This method compares observed and expected response frequencies across
@@ -10,67 +10,85 @@
 #' pseudo-frequencies are computed using the posterior distribution of each
 #' examinee's ability, whereas the expected frequencies are the response
 #' probabilities implied by the item parameters in the item bank (Stone, 2000).
-#' This provides a sensitive measure of item parameter drift, helping to
-#' ensure the stability and accuracy of the test over time.
+#' The current version supports dichotomous items only.
 #'
 #' @inheritParams rdif
 #' @inheritParams est_irt
 #' @param x A data frame containing item metadata (e.g., item parameters, number
 #'   of categories, IRT model types, etc.). See [irtQ::est_irt()] or
 #'   [irtQ::simdat()] for more details about the item metadata. This data frame
-#'   can be easily created using the [irtQ::shape_df()] function.
-#' @param item.skip A numeric vector of item indices to exclude from IPD analysis.
-#'  If `NULL`, all items are included. Useful for omitting specific items based on
-#'  prior insights.
-#' @param weights A two-column matrix or data frame containing the quadrature
-#'   points (in the first column) and their corresponding weights (in the second
-#'   column) for the latent variable prior distribution. If not `NULL`, the
-#'   scale of the latent ability distribution is fixed to match the scale of the
-#'   provided quadrature points and weights. The weights and points can be
-#'   conveniently generated using the function [irtQ::gen.weight()].
-#'
-#'   If `NULL`, a normal prior density is used instead, based on the
-#'   information provided in the `Quadrature`, `group.mean`, and `group.var`
-#'   arguments. Default is `NULL`.
-#' @param group.mean A numeric value specifying the mean of the latent variable
-#'   prior distribution when `weights = NULL`. Default is 0. This value is fixed
-#'   to resolve the indeterminacy of the item parameter scale during
-#'   calibration.
+#'   can be easily created using the [irtQ::shape_df()] function. Only
+#'   dichotomous items are supported; the function stops if `x` contains GRM or
+#'   GPCM items.
+#' @param item.skip A numeric vector of item positions (row numbers of `x`), or a
+#'   logical vector with one value per item, identifying the items to exclude
+#'   from the IPD analysis. Skipped items still contribute to the
+#'   posterior ability distributions; only their `pcd2` values are set to `NA`,
+#'   and they are never flagged. If `NULL`, all items are analyzed. Default is
+#'   `NULL`.
+#' @param Quadrature A numeric vector of length two giving the number of
+#'   quadrature points and the symmetric bound (absolute value) of the points.
+#'   For example, `c(49, 6)` specifies 49 evenly spaced points from -6 to 6.
+#'   These points are used to compute each examinee's posterior ability
+#'   distribution when `weights = NULL`. Default is `c(49, 6)`.
+#' @param weights A two-column matrix or data frame of quadrature points (first
+#'   column) and weights (second column) defining the prior ability
+#'   distribution used to compute the posterior distributions. It can be created
+#'   with [irtQ::gen.weight()]. If `NULL`, a normal prior defined by
+#'   `Quadrature`, `group.mean`, and `group.var` is used. Default is `NULL`.
+#' @param group.mean A numeric value specifying the mean of the normal prior
+#'   ability distribution when `weights = NULL`. Default is 0.
 #' @param group.var A positive numeric value specifying the variance of the
-#'   latent variable prior distribution when `weights = NULL`. Default is 1.
-#'   This value is fixed to resolve the indeterminacy of the item parameter
-#'   scale during calibration.
-#' @param crit.val A critical value applied in hypothesis testing using
-#'   the Pseudo-count \eqn{D^{2}} statistic. The user must supply it; no
-#'   default threshold is built in. If `NULL` (default), the statistic is
-#'   reported but no item is flagged and purification is not performed.
-#' @param min.resp A positive integer specifying the minimum required number of
-#'   responses for each evaluated item. Defaults to `NULL`.
+#'   normal prior ability distribution when `weights = NULL`. Default is 1.
+#' @param crit.val A numeric critical value for the pseudo-count \eqn{D^{2}}
+#'   statistic. Items whose statistic is greater than or equal to `crit.val` are
+#'   flagged. Because the statistic has no known null distribution, the critical
+#'   value is usually obtained by bootstrapping (see Examples). If `NULL`
+#'   (default), the statistic is reported but no item is flagged and
+#'   purification is not performed.
+#' @param min.resp A single nonnegative number, usually a positive integer,
+#'   specifying the minimum number of responses an item must have to be
+#'   analyzed. All responses of items with fewer than
+#'   `min.resp` (but at least one) responses are set to `NA`, so their `pcd2`
+#'   value is `NaN` and `N` is 0, and a warning lists those items. If `NULL`, no
+#'   minimum is applied. Default is `NULL`.
+#' @param purify Logical. Whether to apply the iterative purification
+#'   procedure. Purification is performed only when `crit.val` is also supplied.
+#'   Default is `FALSE`.
+#' @param max.iter A positive integer specifying the maximum number of
+#'   purification iterations. Default is 10. If the limit is reached while
+#'   flagged items remain, a warning is issued, the items flagged at the last
+#'   iteration are added to the flagged set, and the `complete` element of
+#'   `with_purify` is `FALSE`. Because one item is removed per iteration,
+#'   `max.iter` should be at least the number of items expected to drift.
 #'
 #' @details
-#' The Pseudo-count \eqn{D^{2}} statistic quantifies item parameter drift (IPD) by
-#' computing the weighted squared differences between the observed and expected
-#' response frequencies for each score category across ability levels. The
-#' observed pseudo-frequencies are obtained from the posterior distribution of
-#' each examinee's ability, and the expected frequencies are the category
-#' probabilities computed from the item bank parameters (Stone, 2000).
+#' The pseudo-count \eqn{D^{2}} statistic quantifies item parameter drift (IPD)
+#' by computing, across quadrature points, the weighted squared differences
+#' between the observed pseudo-proportion of correct responses and the
+#' proportion expected under the item bank parameters, weighted by the
+#' pseudo-counts. The observed pseudo-counts are obtained from the posterior
+#' distribution of each examinee's ability, and the expected proportions are the
+#' probabilities of a correct response computed from the item bank parameters
+#' (Stone, 2000).
 #'
-#' The Pseudo-count \eqn{D^{2}} statistic is calculated as:
+#' The pseudo-count \eqn{D^{2}} statistic is calculated as:
 #' \deqn{
-#' Pseudo-count D^{2} = \sum_{k=1}^{Q} \left( \frac{r_{0k} + r_{1k}}{N}\right)
+#' D^{2}_{PC} = \sum_{k=1}^{Q} \left( \frac{r_{0k} + r_{1k}}{N}\right)
 #' \left( \frac{r_{1k}}{r_{0k} + r_{1k}} - E_{1k} \right)^2
 #' }
 #'
-#' where \eqn{r_{0k}} and \eqn{r_{1k}} are the pseudo-counts for the incorrect
-#' and correct responses at each ability level \eqn{k}, \eqn{E_{1k}} is the
-#' expected proportion of correct responses at each ability level \eqn{k},
-#' calculated using item parameters from the item bank, and \eqn{N} is the total
-#' count of examinees who received each item.
+#' where \eqn{Q} is the number of quadrature points, \eqn{r_{0k}} and
+#' \eqn{r_{1k}} are the pseudo-counts of incorrect and correct responses at
+#' quadrature point \eqn{k} (the sums of the examinees' posterior probabilities
+#' at that point over the examinees with each response), \eqn{E_{1k}} is the
+#' probability of a correct response at point \eqn{k} under the item bank
+#' parameters, and \eqn{N} is the number of examinees who responded to the item.
 #'
 #' \strong{Critical Value (`crit.val`)}:
 #' The `crit.val` argument specifies the threshold used to flag an item as
-#' exhibiting potential parameter drift. If an item's Pseudo-count \eqn{D^{2}}
-#' value exceeds this threshold, it is identified as a drifted item. If
+#' exhibiting potential parameter drift. If an item's pseudo-count \eqn{D^{2}}
+#' value is greater than or equal to this threshold, the item is flagged. If
 #' `crit.val = NULL`, the function reports the raw statistic without flagging.
 #'
 #' \strong{Minimum Response Count (`min.resp`)}:
@@ -80,28 +98,35 @@
 #' with `NA`. This avoids unreliable estimates based on small sample sizes.
 #'
 #' \strong{Purification Procedure}:
-#' Although Cappaert et al. (2018) did not incorporate purification into their method,
-#' [irtQ::pcd2()] implements an optional iterative purification process similar
-#' to Lim et al. (2022). When `purify = TRUE` and a `crit.val` is provided:
+#' Although Cappaert et al. (2018) did not incorporate purification into their
+#' method, [irtQ::pcd2()] implements an optional iterative purification process
+#' similar to Lim et al. (2022). When `purify = TRUE` and a `crit.val` is
+#' provided:
 #' \itemize{
 #'   \item The procedure begins by identifying items flagged for drift using the initial
-#'   Pseudo-count \eqn{D^{2}} statistics.
-#'   \item In each subsequent iteration, the item with the highest flagged Pseudo-count
+#'   pseudo-count \eqn{D^{2}} statistics.
+#'   \item In each subsequent iteration, the item with the highest flagged pseudo-count
 #'   \eqn{D^{2}} value is removed from the item set, and the statistics are recalculated
 #'   using only the remaining items.
 #'   \item The process continues until no additional items are flagged or the
 #'   number of iterations reaches `max.iter`.
+#'   \item If `max.iter` is reached before convergence, a warning is issued, the
+#'   items flagged at the last iteration are added to the flagged set, and
+#'   `complete` is set to `FALSE`.
+#'   \item If every item is flagged, the procedure stops with a warning,
+#'   because no item is left to analyze, all items are returned as flagged, and
+#'   `complete` is `FALSE`.
 #'   \item All flagged items and statistics are saved, and convergence status is reported.
 #' }
-#' This process ensures that drift detection is not distorted by already-flagged items,
-#' improving the robustness of the results.
+#' This process reduces the influence of already-flagged items on the posterior
+#' distributions used for the remaining items.
 #'
-#' @return This function returns a list containing four main components:
+#' @return This function returns a list with the following elements:
 #'
-#' \item{no_purify}{A list containing the results of Pseudo-count \eqn{D^{2}} analysis
+#' \item{no_purify}{A list containing the results of pseudo-count \eqn{D^{2}} analysis
 #' without applying the purification procedure. It includes:
 #'   \describe{
-#'     \item{ipd_stat}{A data frame summarizing the Pseudo-count \eqn{D^{2}} statistics
+#'     \item{ipd_stat}{A data frame summarizing the pseudo-count \eqn{D^{2}} statistics
 #'     for all items. The columns include:
 #'     `id` (item ID),
 #'     `pcd2` (the computed \eqn{D^{2}} value), and
@@ -112,46 +137,67 @@
 #'   }
 #' }
 #'
-#' \item{purify}{A logical value indicating whether the iterative purification
-#' procedure was applied (`TRUE`) or not (`FALSE`).}
+#' \item{purify}{The value of the `purify` argument. Purification is actually
+#' performed only when `crit.val` is also supplied.}
 #'
-#' \item{with_purify}{A list containing the results of Pseudo-count \eqn{D^{2}} analysis
+#' \item{with_purify}{A list containing the results of pseudo-count \eqn{D^{2}} analysis
 #' after applying the purification procedure. This list is populated only when both
-#' `purify = TRUE` and `crit.val` is not `NULL`. It includes:
+#' `purify = TRUE` and `crit.val` is not `NULL`; otherwise, all of its elements are `NULL`. It
+#' includes:
 #'   \describe{
-#'     \item{ipd_stat}{A data frame reporting the final Pseudo-count \eqn{D^{2}} statistics
-#'     after purification. Columns include:
+#'     \item{ipd_stat}{A data frame of the pseudo-count \eqn{D^{2}} statistics for all
+#'     items, taken for each item from the analysis given in `n.iter`. Columns
+#'     include:
 #'     `id` (item ID),
 #'     `pcd2` (the computed \eqn{D^{2}} value),
 #'     `N` (the number of valid responses), and
-#'     `n.iter` (the iteration number in which each item was evaluated).}
-#'     \item{ipd_item}{A numeric vector of item indices flagged as IPD items during
-#'     purification. Items are ordered by the iteration in which they were flagged.}
+#'     `n.iter` (for a flagged item, the iteration at which it was flagged, where
+#'     0 is the initial analysis; for the other items, the final iteration).}
+#'     \item{ipd_item}{A numeric vector of item indices (row positions in `x`)
+#'     flagged as IPD items during purification, sorted in ascending order. The
+#'     iteration at which each item was flagged is given in the `n.iter` column of
+#'     `ipd_stat`. It contains all items if every item is flagged. It is `NULL`
+#'     when no item is flagged in the initial analysis.}
 #'     \item{n.iter}{An integer indicating the number of purification iterations
-#'     completed.}
+#'     completed. The iteration that removes the last item is not counted,
+#'     because the statistics are not recomputed.}
 #'     \item{complete}{A logical value indicating whether the purification procedure
 #'     converged before reaching the maximum number of iterations (`max.iter`).
-#'     If `FALSE`, the iteration limit was reached before convergence.}
+#'     `FALSE` if the iteration limit was reached before convergence or if every
+#'     item was flagged.}
 #'   }
 #' }
 #'
 #' \item{crit.val}{A numeric value indicating the critical threshold used to flag
 #' items for parameter drift. If not specified by the user, this will be `NULL`.}
 #'
+#' \item{call}{The matched function call.}
+#'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
+#'
+#' @seealso [irtQ::ripd()], [irtQ::simIPD], [irtQ::gen.weight()]
 #'
 #' @references
 #' Cappaert, K. J., Wen, Y., & Chang, Y. F. (2018). Evaluating CAT-adjusted
 #' approaches for suspected item parameter drift detection. *Measurement:
 #' Interdisciplinary Research and Perspectives, 16*(4), 226-238.
+#' \doi{10.1080/15366367.2018.1511199}.
+#'
+#'   Lim, H., Choe, E. M., & Han, K. T. (2022). A residual-based differential
+#'   item functioning detection framework in item response theory. *Journal of
+#'   Educational Measurement, 59*(1), 80-104. \doi{10.1111/jedm.12313}.
+#'
+#'   Lim, H., & Han, K. T. (2026). IRT residual-based approach to detecting item
+#'   parameter drift in CAT. *Journal of Educational and Behavioral Statistics*.
+#'   \doi{10.3102/10769986261460852}.
 #'
 #'   Stone, C. A. (2000). Monte Carlo based null distribution for an alternative
 #'   goodness-of-fit test statistic in IRT models. *Journal of Educational
-#'   Measurement, 37*(1), 58-75.
+#'   Measurement, 37*(1), 58-75. \doi{10.1111/j.1745-3984.2000.tb01076.x}.
 #'
 #' @examples
 #' ## Example 1: No critical value specified
-#' ## Compute the Pseudo-count D2 statistics for dichotomous items
+#' ## Compute the pseudo-count D2 statistics for dichotomous items
 #' ## Import the "-prm.txt" output file generated by flexMIRT
 #' flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt", package = "irtQ")
 #'
@@ -165,24 +211,30 @@
 #' # Simulate response data using the item metadata and ability values
 #' data <- simdat(x = x, theta = score, D = 1)
 #'
-#' # Compute the Pseudo-count D2 statistics (no purification applied)
+#' # Compute the pseudo-count D2 statistics (no purification applied)
 #' ps_d2 <- pcd2(x = x, data = data)
 #' print(ps_d2)
 #'
 #' ## Example 2: Applying a critical value with purification
-#' # Compute the Pseudo-count D2 statistics with purification enabled
+#' # crit.val = 0.002 is an arbitrary value for illustration; no drift was
+#' # simulated, so any flagged item is a false positive.
+#' # Compute the pseudo-count D2 statistics with purification enabled
 #' ps_d2_puri <- pcd2(x = x, data = data, crit.val = 0.002, purify = TRUE)
 #' print(ps_d2_puri)
 #'
 #' \donttest{
 #' ## -- Example 3: CAT-based IPD detection using simIPD --------------------------
 #' ##
-#' ## The Pseudo-count D2 statistic has no closed-form null distribution.
-#' ## Following Lim & Han (2026), the critical value is estimated empirically
-#' ## via bootstrap:
-#' ##   (1) Select drift-free (anchor) items to form the null D2 distribution.
-#' ##   (2) Repeatedly resample from those values and take the 95th percentile.
-#' ##   (3) Average across bootstrap iterations to obtain the critical value.
+#' ## The pseudo-count D2 statistic has no closed-form null distribution.
+#' ## Following Cappaert et al. (2018), the critical value is estimated
+#' ## empirically via bootstrap:
+#' ##   (1) Select items that are not suspected of IPD (anchor items).
+#' ##   (2) Compute D2 for the whole item pool from all responses, and take
+#' ##       the D2 values of the anchor items as the null distribution.
+#' ##   (3) Resample the null distribution with replacement, take the 95th
+#' ##       percentile of each bootstrap sample, and average the percentiles
+#' ##       to obtain the critical value.
+#' ##   (4) Run pcd2() with this critical value.
 #' ##
 #' ## The simIPD dataset provides:
 #' ##   item_par  : original 360-item pool (3PLM, irtQ format)
@@ -195,44 +247,58 @@
 #' data(simIPD)
 #'
 #' ## -- Step 1. Select anchor items for bootstrap -----------------------------
-#' ## From the full item pool, select items that (a) have sufficient observed
-#' ## responses (>= boot_size) and (b) are not known IPD items. These items
-#' ## serve as the empirical null distribution of D2.
-#' ## boot_size = 300: chosen to match the minimum response count used in the
-#' ##   bootstrap procedure of the simulation study (Lim & Han, 2026).
-#' ## In practice, exclude items you know or suspect have drifted; here the
-#' ## ground truth (simIPD$ipd_item) is used for illustration.
-#' boot_size    <- 300
-#' n_resp       <- colSums(!is.na(simIPD$foc_resp))   # observed responses per item
-#' anchor_items <- setdiff(which(n_resp >= boot_size), simIPD$ipd_item)
+#' ## Select items that (a) have at least min_resp_anchor observed responses
+#' ## and (b) are not suspected of IPD. In practice, exclude the items you
+#' ## suspect to have drifted; here the ground truth (simIPD$ipd_item) is
+#' ## excluded for illustration.
+#' ## The minimum response count follows Lim & Han (2026); it is a practical
+#' ## addition to the procedure of Cappaert et al. (2018), who did not set such
+#' ## a criterion. In a CAT pool with uneven exposure, items with few responses
+#' ## have large D2 values that inflate the tail of the null distribution. For
+#' ## the simIPD data, the critical value computed below is about 0.034 when
+#' ## all items with at least one response are used, about 0.008 with at least
+#' ## 50 responses, about 0.006 with at least 100, and about 0.004 with at
+#' ## least 300.
+#' min_resp_anchor <- 300
+#' n_resp          <- colSums(!is.na(simIPD$foc_resp))   # observed responses per item
+#' anchor_items    <- setdiff(which(n_resp >= min_resp_anchor), simIPD$ipd_item)
 #'
-#' ## -- Step 2. Compute null D2 values for the anchor items ------------------
-#' pcd2_null <- pcd2(
-#'   x        = simIPD$item_par[anchor_items, ],
-#'   data     = simIPD$foc_resp[, anchor_items],
-#'   D        = 1.7,
-#'   crit.val = NULL,
-#'   purify   = FALSE
-#' )$no_purify$ipd_stat$pcd2
+#' ## -- Step 2. Compute D2 for the whole pool and keep the anchor items -------
+#' ## D2 is computed once from all items and responses, so that the posterior
+#' ## ability distributions are the same as in the final analysis (Step 4).
+#' ## A warning lists the pool items that were never administered.
+#' pcd2_all  <- pcd2(
+#'   x    = simIPD$item_par,
+#'   data = simIPD$foc_resp,
+#'   D    = 1.7
+#' )
+#' pcd2_null <- pcd2_all$no_purify$ipd_stat$pcd2[anchor_items]
 #'
-#' ## -- Step 3. Bootstrap critical value (Lim & Han, 2026) --------------
-#' ## For each bootstrap iteration: resample boot_size D2 values from the null
-#' ## distribution and take the 95th percentile. The critical value is the mean
-#' ## of these percentiles across all iterations.
+#' ## -- Step 3. Bootstrap critical value (Cappaert et al., 2018) --------------
+#' ## For each bootstrap iteration: resample the null D2 values with replacement
+#' ## (the sample size equals the number of anchor items) and take the 95th
+#' ## percentile. The critical value is the mean of these percentiles.
 #' ## n_boots = 500: reduced for demo speed; use 10,000 in practice for a
 #' ##   stable critical value estimate.
 #' set.seed(2024)
 #' n_boots <- 500
 #'
-#' crit_val <- purrr::map_dbl(
-#'   .x = 1:n_boots,
-#'   .f = ~ sample(x = pcd2_null, size = boot_size, replace = TRUE) |>
-#'            stats::quantile(probs = 0.95)
-#' ) |> mean()
+#' crit_val <- mean(vapply(
+#'   X   = seq_len(n_boots),
+#'   FUN = function(b) {
+#'     stats::quantile(sample(x = pcd2_null, size = length(pcd2_null), replace = TRUE),
+#'                     probs = 0.95)
+#'   },
+#'   FUN.VALUE = numeric(1)
+#' ))
 #'
 #' cat("Bootstrap critical value (alpha = 0.05):", round(crit_val, 6), "\n")
 #'
 #' ## -- Step 4. Run PCD2 with the bootstrap critical value + purification --
+#' ## The statistics of the first analysis (pcd2_result$no_purify) are the same
+#' ## as those of pcd2_all for the analyzed items, since the same responses are
+#' ## used. The same warning about the items that were never administered
+#' ## appears.
 #' pcd2_result <- pcd2(
 #'   x         = simIPD$item_par,
 #'   data      = simIPD$foc_resp,
@@ -274,7 +340,7 @@ pcd2 <- function(x,
   cl <- match.call()
 
   # Transform a data set to matrix
-  data <- data.matrix(data)
+  data <- as.matrix(data)
 
   # Confirm and correct all item metadata information
   x <- confirm_df(x)
@@ -289,13 +355,28 @@ pcd2 <- function(x,
     data[data == missing] <- NA
   }
 
+  # Transform the response data to a numeric matrix and check the responses
+  data <- resp_to_matrix(data, x$cats, x$id)
+
+  # Check the positions of the items to be skipped
+  item.skip <- check_item_skip(item.skip, nrow(x))
+
+  # Stop when the minimum number of responses is not a single nonnegative number
+  check_min_resp(min.resp)
+
+  # Stop when the maximum number of iterations is not a positive whole number
+  check_max_iter(max.iter, purify)
+
+  # Stop when the critical value is not a single nonnegative number
+  check_crit_val(crit.val)
+
   # count the number of item responses across all items
   n.resp <- Rfast::colsums(!is.na(data))
 
   # check the items which have all missing responses
   loc_allmiss <- which(n.resp == 0L)
   if (length(loc_allmiss) > 0L) {
-    memo1 <- paste0(paste0("Item(s) ", loc_allmiss, collapse = ", "), " has(have) no item response data. \n")
+    memo1 <- paste0("Item(s) ", paste0(loc_allmiss, collapse = ", "), " have no response data.")
     warning(memo1, call. = FALSE)
   }
 
@@ -304,16 +385,20 @@ pcd2 <- function(x,
   # those items with NA
   if (!is.null(min.resp)) {
     loc_less <- which(n.resp < min.resp & n.resp > 0)
-    data[, loc_less] <- NA
-    memo2 <- paste0(paste0("Item(s) ", loc_less, collapse = ", "), " is(are) not be analyzed ",
-                    "because it(they) did not meet the minimum response count criterion. \n")
-    warning(memo2, call. = FALSE)
+
+    # Warn only when at least one item is excluded
+    if (length(loc_less) > 0L) {
+      data[, loc_less] <- NA
+      memo2 <- paste0("Item(s) ", paste0(loc_less, collapse = ", "), " are not analyzed ",
+                      "because they do not meet the minimum response count criterion.")
+      warning(memo2, call. = FALSE)
+    }
   }
 
   # (1) when no purification is implemented
   # Do only one iteration of IPD analysis
   ipd_rst <-
-    pcd2_one(x = x, data =data, D = D, item.skip = item.skip, missing = missing,
+    pcd2_one(x = x, data = data, D = D, item.skip = item.skip,
              Quadrature = Quadrature, weights = weights, group.mean = group.mean,
              group.var = group.var, crit.val = crit.val)
 
@@ -353,10 +438,8 @@ pcd2 <- function(x,
       # Record unique item numbers
       item_num <- 1:nrow(x)
 
-      # In case when at least one IPD item is detected from the no purification IPD analysis:
-      # In this case, the maximum number of iteration must be greater than 0.
-      # if not, stop and return an error message
-      if (max.iter < 1) stop("The maximum iteration (i.e., max.iter) must be greater than 0 when purify = TRUE.", call. = FALSE)
+      # Indicate whether the purification stops because every item is flagged
+      all_flagged <- FALSE
 
       # Print a message
       if (verbose) {
@@ -370,7 +453,7 @@ pcd2 <- function(x,
           cat("\r", paste0("Iteration: ", i))
         }
 
-        # A flagged item which has the largest significant IPD statistic
+        # Find the flagged item with the largest IPD statistic
         flag_max <- which.max(ipd_stat_tmp$pcd2)
 
         # Check an item that is deleted
@@ -386,11 +469,17 @@ pcd2 <- function(x,
         # Refine the leftover items
         item_num <- item_num[-flag_max]
 
+        # Stop the purification when no item is left to analyze
+        if (length(item_num) == 0L) {
+          all_flagged <- TRUE
+          break
+        }
+
         # Remove the detected IPD item data which has the largest statistic from the item metadata
-        x_puri <- x_puri[-flag_max, ]
+        x_puri <- x_puri[-flag_max, , drop = FALSE]
 
         # Remove the detected IPD item data which has the largest statistic from the response data
-        data_puri <- data_puri[, -flag_max]
+        data_puri <- data_puri[, -flag_max, drop = FALSE]
 
         # Update the locations of the items that should be skipped in the purified data
         if (!is.null(item.skip)) {
@@ -402,7 +491,7 @@ pcd2 <- function(x,
         # Conduct IPD analysis using the purified data
         ipd_rst_tmp <-
           pcd2_one(x = x_puri, data = data_puri, D = D, item.skip = item.skip.puri,
-                   missing = missing, Quadrature = Quadrature, weights = weights,
+                   Quadrature = Quadrature, weights = weights,
                    group.mean = group.mean, group.var = group.var,
                    crit.val = crit.val)
 
@@ -413,9 +502,6 @@ pcd2 <- function(x,
 
         # Check if a further IPD item is flagged
         if (is.null(ipd_item_tmp)) {
-
-          # Add no additional IPD item
-          ipd_item <- ipd_item
 
           # Add the IPD statistics for rest of items
           ipd_stat[item_num, 1:3] <- ipd_stat_tmp
@@ -430,13 +516,20 @@ pcd2 <- function(x,
         cat("", "\n")
       }
 
-      # Record the actual number of iteration
-      n_iter <- i
+      # Record the actual number of iterations; the statistics are not recomputed in the
+      # iteration that removes the last item
+      n_iter <- if (all_flagged) i - 1L else i
 
-      # If the iteration reached out the maximum number of iteration but the purification is incomplete,
-      # then, return a warning message
-      if(max.iter == n_iter & !is.null(ipd_item_tmp)) {
-        warning("The iteration reached out the maximum number of iteration before purification is completed.", call. = FALSE)
+      # If every item is flagged, then, return a warning message
+      if (all_flagged) {
+        warning("All items were flagged during the purification, so the purification stopped ",
+                "with no item left to analyze.", call. = FALSE)
+        complete <- FALSE
+      } else if (max.iter == n_iter & !is.null(ipd_item_tmp)) {
+        # If the maximum number of iterations is reached before purification is complete,
+        # then, return a warning message
+        warning("The maximum number of iterations was reached before purification was completed.",
+                call. = FALSE)
         complete <- FALSE
 
         # add flagged IPD item at the last iteration
@@ -475,7 +568,6 @@ pcd2 <- function(x,
               with_purify = with_purify, crit.val = crit.val)
 
   # return the IPD detection results
-  # class(rst) <- "pcd2"
   rst$call <- cl
   rst
 
@@ -484,7 +576,7 @@ pcd2 <- function(x,
 
 # Pseudo-count D2 method for a single iteration
 pcd2_one <- function(x, data, D = 1, item.skip = NULL,
-                     missing = NA, Quadrature = c(49, 6.0), weights = NULL,
+                     Quadrature = c(49, 6.0), weights = NULL,
                      group.mean = 0.0, group.var = 1.0, crit.val = NULL) {
 
   # confirm and correct all item metadata information
@@ -496,14 +588,8 @@ pcd2_one <- function(x, data, D = 1, item.skip = NULL,
   # extract score categories for all items
   cats <- x$cats
 
-  # extract model names for all items
-  model <- x$model
-
   # count the total number of item in the response data set
   nitem <- ncol(data)
-
-  # count the total number of examinees
-  nstd <- nrow(data)
 
   # check whether the data have the same number of items as indicated in the x argument
   if (nrow(x) != nitem) {
@@ -513,26 +599,17 @@ pcd2_one <- function(x, data, D = 1, item.skip = NULL,
   # count the number of item responses across all items
   n.resp <- Rfast::colsums(!is.na(data))
 
-  # create the initial weights of prior ability distribution when it is not specified
+  # create the weights of the prior ability distribution when it is not specified
   if (is.null(weights)) {
     # create a vector of quad-points
     quadpt <- seq(-Quadrature[2], Quadrature[2], length.out = Quadrature[1])
 
     # create a two column data frame to contain the quad-points and weights
     weights <- gen.weight(dist = "norm", mu = group.mean, sigma = sqrt(group.var), theta = quadpt)
-    n.quad <- length(quadpt)
-  } else {
-    quadpt <- weights[, 1]
-    n.quad <- length(quadpt)
-    moments.tmp <- cal_moment(node = quadpt, weight = weights[, 2])
-    group.mean <- moments.tmp[1]
-    group.var <- moments.tmp[2]
   }
 
-  # factorize the response values
   # build the per-item one-hot frequency-category list used downstream
-  # by divide_data() and the pseudo-count D^2 statistic.  See
-  # build_freqcat() (R/util.R) for the output structure.
+  # by divide_data() and the pseudo-count D^2 statistic (see build_freqcat())
   freq.cat <- build_freqcat(data, cats)
 
   # break down the item metadata into several elements
@@ -564,23 +641,22 @@ pcd2_one <- function(x, data, D = 1, item.skip = NULL,
   # compute posterior distribution for all examinees
   post_dist <- posterior(likehd = lmat, weights = weights, idx.std = NULL)
 
-  # compute the expected frequency of score categories across all items
-  # : this is the conditional expectation of item responses with respect
-  #   to posterior likelihood distribution
+  # compute the pseudo-counts (posterior-weighted response counts) of score categories
+  # across all items
   freq_exp_all <-
     base::as.matrix(Matrix::crossprod(post_dist, data_all))
 
-  # list including the expected frequency of score categories for each item
+  # split the pseudo-counts by item
   freq_exp_item <-
     purrr::map(.x = cols.item$cols.all,
                .f = ~ {freq_exp_all[, .x]})
 
-  # sum of the expected frequencies across all score categories for each item
+  # total pseudo-count at each quadrature point for each item
   freq_exp_sum <-
     purrr::map(.x = freq_exp_item,
                .f = ~ {Rfast::rowsums(.x)})
 
-  # compute the expected probabilities of endorsing each score categories for each item
+  # compute the model-implied category probabilities at each quadrature point
   exp_prob_item <-
     trace(elm_item = elm_item, theta = weights[, 1], D = D,
           tcc = FALSE)$prob.cats
@@ -590,7 +666,12 @@ pcd2_one <- function(x, data, D = 1, item.skip = NULL,
     purrr::pmap_dbl(.l = list(x = freq_exp_item, y = freq_exp_sum,
                               z = n.resp, h = exp_prob_item),
                     .f = function(x, y, z, h) {
-                      sum((y / z) * ((x[, 2] / y) - h[, 2])^2)
+                      # contribution of each quadrature point
+                      term <- (y / z) * ((x[, 2] / y) - h[, 2])^2
+
+                      # a point without posterior mass adds nothing (this avoids 0 / 0),
+                      # while an item without responses (z = 0) keeps its NaN value
+                      sum(term[y > 0 | z == 0])
                     })
 
   # create a data frame to contain the computed pcd2 statistics

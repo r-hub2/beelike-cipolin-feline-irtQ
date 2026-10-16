@@ -2,7 +2,7 @@
 % Please edit documentation in R/shape_df_fipc.R
 \name{shape_df_fipc}
 \alias{shape_df_fipc}
-\title{Combine fixed and new item metadata for fixed-item parameter calibration
+\title{Combine Fixed and New Item Metadata for Fixed Item Parameter Calibration
 (FIPC)}
 \usage{
 shape_df_fipc(x, fix.loc = NULL, item.id = NULL, cats, model)
@@ -12,22 +12,26 @@ shape_df_fipc(x, fix.loc = NULL, item.id = NULL, cats, model)
 (e.g., output from \code{\link[=shape_df]{shape_df()}}).}
 
 \item{fix.loc}{An integer vector specifying the row positions in the final
-output where fixed items should be placed.}
+output where the fixed items are placed, in the row order of \code{x}. This
+argument must be specified.}
 
-\item{item.id}{A character vector of IDs for new items whose parameters will
-be estimated.If \code{NULL}, default IDs (e.g., "V1", "V2", ...) are assigned
-automatically.}
+\item{item.id}{A character vector of IDs for the new items whose parameters
+are estimated. If \code{NULL}, default IDs (\code{"V1"}, \code{"V2"}, ...) are assigned.}
 
-\item{cats}{An integer vector indicating the number of response categories
-for each new item; order must match \code{item.id}.}
+\item{cats}{An integer vector giving the number of score categories of each
+new item, in the order of \code{item.id}. A single value is recycled across all
+new items.}
 
-\item{model}{A character vector of IRT model names for each new item. Valid
-options for dichotomous items: "1PLM", "2PLM", "3PLM", "DRM"; for
-polytomous items: "GRM", "GPCM".}
+\item{model}{A character vector of IRT model names for the new items:
+\code{"1PLM"}, \code{"2PLM"}, \code{"3PLM"}, or \code{"DRM"} for dichotomous items, and
+\code{"GRM"} or \code{"GPCM"} for polytomous items. A single value is recycled
+across all new items.}
 }
 \value{
-A data.frame containing combined metadata for all items (fixed and
-new), ordered by test position.
+A data frame of item metadata for all items (fixed and new), ordered
+by test position, with columns \code{id}, \code{cats}, \code{model}, and \code{par.1},
+\code{par.2}, .... New items receive default parameters as in \code{\link[=shape_df]{shape_df()}}
+with \code{default.par = TRUE}. Fixed \code{"DRM"} items are relabeled \code{"3PLM"}.
 }
 \description{
 This function merges existing fixed-item metadata with automatically
@@ -36,19 +40,18 @@ specified test positions, to facilitate fixed item parameter calibration
 using \code{\link[=est_irt]{est_irt()}}.
 }
 \details{
-To use this function, first prepare a metadata frame \code{x} containing
-only fixed items - either created by \code{\link[=shape_df]{shape_df()}} or imported from
-external software (e.g., via \code{\link[=bring.flexmirt]{bring.flexmirt()}}), which must include
-columns \code{id}, \code{cats}, \code{model}, and all relevant parameter columns (\code{par.1},
-\code{par.2}, etc.). The \code{fix.loc} argument should then specify the exact row
-positions in the final test form where these fixed items should remain. The
-length of \code{fix.loc} must match the number of rows in \code{x}, and the order of
-positions in \code{fix.loc} determines where each fixed-item row is placed.
+First, prepare a metadata frame \code{x} that contains only the fixed
+items, created by \code{\link[=shape_df]{shape_df()}} or imported from external software
+(e.g., with \code{\link[=bring.flexmirt]{bring.flexmirt()}}). It must include the columns \code{id},
+\code{cats}, \code{model}, and the parameter columns (\code{par.1}, \code{par.2}, ...). Then
+use \code{fix.loc} to give the row positions of these items in the final test
+form. The length of \code{fix.loc} must equal the number of rows in \code{x}, and
+the i-th element of \code{fix.loc} is the position of the i-th row of \code{x}.
 
-Next, provide information for the new items whose parameters will be
-estimated. Supply vectors for \code{item.id}, \code{cats}, and \code{model} matching the
-number of new items (equal to total form length minus length of \code{fix.loc}).
-If \code{item.id} is \code{NULL}, unique IDs are generated automatically.
+Next, provide \code{item.id}, \code{cats}, and \code{model} for the new items, whose
+number equals the total form length minus the length of \code{fix.loc}. A
+single value of \code{cats} or \code{model} is used for all new items.
+If \code{item.id} is \code{NULL}, default IDs (\code{"V1"}, \code{"V2"}, ...) are assigned.
 }
 \examples{
 ## Import the flexMIRT parameter output file

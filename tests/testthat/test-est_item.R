@@ -1,4 +1,4 @@
-# ── Common arguments ─────────────────────────────────────────────────────────
+# ---- Common arguments ---------------------------------------------------------
 # est_item() is a one-shot FAPC routine (no EM iteration), so the
 # control set is small.  use.gprior = FALSE keeps the 3PLM tests
 # from drifting on the small samples used here, and verbose = FALSE
@@ -6,7 +6,7 @@
 ITEM_ARGS <- list(D = 1, use.aprior = FALSE, use.gprior = FALSE,
                   verbose = FALSE)
 
-# ── Fixtures ─────────────────────────────────────────────────────────────────
+# ---- Fixtures -----------------------------------------------------------------
 prm_file <- system.file("extdata", "flexmirt_sample-prm.txt", package = "irtQ")
 x_full   <- bring.flexmirt(file = prm_file, "par")$Group1$full_df  # 55 items
 
@@ -73,9 +73,9 @@ run_item <- function(x, sim, ...) {
 }
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # 1. Output class and structure
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 test_that("est_item() returns class 'est_item'", {
   sim <- sim_with_score(x_2plm5, seed = 11)
@@ -117,9 +117,9 @@ test_that("est_item() covariance is a square npar x npar matrix", {
 })
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # 2. Row alignment of (id, parameter) pairs for mixed banks
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # The per-item estimation loop in est_item.R appends results in
 # [loc_1p_const items first, then loc_else items] order, and par_df /
 # se_df are permuted back to natural order before the cbind to
@@ -155,9 +155,9 @@ test_that("est_item() mixed: se.est$id matches x order (parallel to par.est)", {
 })
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # 3. Single-model paths
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 test_that("est_item() all-2PLM: par.est rows align with input order", {
   sim <- sim_with_score(x_2plm5, seed = 31)
@@ -183,9 +183,9 @@ test_that("est_item() all-1PLM with fix.a.1pl = TRUE: par.1 = a.val.1pl per row"
 })
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # 4. Mixed format with polytomous items
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 test_that("est_item() mixed DRM + GRM: par.est preserves model column per item", {
   sim <- sim_with_score(x_mixed_grm, seed = 41)
@@ -233,9 +233,9 @@ test_that("est_item() handles cats = 3 GRM items", {
 })
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # 5. Parameter recovery (loose tolerance)
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 test_that("est_item() recovers 2PLM b parameters within loose tolerance", {
   set.seed(51)
@@ -252,9 +252,9 @@ test_that("est_item() recovers 2PLM b parameters within loose tolerance", {
 })
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # 5b. Default guessing prior
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 test_that("est_item() default gprior is Beta(5, 16), as in est_irt() and est_mg()", {
   expect_equal(eval(formals(est_item)$gprior),
@@ -265,9 +265,9 @@ test_that("est_item() default gprior is Beta(5, 16), as in est_irt() and est_mg(
 })
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # 6. summary() and print() do not error
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 test_that("summary.est_item() runs without error", {
   sim <- sim_with_score(x_2plm5, seed = 61)

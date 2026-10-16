@@ -10,12 +10,10 @@
 \item{x}{An object of class \code{"summary.ctt"}, as returned by
 \code{\link[=summary.ctt]{summary.ctt()}}.}
 
-\item{digits}{Number of decimal places used when rounding numeric values
-for display. Default is \code{3}. Note that the statistics bundled into \code{x}
-are already rounded to 3 decimal places upstream, so a \code{digits} value
-greater than 3 here cannot recover precision that was already
-discarded; \code{digits} is only useful for displaying the report at 3 or
-fewer decimal places.}
+\item{digits}{Number of decimal places used for display. Default is \code{3}.
+The values in \code{x} are already rounded by \code{\link[=ctt]{ctt()}} (item and test
+statistics to three decimal places, percentages to two), so a larger
+value adds no precision.}
 
 \item{...}{Additional arguments passed to or from other methods (currently
 not used).}

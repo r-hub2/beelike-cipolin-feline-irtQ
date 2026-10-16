@@ -2,31 +2,35 @@
 #'
 #' This function fits unidimensional item response theory (IRT) models to
 #' mixed-format data comprising both dichotomous and polytomous items, using
-#' marginal maximum likelihood estimation via the expectation - maximization
-#' (MMLE-EM) algorithm (Bock & Aitkin, 1981). It also supports fixed item
-#' parameter calibration (FIPC; Kim, 2006), a practical method for pretest (or
-#' newly developed) item calibration in computerized adaptive testing (CAT).
-#' FIPC enables the parameter estimates of pretest items to be placed on the
-#' same scale as those of operational items (Ban et al., 2001). For dichotomous
-#' items, the function supports the one-, two-, and three-parameter logistic
-#' models. For polytomous items, it supports the graded response model (GRM) and
-#' the (generalized) partial credit model (GPCM).
+#' marginal maximum likelihood estimation via the expectation-maximization
+#' (MMLE-EM) algorithm (Bock & Aitkin, 1981). When prior distributions are
+#' specified for item parameters, the estimates are the modes of the marginal
+#' posterior distribution (Bayes modal estimates). The function also supports
+#' fixed item parameter calibration (FIPC; Kim, 2006), a practical method for
+#' pretest (or newly developed) item calibration in computerized adaptive
+#' testing (CAT). FIPC enables the parameter estimates of pretest items to be
+#' placed on the same scale as those of operational items (Ban et al., 2001).
+#' For dichotomous items, the function supports the one-, two-, and
+#' three-parameter logistic models. For polytomous items, it supports the
+#' graded response model (GRM) and the (generalized) partial credit model
+#' (GPCM).
 #'
-#' @param x A data frame containing item metadata. This metadata is required to
-#'   retrieve essential information for each item (e.g., number of score
-#'   categories, IRT model type, etc.) necessary for calibration. You can create
-#'   an empty item metadata frame using the function [irtQ::shape_df()].
-#'
-#'   When `use.startval = TRUE`, the item parameters specified in the metadata
-#'   will be used as starting values for parameter estimation. If `x = NULL`,
-#'   both `model` and `cats` arguments must be specified. Note that when `fipc =
-#'   TRUE` to implement FIPC, item metadata for the test form must be supplied
-#'   via the `x` argument. See **below** for more details. Default is `NULL`.
-#' @param data A matrix of examinees' item responses corresponding to the items
-#'   specified in the `x` argument. Rows represent examinees and columns
-#'   represent items.
+#' @param x A data frame containing item metadata (item IDs, numbers of score
+#'   categories, IRT models, and item parameters); see Details for its format.
+#'   You can create an empty item metadata frame using the function
+#'   [irtQ::shape_df()]. The item parameters in `x` are used as starting values
+#'   when `use.startval = TRUE` and are otherwise ignored, except for the fixed
+#'   items in FIPC, whose parameters are held at the values in `x`. If
+#'   `x = NULL`, the models and numbers of score categories are taken from
+#'   `model` and `cats`. When `fipc = TRUE`, `x` must be supplied. Default is
+#'   `NULL`.
+#' @param data A matrix of examinees' item responses, with rows for examinees
+#'   and columns for items in the same order as the items in `x`. Responses
+#'   to an item with K score categories must be integers from 0 to K - 1.
+#'   Missing responses are coded as `NA` or, in functions that have a
+#'   `missing` argument, as the value given in `missing`.
 #' @param D A scaling constant used in IRT models to make the logistic function
-#'   closely approximate the normal ogive function. A value of 1.7 is commonly
+#'   closely approximate the normal ogive function. A value of 1.702 is commonly
 #'   used for this purpose. Default is 1.
 #' @param model A character vector specifying the IRT model to fit each item.
 #'   Available values are:
@@ -34,10 +38,11 @@
 #'   - `"GRM"`, `"GPCM"` for polytomous items
 #'
 #'   Here, `"GRM"` denotes the graded response model and `"GPCM"` the
-#'   (generalized) partial credit model. Note that `"DRM"` serves as a general
-#'   label covering all three dichotomous IRT models. If a single model name is
-#'   provided, it is recycled for all items. This argument is only used when `x
-#'   = NULL` and `fipc = FALSE`. Default is `NULL`.
+#'   (generalized) partial credit model. Note that `"DRM"` is a general label
+#'   for dichotomous items; in this function, items labeled `"DRM"` are fitted
+#'   with the 3PLM, and a warning is issued. If a single model name is provided,
+#'   it is recycled for all items. This argument is only used when `x = NULL`
+#'   and `fipc = FALSE`. Default is `NULL`.
 #' @param cats Numeric vector specifying the number of score categories per
 #'   item. For dichotomous items, this should be 2. If a single value is
 #'   supplied, it will be recycled across all items. When `cats = NULL` and all
@@ -45,9 +50,11 @@
 #'   `"2PLM"`, `"3PLM"`, or `"DRM"`), the function defaults to 2 categories per
 #'   item. This argument is used only when `x = NULL` and `fipc = FALSE`.
 #'   Default is `NULL`.
-#' @param item.id Character vector of item identifiers. If `NULL`, IDs are
-#'   generated automatically. When `fipc = TRUE`, a provided `item.id` will
-#'   override any IDs present in `x`. Default is `NULL`.
+#' @param item.id Character vector of item identifiers. If `NULL`, the IDs in
+#'   `x` are used, or IDs are generated automatically when `x = NULL`. A
+#'   provided `item.id` replaces any IDs in `x`, with or without FIPC, and must
+#'   have one value per item. With `fipc = TRUE`, `fix.id` then refers to the
+#'   new IDs. Default is `NULL`.
 #' @param fix.a.1pl Logical. If `TRUE`, the slope parameters of all 1PLM items
 #'   are fixed to `a.val.1pl`; otherwise, they are constrained to be equal and
 #'   estimated. Default is `FALSE`.
@@ -55,8 +62,8 @@
 #'   slopes fixed to `a.val.gpcm`; otherwise, each item's slope is estimated.
 #'   Default is `FALSE`.
 #' @param fix.g Logical. If `TRUE`, all 3PLM guessing parameters are fixed to
-#'   `g.val`; otherwise, each guessing parameter is estimated. Default is
-#'   `FALSE`.
+#'   `g.val`; otherwise, each guessing parameter is estimated. The prior in
+#'   `gprior` is then not used. Default is `FALSE`.
 #' @param a.val.1pl Numeric. Value to which the slope parameters of 1PLM items
 #'   are fixed when `fix.a.1pl = TRUE`. Default is 1.
 #' @param a.val.gpcm Numeric. Value to which the slope parameters of GPCM items
@@ -69,12 +76,17 @@
 #' @param use.bprior Logical. If `TRUE`, applies a prior distribution to all
 #'   item difficulty (or threshold) parameters during calibration. Default is
 #'   `FALSE`.
-#' @param use.gprior Logical. If `TRUE`, applies a prior distribution to all
-#'   3PLM guessing parameters during calibration. Default is `TRUE`.
+#' @param use.gprior Logical. If `TRUE`, applies the prior distribution in
+#'   `gprior` to the guessing parameters of 3PLM items when they are estimated;
+#'   the prior is not used when `fix.g = TRUE`. Default is `TRUE`.
 #' @param aprior,bprior,gprior A list specifying the prior distribution for all
-#'   item discrimination (slope), difficulty (or threshold), guessing
-#'   parameters. Three distributions are supported: Beta, Log-normal, and
-#'   Normal. The list must have two elements:
+#'   item discrimination (slope), difficulty (or threshold), and guessing
+#'   parameters. The slope prior is placed on `D` times the slope, that is,
+#'   the density in `aprior` is evaluated at `D * a`; with `D = 1` (the
+#'   default), this is the slope itself. The priors also enter the information
+#'   matrix from which the standard errors are computed. Three distributions
+#'   are supported: Beta, Log-normal, and Normal. The list must have two
+#'   elements:
 #'   - `dist`: A character string, one of `"beta"`, `"lnorm"`, or `"norm"`.
 #'   - `params`: A numeric vector of length two giving the distribution's
 #'   parameters. For details on each parameterization, see [stats::dbeta()],
@@ -86,94 +98,120 @@
 #'   - `gprior = list(dist = "beta", params = c(5, 16))`
 #'
 #'   for discrimination, difficulty, and guessing parameters, respectively.
-#' @param missing  A value indicating missing responses in the data set. Default
-#'   is `NA`.
-#' @param Quadrature  A numeric vector of length two:
+#' @param missing A value indicating missing responses in the data set, in
+#'   addition to `NA`, which is always treated as missing. Missing responses are
+#'   omitted from the likelihood, which assumes that they are missing at random.
+#'   Default is `NA`.
+#' @param Quadrature A numeric vector of length two:
 #'   - first element: number of quadrature points
 #'   - second element: symmetric bound (absolute value) for those points
-#'   For example, `c(49, 6)` specifies 49 evenly spaced points from -6 to 6.
-#'   These points are used in the E-step of the EM algorithm. Default is `c(49,
-#'   6)`.
-#' @param weights A two-column matrix or data frame containing the quadrature
-#'   points (in the first column) and their corresponding weights (in the second
-#'   column) for the latent variable prior distribution. If not `NULL`, the
-#'   scale of the latent ability distribution is fixed to match the scale of the
-#'   provided quadrature points and weights. The weights and points can be
-#'   conveniently generated using the function [irtQ::gen.weight()].
 #'
-#'   If `NULL`, a normal prior density is used instead, based on the
-#'   information provided in the `Quadrature`, `group.mean`, and `group.var`
-#'   arguments. Default is `NULL`.
-#' @param group.mean A numeric value specifying the mean of the latent variable
-#'   prior distribution when `weights = NULL`. Default is 0. This value is fixed
-#'   to resolve the indeterminacy of the item parameter scale during
-#'   calibration. However, the scale of the prior distribution is updated when
-#'   FIPC is implemented.
+#'   For example, `c(49, 6)` specifies 49 evenly spaced points from -6 to 6.
+#'   The points are used to approximate the integral over the latent ability
+#'   distribution in the E-step of the EM algorithm. `Quadrature` is ignored
+#'   when `weights` is supplied. Default is `c(49, 6)`.
+#' @param weights A two-column matrix or data frame of quadrature points (first
+#'   column) and weights (second column) that defines the latent ability
+#'   distribution; it can be created with [irtQ::gen.weight()]. The weights
+#'   should sum to 1; weights that do not sum to 1 are rescaled to sum to 1
+#'   with a warning. The number of points may differ from `Quadrature[1]`. If
+#'   supplied, `Quadrature`, `group.mean`, and `group.var` are not used.
+#'   Without FIPC, the mean and variance of this distribution fix the scale:
+#'   the distribution is used as it is when `EmpHist = FALSE`, and its shape is
+#'   updated but rescaled to its mean and variance when `EmpHist = TRUE`, in
+#'   which case the quadrature points must be equally spaced, because the
+#'   histogram is rescaled by interpolation on an equally spaced grid. With
+#'   FIPC, it is only the initial distribution of the first EM cycle, which is
+#'   then updated (see Details).
+#'
+#'   If `NULL`, a normal distribution with mean `group.mean` and variance
+#'   `group.var` at the points given by `Quadrature` is used. Default is
+#'   `NULL`.
+#' @param group.mean A numeric value specifying the mean of the normal latent
+#'   ability distribution when `weights = NULL`. Without FIPC, the mean is fixed
+#'   at this value to identify the scale of the item parameters, also when
+#'   `EmpHist = TRUE`. With FIPC, it is the mean of the initial distribution,
+#'   and the mean is then estimated. Default is 0.
 #' @param group.var A positive numeric value specifying the variance of the
-#'   latent variable prior distribution when `weights = NULL`. Default is 1.
-#'   This value is fixed to resolve the indeterminacy of the item parameter
-#'   scale during calibration. However, the scale of the prior distribution is
-#'   updated when FIPC is implemented.
-#' @param EmpHist Logical. If `TRUE`, the empirical histogram of the latent
-#'   variable prior distribution is estimated simultaneously with the item
-#'   parameters using the approach proposed by Woods (2007). Item calibration is
-#'   conducted relative to the estimated empirical prior. See below for details.
+#'   normal latent ability distribution when `weights = NULL`. Without FIPC,
+#'   the variance is fixed at this value to identify the scale of the item
+#'   parameters, also when `EmpHist = TRUE`. With FIPC, it is the variance of
+#'   the initial distribution, and the variance is then estimated. Default is
+#'   1.
+#' @param EmpHist Logical. If `TRUE`, the latent ability distribution is
+#'   estimated as an empirical histogram on the quadrature points together with
+#'   the item parameters (Woods, 2007). Item calibration is conducted relative
+#'   to the estimated empirical histogram. See Details. Default is `FALSE`.
 #' @param use.startval Logical. If `TRUE`, the item parameters provided in the
-#'   item metadata (i.e., the `x` argument) are used as starting values for item
-#'   parameter estimation. Otherwise, internally generated starting values are
-#'   used. Default is `FALSE`.
-#' @param Etol A positive numeric value specifying the convergence criterion for
-#'   the E-step of the EM algorithm. Default is 1e-4. 
-#'   Specifically, the EM algorithm terminates when the largest absolute difference
-#'   in item parameter estimates between consecutive iterations is less than or
-#'   equal to this value. When FIPC is used and all items are fixed, so that only
-#'   the latent ability distribution is estimated, the criterion is applied to
-#'   the largest absolute change in the mean and variance of the prior
-#'   distribution.
-#' @param MaxE A positive integer specifying the maximum number of iterations
-#'   for the E-step in the EM algorithm. Default is `500`.
-#' @param control A named list of options passed directly to [stats::nlminb()]
-#'   in each M-step optimization of the EM algorithm. By default:
-#'   `control = list(eval.max = 500, iter.max = 200, x.tol = 1e-4)`, where  
-#'   - `eval.max` = 500 limits the number of function evaluations  
-#'   - `iter.max` = 200 caps the number of internal optimizer iterations  
-#'   - `x.tol` = 1e-4 sets the absolute change threshold in parameter values  
-#'     below which [stats::nlminb()] considers the solution to have converged  
-#'   Users may additionally supply other `nlminb()` control options  
-#'   (such as `abs.tol`, `rel.tol`, `trace`, etc.) as needed.
+#'   item metadata (i.e., the `x` argument) are used as starting values for the
+#'   items whose parameters are estimated; `x` must then be supplied.
+#'   Otherwise, internally generated starting values are used. Default is
+#'   `FALSE`.
+#' @param Etol A positive numeric value specifying the convergence criterion of
+#'   the EM algorithm. The EM cycles stop when the largest absolute change in
+#'   the estimated item parameters between two consecutive cycles is less than
+#'   or equal to `Etol`. With FIPC, only the parameters of the items that are
+#'   not fixed are compared. The mean and variance of the latent ability
+#'   distribution estimated with FIPC, and the weights of an empirical
+#'   histogram (`EmpHist = TRUE`), are not part of the criterion, so they can
+#'   be less converged than the item parameters; a smaller `Etol` gives more
+#'   precise estimates of them. In particular, an estimated histogram can keep
+#'   changing very slowly over many cycles (toward a spiky distribution) while
+#'   the log-likelihood barely changes, so `group.par` and `weights` then
+#'   depend on `Etol`; with small samples, the item parameters can then also
+#'   need many cycles, or more than `MaxE`, to meet `Etol`. When all items are
+#'   fixed, the criterion is applied to the largest absolute change in the mean
+#'   and variance of the latent ability distribution. `Etol` is not used when
+#'   `fipc.method = "OEM"` with items to calibrate. The printed output of the
+#'   fitted object refers to this criterion as the convergence criterion of the
+#'   E-step. Default is `1e-4`.
+#' @param MaxE A positive integer specifying the maximum number of EM cycles. It
+#'   is set to 1 when `fipc.method = "OEM"`. The printed output of the fitted
+#'   object refers to the cycles as E-step cycles. Default is `500`.
+#' @param control A named list of options passed directly to [stats::nlminb()],
+#'   which maximizes the M-step objective of each item. The default is
+#'   `list(eval.max = 500, iter.max = 200, x.tol = 1e-4)`, where
+#'   - `eval.max` is the maximum number of objective function evaluations,
+#'   - `iter.max` is the maximum number of optimizer iterations, and
+#'   - `x.tol` is the X-convergence tolerance of [stats::nlminb()].
+#'
+#'   A partial list may be supplied; options that are not supplied keep their
+#'   default values. Other options of [stats::nlminb()], such as `rel.tol` or
+#'   `trace`, can also be supplied.
 #' @param fipc Logical. If `TRUE`, fixed item parameter calibration (FIPC) is
 #'   applied during item parameter estimation. When `fipc = TRUE`, the
 #'   information on which items are fixed must be provided via either `fix.loc`
-#'   or `fix.id`. See below for details.
-#' @param fipc.method A character string specifying the FIPC method. Available
-#'   options are:
+#'   or `fix.id`. See Details.
+#' @param fipc.method A character string specifying the FIPC method, used only
+#'   when `fipc = TRUE`. Available options are:
 #'   - `"OEM"`: No Prior Weights Updating and One EM Cycle (NWU-OEM; Wainer &
-#'   Mislevy, 1990)
+#'   Mislevy, 1990).
 #'   - `"MEM"`: Multiple Prior Weights Updating and Multiple EM Cycles
-#'   (MWU-MEM; Kim, 2006) When `fipc.method = "OEM"`, the maximum number of
-#'   E-steps is automatically set to 1, regardless of the value specified in
-#'   `MaxE`.
-#' @param fix.loc A vector of positive integers specifying the row positions of
-#'   the items to be fixed in the item metadata (i.e., `x`) when FIPC is
-#'   implemented (i.e., `fipc = TRUE`). For example, suppose that five items
-#'   located in the 1st, 2nd, 4th, 7th, and 9th rows of `x` should be fixed.
-#'   Then use `fix.loc = c(1, 2, 4, 7, 9)`. Note that if `fix.id` is not `NULL`,
-#'   the information provided in `fix.loc` is ignored. See below for details.
-#' @param fix.id A character vector specifying the IDs of the items to be fixed
-#'   when FIPC is implemented (i.e., `fipc = TRUE`). For example, suppose five
-#'   items with IDs "CMC1", "CMC2", "CMC3", "CMC4", and "CMC5" are to be fixed,
-#'   and that all item IDs are supplied via `item.id` column in the `x`
-#'   argument. Then use `fix.id = c("CMC1", "CMC2", "CMC3", "CMC4", "CMC5")`.
-#'   Note that if `fix.id` is not `NULL`, the information in `fix.loc` is
-#'   ignored. See below for details.
-#' @param se Logical. If `FALSE`, standard errors of the item parameter
-#'   estimates are not computed. Default is `TRUE`.
+#'   (MWU-MEM; Kim, 2006).
+#'
+#'   When `fipc.method = "OEM"`, a single EM cycle is run regardless of `MaxE`.
+#'   See Details. Default is `"MEM"`.
+#' @param fix.loc A vector of positive integers giving the row positions in `x`
+#'   of the items to be fixed when `fipc = TRUE`. For example, suppose that five
+#'   items located in the 1st, 2nd, 4th, 7th, and 9th rows of `x` should be
+#'   fixed. Then use `fix.loc = c(1, 2, 4, 7, 9)`. It must not contain
+#'   duplicated positions. If `fix.id` is also supplied, `fix.loc` is ignored
+#'   with a warning. See Details.
+#' @param fix.id A character vector of the IDs of the items to be fixed when
+#'   `fipc = TRUE`. The IDs are matched to the first column (`id`) of `x`, or to
+#'   `item.id` when it is supplied. For example, use
+#'   `fix.id = c("CMC1", "CMC2", "CMC3", "CMC4", "CMC5")` to fix the items with
+#'   these IDs. If `fix.id` is not `NULL`, `fix.loc` is ignored. See Details.
+#' @param se Logical. If `FALSE`, the standard errors and the
+#'   variance-covariance matrix of the item parameter estimates are not
+#'   computed; `se.est` is then filled with `NA` and `covariance` is `NULL`.
+#'   Default is `TRUE`.
 #' @param verbose Logical. If `FALSE`, all progress messages, including
 #'   information about the EM algorithm process, are suppressed. Default is
 #'   `TRUE`.
 #' @details A specific format of data frame should be used for the argument `x`.
 #' The first column should contain item IDs, the second column should contain
-#' the number of unique score categories for each item, and the third column
+#' the number of score categories of each item, and the third column
 #' should specify the IRT model to be fitted to each item. Available IRT models
 #' are:
 #'   - `"1PLM"`, `"2PLM"`, `"3PLM"`, and `"DRM"` for dichotomous item data
@@ -182,7 +220,8 @@
 #' Note that `"DRM"` serves as a general label covering all dichotomous IRT
 #' models (i.e., `"1PLM"`, `"2PLM"`, and `"3PLM"`), while `"GRM"` and `"GPCM"`
 #' represent the graded response model and (generalized) partial credit model,
-#' respectively.
+#' respectively. In `est_irt()`, items labeled `"DRM"` are calibrated with the
+#' 3PLM.
 #'
 #' The subsequent columns should contain the item parameters for the specified
 #' models. For dichotomous items, the fourth, fifth, and sixth columns represent
@@ -193,36 +232,43 @@
 #' For polytomous items, the item discrimination (slope) parameter should appear
 #' in the fourth column, and the item difficulty (or threshold) parameters for
 #' category boundaries should occupy the fifth through the last columns. When
-#' the number of unique score categories differs across items, unused parameter
+#' the number of score categories differs across items, unused parameter
 #' cells should be filled with `NA`s.
 #'
 #' In the \pkg{irtQ} package, the threshold parameters for GPCM items are
 #' expressed as the item location (or overall difficulty) minus the threshold
-#' values for each score category. Note that when a GPCM item has *K* unique
-#' score categories, *K - 1* threshold parameters are required, since the
-#' threshold for the first category boundary is always fixed at 0. For example,
-#' if a GPCM item has five score categories, four threshold parameters must be
-#' provided.
+#' values for each score category. Note that a GPCM item with *K* score
+#' categories has *K - 1* threshold parameters, because the term for the lowest
+#' score category (score 0) is fixed at 0 and is not included in the metadata.
+#' For example, if a GPCM item has five score categories, four threshold
+#' parameters must be provided.
 #'
 #' An example of a data frame for a single-format test is shown below:
-#' \tabular{lrlrrrrr}{
-#'   ITEM1  \tab 2 \tab 1PLM \tab 1.000 \tab  1.461 \tab         NA \cr
-#'   ITEM2  \tab 2 \tab 2PLM \tab 1.921 \tab -1.049 \tab         NA \cr
-#'   ITEM3  \tab 2 \tab 3PLM \tab 1.736 \tab  1.501 \tab  0.203 \cr
-#'   ITEM4  \tab 2 \tab 3PLM \tab 0.835 \tab -1.049 \tab  0.182 \cr
-#'   ITEM5  \tab 2 \tab DRM \tab 0.926 \tab  0.394 \tab  0.099
+#' \tabular{lrlrrr}{
+#'   id \tab cats \tab model \tab par.1 \tab par.2 \tab par.3 \cr
+#'   ITEM1 \tab 2 \tab 1PLM \tab 1.000 \tab 1.461 \tab NA \cr
+#'   ITEM2 \tab 2 \tab 2PLM \tab 1.921 \tab -1.049 \tab NA \cr
+#'   ITEM3 \tab 2 \tab 3PLM \tab 1.736 \tab 1.501 \tab 0.203 \cr
+#'   ITEM4 \tab 2 \tab 3PLM \tab 0.835 \tab -1.049 \tab 0.182 \cr
+#'   ITEM5 \tab 2 \tab DRM \tab 0.926 \tab 0.394 \tab 0.099
 #' }
 #'
 #' An example of a data frame for a mixed-format test is shown below:
 #' \tabular{lrlrrrrr}{
-#'   ITEM1  \tab 2 \tab 1PLM \tab 1.000 \tab  1.461 \tab         NA \tab         NA \tab         NA\cr
-#'   ITEM2  \tab 2 \tab 2PLM \tab 1.921 \tab -1.049 \tab         NA \tab         NA \tab         NA\cr
-#'   ITEM3  \tab 2 \tab 3PLM \tab 0.926 \tab  0.394 \tab  0.099 \tab         NA \tab         NA\cr
-#'   ITEM4  \tab 2 \tab DRM \tab 1.052 \tab -0.407 \tab  0.201 \tab         NA \tab         NA\cr
-#'   ITEM5  \tab 4 \tab GRM  \tab 1.913 \tab -1.869 \tab -1.238 \tab -0.714 \tab         NA \cr
-#'   ITEM6  \tab 5 \tab GRM  \tab 1.278 \tab -0.724 \tab -0.068 \tab  0.568 \tab  1.072\cr
-#'   ITEM7  \tab 4 \tab GPCM  \tab 1.137 \tab -0.374 \tab  0.215 \tab  0.848 \tab         NA \cr
-#'   ITEM8  \tab 5 \tab GPCM  \tab 1.233 \tab -2.078 \tab -1.347 \tab -0.705 \tab -0.116
+#'   id \tab cats \tab model \tab par.1 \tab par.2 \tab par.3 \tab par.4
+#'   \tab par.5 \cr
+#'   ITEM1 \tab 2 \tab 1PLM \tab 1.000 \tab 1.461 \tab NA \tab NA \tab NA \cr
+#'   ITEM2 \tab 2 \tab 2PLM \tab 1.921 \tab -1.049 \tab NA \tab NA \tab NA \cr
+#'   ITEM3 \tab 2 \tab 3PLM \tab 0.926 \tab 0.394 \tab 0.099 \tab NA \tab NA \cr
+#'   ITEM4 \tab 2 \tab DRM \tab 1.052 \tab -0.407 \tab 0.201 \tab NA \tab NA \cr
+#'   ITEM5 \tab 4 \tab GRM \tab 1.913 \tab -1.869 \tab -1.238 \tab -0.714 \tab
+#'   NA \cr
+#'   ITEM6 \tab 5 \tab GRM \tab 1.278 \tab -0.724 \tab -0.068 \tab 0.568 \tab
+#'   1.072 \cr
+#'   ITEM7 \tab 4 \tab GPCM \tab 1.137 \tab -0.374 \tab 0.215 \tab 0.848 \tab
+#'   NA \cr
+#'   ITEM8 \tab 5 \tab GPCM \tab 1.233 \tab -2.078 \tab -1.347 \tab -0.705 \tab
+#'   -0.116
 #' }
 #'
 #' See the *IRT Models* section in the [irtQ-package] documentation for more
@@ -238,8 +284,23 @@
 #'    2. Specify the IRT models and score category information directly
 #'    through the arguments `model` and `cats`.
 #'
-#' If `x = NULL`, the function uses the information specified in `model` and
-#' `cats`.
+#' If `x` is supplied, `model` and `cats` are ignored. If `x = NULL`, the
+#' function uses `model` and `cats`; `cats` may be omitted when all items are
+#' dichotomous.
+#'
+#' Item parameters are estimated with the EM algorithm of Bock and Aitkin
+#' (1981). In the E-step, the posterior distribution of each examinee over the
+#' quadrature points is computed from the current item parameters and the
+#' current latent distribution, and the expected numbers of examinees and of
+#' responses in each score category are obtained at each quadrature point. In
+#' the M-step, the expected complete-data log-likelihood of each item, plus the
+#' log prior densities when priors are used, is maximized with
+#' [stats::nlminb()] using analytic gradients and Hessians; the 1PLM items with
+#' a common slope are estimated jointly. The cycles are repeated until the
+#' convergence criterion given by `Etol` is met or `MaxE` cycles are completed.
+#' Missing responses are omitted from the likelihood. The slopes of dichotomous
+#' items are not bounded during estimation, whereas those of GRM and GPCM items
+#' are kept positive.
 #'
 #' To implement FIPC, the item metadata must be provided via the `x` argument.
 #' This is because the item parameters of the fixed items in the metadata are
@@ -248,8 +309,8 @@
 #' specifically, the latent prior distribution is estimated based on the
 #' fixed items, and then used to calibrate the new (pretest) items so that their
 #' parameters are placed on the same scale as those of the fixed items (Kim,
-#' 2006).The full item metadata, including both fixed and non-fixed items, can be
-#' conveniently created using the [irtQ::shape_df_fipc()] function.
+#' 2006). The full item metadata, including both fixed and non-fixed items, can
+#' be conveniently created using the [irtQ::shape_df_fipc()] function.
 #'
 #' In terms of approaches for FIPC, Kim (2006) described five different methods.
 #' Among them, two methods are available in the [irtQ::est_irt()] function. The
@@ -257,15 +318,26 @@
 #' algorithm (involving only the fixed items) followed by a single M-step
 #' (involving only the non-fixed items). This method was proposed by Wainer and
 #' Mislevy (1990) in the context of online calibration and can be implemented by
-#' setting `fipc.method = "OEM"`.
+#' setting `fipc.method = "OEM"`. The item parameters are estimated with the
+#' initial latent distribution (given by `group.mean` and `group.var`, or by
+#' `weights`). The latent distribution returned in `group.par` and `weights` is
+#' computed once afterward from the posterior distributions based on the fixed
+#' items, and `EmpHist` affects only this returned distribution. When all items
+#' are fixed, the function always warns that the convergence criteria are not
+#' satisfied.
 #'
-#' The second method is `"MWU-MEM"`, which iteratively updates the latent
-#' variable prior distribution and estimates the parameters of the non-fixed
-#' items. In this method, the same procedure as the NWU-OEM approach is applied
-#' during the first EM cycle. From the second cycle onward, both the parameters
-#' of the non-fixed items and the weights of the prior distribution are
-#' concurrently updated. This method can be implemented by setting `fipc.method
-#' = "MEM"`. See Kim (2006) for more details.
+#' The second method is `"MWU-MEM"`, which runs multiple EM cycles and updates
+#' the weights of the latent ability distribution in every cycle (Kim, 2006;
+#' Kim & Kolen, 2016). The first cycle is the same as in NWU-OEM: the posterior
+#' distribution of each examinee is computed from the responses to the fixed
+#' items only. From the second cycle onward, the posterior distribution is
+#' computed from the responses to all items, using the fixed parameters and the
+#' current estimates of the other items, and the latent distribution is updated
+#' from the expected numbers of examinees at the quadrature points. With
+#' `EmpHist = TRUE`, the updated distribution is this empirical histogram, as in
+#' Kim (2006); with `EmpHist = FALSE`, it is a normal distribution with the
+#' mean and variance of the histogram. This method can be implemented by
+#' setting `fipc.method = "MEM"`.
 #'
 #' When `fipc = TRUE`, information about which items are to be fixed must be
 #' provided via either the `fix.loc` or `fix.id` argument. For example, suppose
@@ -278,87 +350,171 @@
 #' `fix.loc` and `fix.id` are not `NULL`, the information in `fix.loc` is
 #' ignored.
 #'
-#' When `EmpHist = TRUE`, the empirical histogram of the latent variable prior
-#' distribution (i.e., the densities at the quadrature points) is estimated
-#' simultaneously with the item parameters. If `EmpHist = TRUE` and
-#' `fipc = TRUE`, the scale parameters of the empirical
-#' prior distribution (e.g., mean and variance) are also estimated.
-#' If `EmpHist = TRUE` and `fipc = FALSE`, the scale parameters are fixed to
-#' the values specified in `group.mean` and `group.var`. When `EmpHist = FALSE`,
-#' a normal  prior distribution is used instead. If `fipc = TRUE`, the scale
-#' parameters of this normal prior are estimated along with the item parameters.
-#' If `fipc = FALSE`, they are fixed to the values specified in `group.mean` and
-#' `group.var`.
+#' When `EmpHist = TRUE`, the latent distribution is an empirical histogram: in
+#' each EM cycle, the weight at each quadrature point is updated to the average
+#' of the posterior probabilities of the examinees at that point (Woods, 2007).
+#' Without FIPC, the updated histogram is then rescaled so that its mean and
+#' variance equal `group.mean` and `group.var` (or the mean and variance of
+#' `weights`, if supplied): the quadrature points are standardized and
+#' transformed to the target scale, the weights are interpolated back to the
+#' original points (and extrapolated at the ends), and the weights are
+#' renormalized. With FIPC, the histogram is not rescaled, so its mean and
+#' variance are estimated. When `EmpHist = FALSE`, a normal distribution is
+#' used. With FIPC, its mean and variance are updated in each cycle to those of
+#' the histogram; otherwise, they are fixed at `group.mean` and `group.var`.
+#'
+#' A maximum likelihood estimate does not exist for an item with a score
+#' category that has no responses, which includes an item whose responses are
+#' all the same. The estimates of such an item can be extreme or remain near
+#' their starting values, and their standard errors are unreliable (a standard
+#' error of 99999 means that it could not be obtained). Before the estimation,
+#' one warning lists the IDs of these items; the items fixed in FIPC are not
+#' checked. A parameter with a prior distribution, such as the guessing
+#' parameter of a 3PLM item with `use.gprior = TRUE`, can still be stable.
+#'
+#' When prior distributions are used, the item parameters are Bayes modal
+#' estimates, and `loglikelihood` is the log-likelihood at these estimates
+#' without the log prior densities.
+#'
+#' The information criteria are `aic = -2 * loglikelihood + 2 * npar.est` and
+#' `bic = -2 * loglikelihood + npar.est * log(ncase)`. Here `loglikelihood` is
+#' the marginal log-likelihood without the prior densities of the item
+#' parameters, and `ncase` is the number of examinees. `npar.est` is the number
+#' of freely estimated parameters, which consists of (a) the item parameters
+#' that are estimated (a slope shared by 1PLM items is counted once; fixed
+#' parameters and the items fixed in FIPC are not counted), (b) the mean and
+#' variance of the latent distribution when they are estimated, which is the
+#' case with FIPC and `EmpHist = FALSE` (2 values), and (c) the weights of the
+#' empirical histogram when `EmpHist = TRUE`. Without FIPC, the histogram is
+#' rescaled to a fixed mean and variance (given by `group.mean` and `group.var`,
+#' or by `weights`), so its Q weights, where Q is the number of quadrature
+#' points, have Q - 3 free values (the sum of the weights and the two moments
+#' are fixed). With FIPC, the histogram is not rescaled, so the weights have
+#' Q - 1 free values. The counts by type are returned in `npar.detail`.
+#'
+#'   The print method of this class has an argument `digits` that is not used.
+#'   It prints the log-likelihood with the number of significant digits given
+#'   by `getOption("digits")` (7 by default).
 #'
 #' @return This function returns an object of class `est_irt`. The returned
 #'   object contains the following components:
 #'
-#'   \item{estimates}{A data frame containing both the item parameter estimates
-#'   and their corresponding standard errors.}
+#'   \item{estimates}{A data frame with the item ID, number of score
+#'   categories, and model of each item, followed by the item parameter
+#'   estimates and their standard errors in alternating columns (`par.1`,
+#'   `se.1`, `par.2`, `se.2`, ...).}
 #'
 #'   \item{par.est}{A data frame of item parameter estimates, structured
 #'   according to the item metadata format.}
 #'
 #'   \item{se.est}{A data frame of standard errors for the item parameter
-#'   estimates, computed using the cross-product approximation method
-#'   (Meilijson, 1989).}
+#'   estimates, computed from the inverse of the information matrix. The
+#'   information matrix is the cross-product (empirical) information matrix of
+#'   the marginal log-likelihood evaluated at the final estimates (Meilijson,
+#'   1989), plus the prior information (the negative second derivatives of the
+#'   log prior densities) for the parameters that have prior distributions.
+#'   With FIPC, the latent ability distribution is treated as known in this
+#'   matrix, so the uncertainty of the estimated distribution is not reflected
+#'   in these standard errors. Standard errors are `NA` for parameters that are
+#'   not estimated (for example, fixed slopes or guessing parameters, and the
+#'   items fixed in FIPC) and for all parameters when `se = FALSE`. The
+#'   standard error of a common slope of 1PLM items appears only in the row of
+#'   the first 1PLM item. A value of 99999 indicates that the standard error
+#'   could not be obtained.}
 #'
-#'   \item{pos.par}{A data frame indicating the position index of each estimated
-#'   item parameter. The position information is useful for interpreting
-#'   the variance-covariance matrix of item parameter estimates}
+#'   \item{pos.par}{A data frame indicating, for each estimated item parameter,
+#'   its row (and column) position in `covariance`. Parameters that are not
+#'   estimated are `NA`, and the position of a common slope of 1PLM items is
+#'   given only in the row of the first 1PLM item. `NULL` when FIPC is used
+#'   with all items fixed.}
 #'
-#'   \item{covariance}{A variance-covariance matrix of the item parameter
-#'   estimates.}
+#'   \item{covariance}{The variance-covariance matrix of the item parameter
+#'   estimates (the inverse of the information matrix described in `se.est`),
+#'   without row or column names; the order of the parameters is given by
+#'   `pos.par`. `NULL` when `se = FALSE` or when no item parameter is
+#'   estimated.}
 #'
-#'   \item{loglikelihood}{The marginal log-likelihood, calculated as the sum of
-#'   the log-likelihoods across all items.}
+#'   \item{loglikelihood}{The marginal log-likelihood of the response data at
+#'   the final estimates: the sum over examinees of the logarithm of the
+#'   probability of each examinee's response pattern, integrated over the
+#'   latent ability distribution with the quadrature points and weights. With
+#'   FIPC, the responses to all items, including the fixed items, are used. The
+#'   log prior densities of the item parameters are not included.}
 #'
-#'   \item{aic}{Akaike Information Criterion (AIC) based on the log-likelihood.}
+#'   \item{aic}{Akaike information criterion,
+#'   `-2 * loglikelihood + 2 * npar.est`.}
 #'
-#'   \item{bic}{Bayesian Information Criterion (BIC) based on the
-#'   log-likelihood.}
+#'   \item{bic}{Bayesian information criterion,
+#'   `-2 * loglikelihood + npar.est * log(ncase)`.}
 #'
-#'   \item{group.par}{A data frame containing the mean, variance, and standard
-#'   deviation of the latent variable prior distribution.}
+#'   \item{group.par}{A data frame with columns `mu`, `sigma2`, and `sigma`
+#'   (mean, variance, and standard deviation of the latent ability
+#'   distribution) and rows `estimates` and `se`. Without FIPC, the values are
+#'   fixed at `group.mean` and `group.var` (or at the mean and variance of
+#'   `weights`, if supplied) and `se` is `NA`. When `EmpHist = TRUE`, the
+#'   empirical histogram is rescaled in each cycle to have this mean and
+#'   variance. Because the rescaling interpolates on the quadrature points, the
+#'   mean and variance computed from the returned `weights` can differ slightly
+#'   from the reported values. With FIPC, the values are the mean and variance
+#'   of the final latent distribution (these are the mean and variance of the
+#'   returned `weights`), and `se` gives
+#'   approximate standard errors, `sigma / sqrt(N)` for the mean and
+#'   `sigma2 * sqrt(2 / (N - 1))` for the variance, with the delta method for
+#'   `sigma`, where `N` is the number of examinees; these treat the abilities as
+#'   observed and are therefore usually too small.}
 #'
-#'   \item{weights}{A two-column data frame of quadrature points (column 1) and
-#'   corresponding weights (column 2) of the (updated) latent prior distribution.}
+#'   \item{weights}{A data frame with columns `theta` and `weight` giving the
+#'   quadrature points and the weights of the final latent ability
+#'   distribution. Without FIPC and with `EmpHist = FALSE`, it is the
+#'   distribution given by `group.mean` and `group.var`, or `weights` as
+#'   supplied (rescaled to sum to 1 if needed). With `fipc.method = "OEM"`, it
+#'   is the distribution updated once after the item parameters were
+#'   estimated.}
 #'
-#'   \item{posterior.dist}{A matrix of normalized posterior densities for all
-#'   response patterns at each quadrature point. Rows and columns represent
-#'   response patterns and quadrature points, respectively.}
+#'   \item{posterior.dist}{A matrix of the posterior probabilities of the
+#'   quadrature points for each examinee, computed at the final estimates, with
+#'   one row per examinee and one column per quadrature point; each row sums to
+#'   1.}
 #'
-#'   \item{data}{A data frame of examinees' response data.}
+#'   \item{data}{A matrix of the examinees' response data, with the missing
+#'   values coded as `NA`.}
 #'
 #'   \item{scale.D}{The scaling factor used in the IRT model.}
 #'
-#'   \item{ncase}{The total number of response patterns.}
+#'   \item{ncase}{The number of examinees (rows of `data`).}
 #'
 #'   \item{nitem}{The total number of items in the response data.}
 #'
-#'   \item{Etol}{The convergence criterion for the E-step of the EM algorithm.}
+#'   \item{Etol}{The convergence criterion of the EM algorithm.}
 #'
-#'   \item{MaxE}{The maximum number of E-steps allowed in the EM algorithm.}
+#'   \item{MaxE}{The maximum number of EM cycles (1 when
+#'   `fipc.method = "OEM"`).}
 #'
-#'   \item{aprior}{A list describing the prior distribution used for discrimination
-#'    parameters.}
+#'   \item{aprior}{The prior distribution specified for the slope parameters
+#'   when `use.aprior = TRUE`; `NULL` otherwise.}
 #'
-#'   \item{bprior}{A list describing the prior distribution used for difficulty
-#'    parameters.}
+#'   \item{bprior}{The prior distribution specified for the difficulty (or
+#'   threshold) parameters when `use.bprior = TRUE`; `NULL` otherwise.}
 #'
-#'   \item{gprior}{A list describing the prior distribution used for guessing
-#'    parameters.}
+#'   \item{gprior}{The prior distribution specified for the guessing parameters
+#'   when `use.gprior = TRUE`; `NULL` otherwise.}
 #'
-#'   \item{npar.est}{The total number of parameters estimated.}
+#'   \item{npar.est}{The number of freely estimated parameters used for `aic`
+#'   and `bic`: the estimated item parameters, the mean and variance of the
+#'   latent distribution when they are estimated, and the weights of the
+#'   empirical histogram when `EmpHist = TRUE`. See Details.}
 #'
 #'   \item{niter}{The number of completed EM cycles.}
 #'
-#'   \item{maxpar.diff}{The largest absolute change in the estimates in
-#'   the last EM cycle.}
+#'   \item{maxpar.diff}{The largest absolute change in the estimated item
+#'   parameters in the last EM cycle (for FIPC with all items fixed, in the
+#'   mean and variance of the latent ability distribution). With
+#'   `fipc.method = "OEM"`, it is the change from the starting values.}
 #'
 #'   \item{EMtime}{Time (in seconds) spent on EM cycles.}
 #'
-#'   \item{SEtime}{Time (in seconds) spent computing standard errors.}
+#'   \item{SEtime}{Time (in seconds) spent computing standard errors; `NULL`
+#'   when they are not computed.}
 #'
 #'   \item{TotalTime}{Total computation time (in seconds).}
 #'
@@ -369,20 +525,35 @@
 #'   new items to calibrate, the single EM cycle is not judged by `Etol` and
 #'   only the M-step check applies. For FIPC with all items fixed, see `Etol`.}
 #'
-#'   \item{test.2}{Second-order test result indicating whether the information matrix
-#'   is positive definite, a necessary condition for identifying a local maximum.
-#'   The message reports a possible local maximum only when the first-order test
-#'   is also satisfied.}
+#'   \item{test.2}{A message indicating whether the information matrix used
+#'   for the standard errors (see `se.est`) is positive definite. Printed
+#'   results label it "Second-order test", but because the cross-product
+#'   information matrix is positive semidefinite by construction, this check
+#'   mainly detects a singular (rank-deficient) information matrix, for
+#'   example due to unidentified parameters; it is not a second-order test of
+#'   the log-likelihood surface. The message reports a possible local maximum
+#'   only when the first-order test is also satisfied. When FIPC is used with
+#'   all items fixed, no information matrix is computed, and the message says
+#'   so.}
 #'
 #'   \item{var.note}{A note indicating whether the variance-covariance matrix
 #'   was successfully obtained from the information matrix.}
 #'
 #'   \item{fipc}{Logical. Indicates whether FIPC was used.}
 #'
-#'   \item{fipc.method}{The method used for FIPC.}
+#'   \item{fipc.method}{The FIPC method used; `NULL` when `fipc = FALSE`.}
 #'
-#'   \item{fix.loc}{A vector of integers specifying the row locations of fixed items
-#'   when FIPC was applied.}
+#'   \item{fix.loc}{An integer vector of the row positions of the fixed items
+#'   in `x`, also when the items were specified with `fix.id`; `NULL` when
+#'   `fipc = FALSE`.}
+#'
+#'   \item{call}{The matched call.}
+#'
+#'   \item{npar.detail}{An integer vector with the elements `item` (free item
+#'   parameters), `dist` (mean and variance of the latent distribution), and
+#'   `weight` (weights of the empirical histogram), whose sum is `npar.est`.
+#'   It is the last element of the object; when it is absent, `summary()` shows
+#'   the total only.}
 #'
 #'   Note that you can easily extract components from the output using the
 #'   [irtQ::getirt()] function.
@@ -404,12 +575,14 @@
 #'   Kim, S. (2006). A comparative study of IRT fixed parameter calibration
 #'   methods. *Journal of Educational Measurement, 43*(4), 355-381.
 #'
+#'   Kim, S., & Kolen, M. J. (2016). *Multiple group IRT fixed-parameter
+#'   estimation for maintaining an established ability scale* (CASMA Research
+#'   Report No. 49). Center for Advanced Studies in Measurement and Assessment,
+#'   University of Iowa.
+#'
 #'   Meilijson, I. (1989). A fast improvement to the EM algorithm on its own
 #'   terms. *Journal of the Royal Statistical Society: Series B
 #'   (Methodological), 51*, 127-138.
-#'
-#'   Stocking, M. L. (1988). *Scale drift in on-line calibration* (Research Rep.
-#'   88-28). Princeton, NJ: ETS.
 #'
 #'   Wainer, H., & Mislevy, R. J. (1990). Item response theory, item
 #'   calibration, and proficiency estimation. In H. Wainer (Ed.), *Computer
@@ -468,7 +641,7 @@
 #'
 #' # Fit the 2PL model and simultaneously estimate an empirical histogram
 #' # of the latent variable prior distribution
-#' # Also apply a looser convergence threshold for the E-step
+#' # Also apply a looser convergence threshold for the EM algorithm
 #' (mod.2pl.hist <- est_irt(data = LSAT6, D = 1, model = "2PLM", cats = 2,
 #'                          EmpHist = TRUE, Etol = 0.001))
 #' (emphist <- getirt(mod.2pl.hist, what = "weights"))
@@ -506,7 +679,8 @@
 #' ## 2. Item parameter estimation for mixed-format data (simulated data)
 #' ## -------------------------------------------------------------------
 #' ## Import the "-prm.txt" output file from flexMIRT
-#' flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt", package = "irtQ")
+#' flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt",
+#'                         package = "irtQ")
 #'
 #' # Extract item metadata
 #' x <- bring.flexmirt(file = flex_sam, "par")$Group1$full_df
@@ -525,11 +699,13 @@
 #' # and the GRM to items 53, 54, and 55.
 #' # Use a Beta prior for guessing parameters, a log-normal prior for slope
 #' # parameters, and a normal prior for difficulty (threshold) parameters.
-#' # Also, specify the argument `x` to provide IRT model and score category information.
+#' # Also, specify the argument `x` to provide IRT model and score category
+#' # information.
 #' item.meta <- shape_df(item.id = x$id, cats = x$cats, model = x$model,
 #'   default.par = TRUE)
 #' (mod.mix1 <- est_irt(
-#'   x = item.meta, data = sim.dat1, D = 1, use.aprior = TRUE, use.bprior = TRUE,
+#'   x = item.meta, data = sim.dat1, D = 1, use.aprior = TRUE,
+#'   use.bprior = TRUE,
 #'   use.gprior = TRUE,
 #'   aprior = list(dist = "lnorm", params = c(0.0, 0.5)),
 #'   bprior = list(dist = "norm", params = c(0.0, 2.0)),
@@ -539,8 +715,9 @@
 #' # Display a summary of the estimation results
 #' summary(mod.mix1)
 #'
-#' # Estimate examinees' latent scores using MLE and the estimated item parameters
-#' (score.mle <- est_score(x = mod.mix1, method = "ML", range = c(-4, 4), ncore = 2))
+#' # Estimate examinees' latent scores using MLE and the estimated item
+#' # parameters
+#' (score.mle <- est_score(x = mod.mix1, method = "ML", range = c(-4, 4)))
 #'
 #' # Compute traditional model-fit statistics
 #' (fit.mix1 <- irtfit(
@@ -576,7 +753,8 @@
 #' # Fit the 2PL model to all dichotomous items, the GPCM to items 39 and 40,
 #' # and the GRM to items 53, 54, and 55.
 #' # Also estimate the empirical histogram of the latent prior distribution.
-#' # Provide IRT model and score category information via `model` and `cats` arguments.
+#' # Provide IRT model and score category information via `model` and `cats`
+#' # arguments.
 #' (mod.mix3 <- est_irt(
 #'   data = sim.dat1, D = 1,
 #'   model = c(rep("2PLM", 38), rep("GPCM", 2), rep("2PLM", 12), rep("GRM", 3)),
@@ -587,7 +765,8 @@
 #'
 #' # Fit the 2PL model to all dichotomous items, the PCM to items 39 and 40 by
 #' # fixing slope parameters to 1, and the GRM to items 53, 54, and 55.
-#' # Provide IRT model and score category information via `model` and `cats` arguments.
+#' # Provide IRT model and score category information via `model` and `cats`
+#' # arguments.
 #' (mod.mix4 <- est_irt(
 #'   data = sim.dat1, D = 1,
 #'   model = c(rep("2PLM", 38), rep("GPCM", 2), rep("2PLM", 12), rep("GRM", 3)),
@@ -603,7 +782,8 @@
 #' ##    (simulated)
 #' ## ----------------------------------------------------------------
 #' ## Import the "-prm.txt" output file from flexMIRT
-#' flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt", package = "irtQ")
+#' flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt",
+#'                         package = "irtQ")
 #'
 #' # Select item metadata
 #' x <- bring.flexmirt(file = flex_sam, "par")$Group1$full_df
@@ -615,7 +795,8 @@
 #' # Simulate response data
 #' sim.dat2 <- simdat(x = x, theta = score2, D = 1)
 #'
-#' # Fit the 3PL model to all dichotomous items and the GRM to all polytomous items
+#' # Fit the 3PL model to all dichotomous items and the GRM to all polytomous
+#' # items
 #' # Fix five 3PL items (1st - 5th) and three GRM items (53rd - 55th)
 #' # Also estimate the empirical histogram of the latent variable distribution
 #' # Use the MEM method
@@ -649,7 +830,8 @@
 #' # Display a summary of the estimation results
 #' summary(mod.fix1)
 #'
-#' # Fit the 3PL model to all dichotomous items and the GRM to all polytomous items
+#' # Fit the 3PL model to all dichotomous items and the GRM to all polytomous
+#' # items
 #' # Fix the same items as before (1st - 5th and 53rd - 55th)
 #' # This time, do not estimate the empirical histogram of the latent prior
 #' # Instead, estimate the scale of the normal prior distribution
@@ -668,8 +850,10 @@
 #' (emphist <- getirt(mod.fix2, what = "weights"))
 #' plot(emphist$weight ~ emphist$theta, type = "h")
 #'
-#' # Fit the 3PL model to all dichotomous items and the GRM to all polytomous items
-#' # Fix only the five 3PL items (1st - 5th) and estimate the empirical histogram
+#' # Fit the 3PL model to all dichotomous items and the GRM to all polytomous
+#' # items
+#' # Fix only the five 3PL items (1st to 5th) and estimate the empirical
+#' # histogram
 #' # Use the OEM method (i.e., only one EM cycle is used)
 #' fix.loc <- c(1:5)
 #' (mod.fix3 <- est_irt(
@@ -688,7 +872,8 @@
 #' # Display a summary of the estimation results
 #' summary(mod.fix3)
 #'
-#' # Fit the 3PL model to all dichotomous items and the GRM to all polytomous items
+#' # Fit the 3PL model to all dichotomous items and the GRM to all polytomous
+#' # items
 #' # Fix all 55 items and estimate only the latent ability distribution
 #' # Use the MEM method
 #' fix.loc <- c(1:55)
@@ -768,6 +953,11 @@ est_irt <- function(x = NULL,
   default_control <- list(eval.max = 500, iter.max = 200, x.tol = 1e-4)
   control <- modifyList(default_control, control)
 
+  # the FIPC method must be one of the two available methods
+  if (fipc && !(length(fipc.method) == 1L && fipc.method %in% c("MEM", "OEM"))) {
+    stop("'fipc.method' must be either \"MEM\" or \"OEM\".", call. = FALSE)
+  }
+
   # item parameter estimation
   if (!fipc) {
     # item parameter estimation using MMLE-EM algorithm
@@ -799,6 +989,11 @@ est_irt <- function(x = NULL,
   # return the estimation results
   class(est_par) <- "est_irt"
   est_par$call <- cl
+
+  # place the counts of the free parameters after the call
+  npar.detail <- est_par$npar.detail
+  est_par$npar.detail <- NULL
+  est_par$npar.detail <- npar.detail
   est_par
 }
 
@@ -852,8 +1047,11 @@ est_irt_em <- function(x = NULL,
     ), call. = FALSE)
   }
   
-  # transform a data set to matrix
-  data <- data.matrix(data)
+  # recode a non-numeric missing code before the responses are read as numbers
+  if (!is.na(missing)) data[data == missing] <- NA
+
+  # transform a data set to matrix (character and factor columns are read by their values)
+  data <- resp_as_numeric(data)
   
   # extract information about the number of score categories and models
   if (verbose) {
@@ -862,7 +1060,16 @@ est_irt_em <- function(x = NULL,
   if (!is.null(x)) {
     # confirm and correct all item metadata information
     x <- confirm_df(x)
-    
+
+    # override the item id in x if item.id is not NULL
+    if (!is.null(item.id)) {
+      # stop when item.id does not have one value per item of x
+      if (length(item.id) != nrow(x)) {
+        stop("The length of 'item.id' must be equal to the number of items in 'x'.", call. = FALSE)
+      }
+      x$id <- item.id
+    }
+
     # extract item ids for all items
     id <- x$id
     
@@ -873,7 +1080,7 @@ est_irt_em <- function(x = NULL,
     model <- x$model
     
     # if use.startval = FALSE
-    # create a new item medadata object with starting values
+    # create a new item metadata object with starting values
     if (!use.startval) {
       x <- startval_df(cats = cats, model = model, item.id = id)
     }
@@ -941,13 +1148,19 @@ est_irt_em <- function(x = NULL,
     memo2 <- paste0(paste0("item ", loc_allmiss, collapse = ", "), " has/have no item response data. \n")
     stop(memo2, call. = FALSE)
   }
-  
+
+  # stop when a response is not one of the score categories 0, ..., cats - 1
+  check_resp_range(data = data, cats = cats, id = id)
+
+  # warn about the items whose maximum likelihood estimates do not exist
+  check_item_mle(data = data, cats = cats, id = id)
+
   # find the location of 1PLM items in which slope parameters should be constrained to be equal
   # also, find the location of items with other models
   if ("1PLM" %in% model & !fix.a.1pl) {
     loc_1p_const <- which(model == "1PLM")
     loc_else <- which(model != "1PLM")
-    
+
     # count the number of 1PLM items to be constrained
     n.1PLM <- length(loc_1p_const)
   } else {
@@ -955,7 +1168,7 @@ est_irt_em <- function(x = NULL,
     loc_else <- 1:nrow(x)
     n.1PLM <- NULL
   }
-  
+
   # record the original location of item parameters to be estimated, and
   # the relocated position of item parameters when computing
   # the variance-covariance matrix of item parameter estimates
@@ -976,6 +1189,9 @@ est_irt_em <- function(x = NULL,
     weights <- gen.weight(dist = "norm", mu = group.mean, sigma = sqrt(group.var), theta = quadpt)
     n.quad <- length(quadpt)
   } else {
+    # check the weights and rescale them to sum to one, as the moments below, the
+    # empirical histogram rescaling, and the marginal log-likelihood assume
+    weights <- check_weights(weights)
     quadpt <- weights[, 1]
     n.quad <- length(quadpt)
     moments.tmp <- cal_moment(node = quadpt, weight = weights[, 2])
@@ -997,10 +1213,11 @@ est_irt_em <- function(x = NULL,
   idx.prm <- idx.item$idx.prm
   
   # then, divide items into three groups
-  # (1) DRM 1PL items with the constrained slop
+  # (1) DRM 1PL items with the constrained slope
   # (2) other DRM items
   # (3) PRM items
-  if (sum(loc_else) == 0) {
+  # (no item other than the constrained 1PLM items when loc_else is empty)
+  if (length(loc_else) == 0) {
     drm.else <- NULL
   } else {
     drm.else <- loc_else
@@ -1033,7 +1250,6 @@ est_irt_em <- function(x = NULL,
   
   # implement EM algorithm
   time1 <- Sys.time()
-  # par.history <- list()
   for (r in 1:MaxE) {
     # implement E-step
     estep <- Estep(
@@ -1051,7 +1267,7 @@ est_irt_em <- function(x = NULL,
       a.val.1pl = a.val.1pl, a.val.gpcm = a.val.gpcm, g.val = g.val,
       use.aprior = use.aprior, use.bprior = use.bprior, use.gprior = use.gprior,
       aprior = aprior, bprior = bprior, gprior = gprior, group.mean = group.mean,
-      group.var = group.var, nstd = nstd, Quadrature = Quadrature, control = control,
+      group.var = group.var, nstd = nstd, control = control,
       iter = r, fipc = FALSE, reloc.par = param_loc$reloc.par, parbd = parbd
     )
     
@@ -1076,14 +1292,10 @@ est_irt_em <- function(x = NULL,
     
     # extract the updated item parameter estimates
     elm_item$pars <- mstep$elm_item$pars
-    # par.history[[r]] <- mstep$par_vec
-    
+
     # extract the updated quadrature points and
     # the corresponding weights of the prior population density
     weights <- mstep$weights
-    
-    # delete 'estep' and 'mstep' object
-    # rm(estep, mstep, envir=environment(), inherits = FALSE)
     
     # terminate the EM step if the convergence criterion is satisfied
     if (converge | r == MaxE) {
@@ -1118,7 +1330,8 @@ est_irt_em <- function(x = NULL,
   )
   
   # compute the final log of marginal likelihood
-  llike <- sum(log(estep$likehd %*% matrix(weights[, 2])))
+  # (adding back the log-scale offsets of the rows rescaled in likelihood())
+  llike <- sum(log(estep$likehd %*% matrix(weights[, 2]))) + sum(estep$offset)
   
   ## ---------------------------------------------------------------------
   # estimates the information matrix and standard errors of item parameter estimates
@@ -1129,7 +1342,8 @@ est_irt_em <- function(x = NULL,
   # delete 'estep' and 'mstep' object
   rm(estep, mstep, data_drm, data_prm, data_all, envir = environment(), inherits = FALSE)
   
-  # compute the information matrix of item parameter estimates using the cross-product method
+  # compute the information matrix of the item parameter estimates:
+  # the cross-product information plus the prior information
   if (se) {
     if (verbose) {
       cat("Computing item parameter var-covariance matrix...", "\n")
@@ -1149,7 +1363,7 @@ est_irt_em <- function(x = NULL,
     info.prior <- info_prior(
       elm_item = elm_item, D = D, loc_1p_const = loc_1p_const,
       loc_else = loc_else, n.1PLM = n.1PLM, fix.a.1pl = fix.a.1pl, fix.a.gpcm = fix.a.gpcm, fix.g = fix.g,
-      a.val.1pl = a.val.1pl, a.val.gpcm = a.val.gpcm, g.val = g.val, aprior = aprior, bprior = bprior,
+      aprior = aprior, bprior = bprior,
       gprior = gprior, use.aprior = use.aprior, use.bprior = use.bprior, use.gprior = use.gprior,
       reloc.par = param_loc$reloc.par
     )
@@ -1276,8 +1490,16 @@ est_irt_em <- function(x = NULL,
   if (use.bprior) bprior.dist <- bprior else bprior.dist <- NULL
   if (use.gprior) gprior.dist <- gprior else gprior.dist <- NULL
   
+  # count the free parameters: the item parameters, and the weights of the empirical
+  # histogram, whose number of free values is the number of quadrature points minus
+  # three (sum to one, mean, and variance are fixed); the normal distribution is fixed
+  npar.item <- length(param_loc$reloc.par)
+  npar.dist <- 0L
+  npar.weight <- if (EmpHist) n.quad - 3L else 0L
+  npar.est <- npar.item + npar.dist + npar.weight
+  npar.detail <- c(item = npar.item, dist = npar.dist, weight = npar.weight)
+
   # statistics based on the loglikelihood of the fitted model:
-  npar.est <- length(param_loc$reloc.par)
   neg2llke <- -2 * llike
   aic <- 2 * npar.est + neg2llke
   bic <- npar.est * log(nstd) + neg2llke
@@ -1295,7 +1517,7 @@ est_irt_em <- function(x = NULL,
     group.par = group.par, weights = weights, posterior.dist = post_dist, data = data, scale.D = D, ncase = nstd, nitem = nrow(par_df),
     Etol = Etol, MaxE = MaxE, aprior = aprior.dist, bprior = bprior.dist, gprior = gprior.dist, npar.est = npar.est, niter = r, maxpar.diff = max.diff,
     EMtime = est_time1, SEtime = est_time2, TotalTime = est_time3, test.1 = memo3, test.2 = memo4, var.note = memo5, fipc = FALSE,
-    fipc.method = NULL, fix.loc = NULL
+    fipc.method = NULL, fix.loc = NULL, npar.detail = npar.detail
   )
   
   if (verbose) {
@@ -1355,8 +1577,11 @@ est_irt_fipc <- function(x = NULL,
     ), call. = FALSE)
   }
   
-  # transform a data set to matrix
-  data <- data.matrix(data)
+  # recode a non-numeric missing code before the responses are read as numbers
+  if (!is.na(missing)) data[data == missing] <- NA
+
+  # transform a data set to matrix (character and factor columns are read by their values)
+  data <- resp_as_numeric(data)
   
   # extract information about the number of score categories and models
   if (verbose) {
@@ -1368,12 +1593,21 @@ est_irt_fipc <- function(x = NULL,
   
   # override the item id in x if item.id is not NULL
   if (!is.null(item.id)) {
+    # stop when item.id does not have one value per item of x
+    if (length(item.id) != nrow(x)) {
+      stop("The length of 'item.id' must be equal to the number of items in 'x'.", call. = FALSE)
+    }
     x$id <- item.id
   }
-  
+
   # check the number of items
   nitem.all <- nrow(x)
-  
+
+  # check that 'x' and 'data' contain the same number of items
+  if (nitem.all != ncol(data)) {
+    stop("The number of items included in 'x' and 'data' must be the same.", call. = FALSE)
+  }
+
   # find the items that should be fixed
   if (is.null(fix.loc) & is.null(fix.id)) {
     stop("When 'FIPC = TRUE', the information of which items are fixed \n",
@@ -1388,9 +1622,25 @@ est_irt_fipc <- function(x = NULL,
     ), call. = FALSE)
   }
   if (!is.null(fix.id)) {
+    # stop when an ID in 'fix.id' is not found in the item IDs
+    id.notfound <- setdiff(unique(fix.id), x$id)
+    if (length(id.notfound) > 0L) {
+      stop("The item ID(s) in 'fix.id' not found in the item IDs: ", paste(id.notfound, collapse = ", "), ".",
+           call. = FALSE)
+    }
     fix.loc <- which(x$id %in% unique(fix.id))
   }
-  
+
+  # stop when 'fix.loc' is empty or points outside the rows of 'x'
+  if (length(fix.loc) == 0L || anyNA(fix.loc) || any(!fix.loc %in% seq_len(nitem.all))) {
+    stop("'fix.loc' must contain row positions of 'x' between 1 and ", nitem.all, ".", call. = FALSE)
+  }
+
+  # stop when an item is listed more than once (it would be counted twice in the first E-step)
+  if (anyDuplicated(fix.loc) > 0L) {
+    stop("'fix.loc' must not contain duplicated row positions.", call. = FALSE)
+  }
+
   # check the location of items whose item parameters are estimated
   nofix.loc <- c(1:nitem.all)[!c(1:nitem.all) %in% fix.loc]
   if (length(nofix.loc) == 0L) {
@@ -1436,9 +1686,6 @@ est_irt_fipc <- function(x = NULL,
     x_all[nofix.loc, 1:ncol(x_new)] <- x_new
   }
   
-  # check whether included data are correct
-  # if(nitem.all != ncol(data)) stop("The number of items included in 'x' and 'data' must be the same.", call.=FALSE)
-  
   # recode missing values
   if (!is.na(missing)) {
     data[data == missing] <- NA
@@ -1453,12 +1700,23 @@ est_irt_fipc <- function(x = NULL,
     memo2 <- paste0(paste0("item ", loc_allmiss, collapse = ", "), " has/have no item response data. \n")
     stop(memo2, call. = FALSE)
   }
-  
+
+  # stop when a response is not one of the score categories 0, ..., cats - 1
+  check_resp_range(data = data, cats = x$cats, id = x$id)
+
+  # stop when the responses to all fixed items show no variation
+  check_fix_info(data = data[, fix.loc, drop = FALSE], id = x$id[fix.loc])
+
+  # warn about the items to be estimated whose maximum likelihood estimates do not exist
+  if (!is.null(nofix.loc)) {
+    check_item_mle(data = data[, nofix.loc, drop = FALSE], cats = x$cats[nofix.loc], id = x$id[nofix.loc])
+  }
+
   # save the item response data into the different object
   data_all <- data
   rm(data, envir = environment(), inherits = FALSE)
   
-  # divide the item response data into two groups: fixed (x_fix) and non-fixed (x)
+  # divide the item response data into two groups: fixed (data_fix) and non-fixed (data_new)
   data_fix <- data_all[, fix.loc, drop = FALSE]
   if (!is.null(x_new)) {
     data_new <- data_all[, nofix.loc, drop = FALSE]
@@ -1514,13 +1772,20 @@ est_irt_fipc <- function(x = NULL,
     quadpt <- seq(-Quadrature[2], Quadrature[2], length.out = Quadrature[1])
     n.quad <- length(quadpt)
     
-    # create the data.frame containing the quadurature points and weights
+    # create the data.frame containing the quadrature points and weights
     weights <- gen.weight(dist = "norm", mu = group.mean, sigma = sqrt(group.var), theta = quadpt)
   } else {
+    # check the weights and rescale them to sum to one, as the first EM cycle uses them
+    weights <- check_weights(weights)
     quadpt <- weights[, 1]
     n.quad <- length(quadpt)
+
+    # use the moments of the supplied weights as the initial moments of the distribution
+    moments.tmp <- cal_moment(node = quadpt, weight = weights[, 2])
+    group.mean <- moments.tmp[1]
+    group.var <- moments.tmp[2]
   }
-  
+
   # build the per-item one-hot frequency-category list once on the combined
   # response matrix; data_fix and data_new are the fix.loc and nofix.loc
   # columns of data_all, so list subsetting gives their freq.cat without
@@ -1555,11 +1820,12 @@ est_irt_fipc <- function(x = NULL,
   idx.prm.all <- idx.item.all$idx.prm
   
   # then, divide items in the new test form into three groups
-  # (1) DRM 1PL items with the constrained slop
+  # (1) DRM 1PL items with the constrained slope
   # (2) other DRM items
   # (3) PRM items
+  # (no item other than the constrained 1PLM items when loc_else is empty)
   if (!is.null(x_new)) {
-    if (sum(loc_else) == 0) {
+    if (length(loc_else) == 0) {
       drm.else <- NULL
     } else {
       drm.else <- loc_else
@@ -1599,7 +1865,7 @@ est_irt_fipc <- function(x = NULL,
   if (is.null(x_new)) {
     mmt_dist_old <- c(group.mean, group.var)
   }
-  
+
   # create the lower and upper bounds of the item parameters
   if (!is.null(x_new)) {
     parbd <- lubound(model, cats, n.1PLM, idx4est, fix.a.1pl, fix.g, fix.a.gpcm)
@@ -1656,7 +1922,7 @@ est_irt_fipc <- function(x = NULL,
       n.1PLM = n.1PLM, EmpHist = EmpHist, weights = weights, fix.a.1pl = fix.a.1pl, fix.a.gpcm = fix.a.gpcm, fix.g = fix.g,
       a.val.1pl = a.val.1pl, a.val.gpcm = a.val.gpcm, g.val = g.val, use.aprior = use.aprior, use.bprior = use.bprior,
       use.gprior = use.gprior, aprior = aprior, bprior = bprior, gprior = gprior, group.mean = group.mean,
-      group.var = group.var, nstd = nstd, Quadrature = Quadrature, control = control,
+      group.var = group.var, nstd = nstd, control = control,
       iter = r, fipc = TRUE, reloc.par = param_loc$reloc.par, parbd = parbd
     )
     
@@ -1672,7 +1938,7 @@ est_irt_fipc <- function(x = NULL,
       # convergence statistic: largest absolute change in prior mean and variance
       max.diff <- suppressWarnings(max(abs(diff_par), na.rm = TRUE))
     }
-    
+
     # log-likelihood value
     llike <- mstep$loglike
     
@@ -1695,7 +1961,7 @@ est_irt_fipc <- function(x = NULL,
     } else {
       mmt_dist_old <- mmt_dist_new
     }
-    
+
     # extract the updated quadrature points and
     # the corresponding weights of the prior population density
     weights <- mstep$weights
@@ -1743,7 +2009,8 @@ est_irt_fipc <- function(x = NULL,
   }
   
   # compute the final log of marginal likelihood
-  llike <- sum(log(estep$likehd %*% matrix(weights[, 2])))
+  # (adding back the log-scale offsets of the rows rescaled in likelihood())
+  llike <- sum(log(estep$likehd %*% matrix(weights[, 2]))) + sum(estep$offset)
   
   # compute the mean and variance of the estimated density distribution
   pop_moments <- cal_moment(node = quadpt, weight = weights[, 2])
@@ -1762,7 +2029,8 @@ est_irt_fipc <- function(x = NULL,
        envir = environment(), inherits = FALSE
     )
     
-    # compute the information matrix of item parameter estimates using the cross-product method
+    # compute the information matrix of the item parameter estimates:
+    # the cross-product information plus the prior information
     if (se) {
       if (verbose) {
         cat("Computing item parameter var-covariance matrix...", "\n")
@@ -1782,7 +2050,7 @@ est_irt_fipc <- function(x = NULL,
       info.prior <- info_prior(
         elm_item = elm_item_new, D = D, loc_1p_const = loc_1p_const,
         loc_else = loc_else, n.1PLM = n.1PLM, fix.a.1pl = fix.a.1pl, fix.a.gpcm = fix.a.gpcm, fix.g = fix.g,
-        a.val.1pl = a.val.1pl, a.val.gpcm = a.val.gpcm, g.val = g.val, aprior = aprior, bprior = bprior,
+        aprior = aprior, bprior = bprior,
         gprior = gprior, use.aprior = use.aprior, use.bprior = use.bprior, use.gprior = use.gprior,
         reloc.par = param_loc$reloc.par
       )
@@ -1854,7 +2122,7 @@ est_irt_fipc <- function(x = NULL,
     
     # deploy the standard errors into the same row/column layout that
     # holds the item parameter estimates.
-    # 1) for the only new items (see est_irt_em() for the loc.par layout).
+    # 1) for the new items only (see est_irt_em() for the loc.par layout).
     se_df <- loc.par <- param_loc$loc.par
     mask  <- !is.na(loc.par)
     if (se) {
@@ -1863,7 +2131,7 @@ est_irt_fipc <- function(x = NULL,
       se_df[mask] <- NA_real_
     }
     
-    # 2) for the a total test form
+    # 2) for the total test form
     all.col <- max(x_all$cats)
     all.col <- ifelse(all.col == 2, 3, all.col)
     se_all_df <- loc_all.par <- matrix(NA, nrow = nitem.all, ncol = all.col)
@@ -1888,13 +2156,9 @@ est_irt_fipc <- function(x = NULL,
     # extract the finalized posterior density
     post_dist <- estep$post_dist
     
-    # the second-order test
-    if (test_1st) {
-      memo4 <- "Solution is a possible local maximum."
-    } else {
-      memo4 <- "Solution is not a possible local maximum because convergence criteria are not satisfied."
-    }
-    
+    # the second-order test is not available because the information matrix is not computed
+    memo4 <- "No item parameters are estimated, so the information matrix is not computed."
+
     # compute the standard errors of item parameter estimates
     cov_mat <- NULL
     memo5 <- "Variance-covariance matrix of item parameter estimates was not estimated."
@@ -1902,7 +2166,7 @@ est_irt_fipc <- function(x = NULL,
     # record the standard error computation time (NULL)
     est_time2 <- NULL
     
-    # deploy the standard errors on the location of matrix as the item parameter estimates
+    # all standard errors are NA because no item parameter is estimated
     se_df <- loc_all.par <- param_loc$loc.par
     
     # create a full data.frame for the standard error estimates
@@ -1951,12 +2215,17 @@ est_irt_fipc <- function(x = NULL,
   if (use.bprior) bprior.dist <- bprior else bprior.dist <- NULL
   if (use.gprior) gprior.dist <- gprior else gprior.dist <- NULL
   
+  # count the free parameters: the item parameters to be estimated, and the latent
+  # distribution, which is estimated without rescaling (the mean and variance of the
+  # normal distribution, or the quadrature points minus one weights of the empirical
+  # histogram, whose sum is one)
+  npar.item <- if (!is.null(x_new)) length(param_loc$reloc.par) else 0L
+  npar.dist <- if (EmpHist) 0L else 2L
+  npar.weight <- if (EmpHist) n.quad - 1L else 0L
+  npar.est <- npar.item + npar.dist + npar.weight
+  npar.detail <- c(item = npar.item, dist = npar.dist, weight = npar.weight)
+
   # statistics based on the loglikelihood of the fitted model:
-  if (!is.null(x_new)) {
-    npar.est <- length(param_loc$reloc.par) + 2
-  } else {
-    npar.est <- 2
-  }
   neg2llke <- -2 * llike
   aic <- 2 * npar.est + neg2llke
   bic <- npar.est * log(nstd) + neg2llke
@@ -1974,11 +2243,121 @@ est_irt_fipc <- function(x = NULL,
     aic = aic, bic = bic, group.par = group.par, weights = weights, posterior.dist = post_dist, data = data_all, scale.D = D, ncase = nstd,
     nitem = nitem.all, Etol = Etol, MaxE = MaxE, aprior = aprior.dist, bprior = bprior.dist, gprior = gprior.dist, npar.est = npar.est,
     niter = r, maxpar.diff = max.diff, EMtime = est_time1, SEtime = est_time2, TotalTime = est_time3, test.1 = memo3, test.2 = memo4,
-    var.note = memo5, fipc = TRUE, fipc.method = fipc.method, fix.loc = fix.loc
+    var.note = memo5, fipc = TRUE, fipc.method = fipc.method, fix.loc = fix.loc, npar.detail = npar.detail
   )
-  
+
   if (verbose) {
     cat("Estimation is finished in", est_time3, "seconds.", "\n")
   }
   return(rst)
+}
+
+
+# This function converts a response data set to a numeric matrix by the values of the
+# responses: character and factor columns are read as numbers, and a value that is not
+# a number becomes -1 so that the range check flags it
+resp_as_numeric <- function(data) {
+  # read the values of a vector as numbers
+  read_num <- function(v) {
+    # numeric and logical values are used as they are
+    if (is.numeric(v) || is.logical(v)) {
+      return(v)
+    }
+    z <- suppressWarnings(as.numeric(as.character(v)))
+    # a value that is not a number is flagged as out of range
+    z[is.na(z) & !is.na(v)] <- -1
+    z
+  }
+
+  if (is.data.frame(data)) {
+    # read each column by its values
+    data[] <- lapply(data, read_num)
+  } else if (!is.numeric(data) && !is.logical(data)) {
+    # read a character matrix by its values
+    data <- matrix(read_num(as.vector(data)), nrow = nrow(data), dimnames = dimnames(data))
+  }
+  data.matrix(data)
+}
+
+
+# This function stops when a response in 'data' is not one of the score
+# categories 0, 1, ..., cats - 1 of its item (missing responses are allowed)
+check_resp_range <- function(data, cats, id) {
+  # largest admissible score of each item, laid out like 'data'
+  max.score <- matrix(cats - 1, nrow = nrow(data), ncol = ncol(data), byrow = TRUE)
+
+  # flag negative, too large, or non-integer responses
+  bad <- (data < 0) | (data > max.score) | (data != round(data))
+  loc_bad <- which(Rfast::colsums(bad & !is.na(bad)) > 0L)
+  if (length(loc_bad) > 0L) {
+    stop(paste0(
+      "The responses must be scored as 0, 1, ..., (cats - 1). ",
+      "Out-of-range or non-integer responses were found for item(s) ",
+      paste0(id[loc_bad], " (allowed 0 to ", cats[loc_bad] - 1, ")", collapse = ", "), "."
+    ), call. = FALSE)
+  }
+  invisible(NULL)
+}
+
+
+# This function stops when the responses to every fixed item of FIPC show no variation
+# (one observed response value per item). Such fixed items carry no information about
+# differences in ability: the first E-step gives every examinee the same posterior, so the
+# new items have no interior maximum in the M-step, and the scale cannot be placed
+check_fix_info <- function(data, id) {
+  # number of distinct observed responses of each fixed item
+  n.value <- vapply(seq_len(ncol(data)), function(j) {
+    length(unique(data[!is.na(data[, j]), j]))
+  }, integer(1))
+
+  # stop when no fixed item has two or more observed response values
+  if (all(n.value <= 1L)) {
+    stop(paste0(
+      "The responses to all fixed items (", paste(id, collapse = ", "), ") show no variation, ",
+      "so the fixed items carry no information to place the ability scale and FIPC cannot be applied."
+    ), call. = FALSE)
+  }
+  invisible(NULL)
+}
+
+
+# This function warns, once, about the items that have a score category with no
+# responses (which includes the items with all responses the same): their
+# maximum likelihood estimates do not exist
+check_item_mle <- function(data, cats, id) {
+  # flag the items with at least one score category that nobody chose
+  has.empty <- vapply(seq_len(ncol(data)), function(j) {
+    resp <- data[, j]
+    any(tabulate(resp[!is.na(resp)] + 1L, nbins = cats[j]) == 0L)
+  }, logical(1))
+
+  if (any(has.empty)) {
+    warning(paste0(
+      "Item(s) ", paste(id[has.empty], collapse = ", "),
+      " have a score category with no responses or no variation in responses, ",
+      "so their parameter estimates may be unstable and their standard errors unreliable."
+    ), call. = FALSE)
+  }
+  invisible(NULL)
+}
+
+
+# This function checks the quadrature weights supplied by the user (second
+# column of 'weights') and rescales them to sum to one with a warning
+check_weights <- function(weights) {
+  # extract the weights as a numeric vector
+  wts <- as.numeric(unlist(weights[, 2]))
+
+  # stop when the weights are not nonnegative finite values with a positive sum
+  if (!all(is.finite(wts)) || any(wts < 0) || sum(wts) <= 0) {
+    stop("The weights must be nonnegative finite values with a positive sum.", call. = FALSE)
+  }
+
+  # rescale the weights when they do not sum to one
+  if (abs(sum(wts) - 1) > 1e-8) {
+    warning("The weights do not sum to 1 and were rescaled to sum to 1.", call. = FALSE)
+    weights[, 2] <- wts / sum(wts)
+  }
+
+  weights
 }

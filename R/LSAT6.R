@@ -5,8 +5,10 @@
 #'
 #' @usage LSAT6
 #'
-#' @format A data frame with 1,000 rows and 5 columns, where each row represents a unique
-#' examinee's response pattern to five dichotomously scored items (0 = incorrect, 1 = correct).
+#' @format An integer matrix with 1,000 rows (examinees) and 5 columns (items
+#'   `item.1` to `item.5`). Each entry is a dichotomously scored response
+#'   (0 = incorrect, 1 = correct). The 1,000 rows contain 30 distinct response
+#'   patterns.
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'

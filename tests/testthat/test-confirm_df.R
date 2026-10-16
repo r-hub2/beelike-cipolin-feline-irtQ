@@ -1,7 +1,7 @@
 # confirm_df() is not exported; access via :::
 confirm_df <- irtQ:::confirm_df
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+# ---- helpers -------------------------------------------------------------------
 
 make_drm_df <- function(model = "3PLM") {
   data.frame(
@@ -28,7 +28,7 @@ make_grm_df <- function() {
   )
 }
 
-# ── valid inputs ──────────────────────────────────────────────────────────────
+# ---- valid inputs --------------------------------------------------------------
 
 test_that("confirm_df() accepts a valid 3PLM data frame", {
   x <- make_drm_df("3PLM")
@@ -74,7 +74,7 @@ test_that("confirm_df() accepts a valid GPCM data frame", {
 
 test_that("confirm_df() converts DRM to 3PLM with a warning", {
   x <- make_drm_df("DRM")
-  expect_warning(result <- confirm_df(x), "DRM")
+  expect_warning(result <- confirm_df(x), "treated as '3PLM'")
   expect_true(all(result$model == "3PLM"))
 })
 
@@ -115,7 +115,7 @@ test_that("confirm_df() accepts a factor model column and converts it", {
   expect_true(is.character(result$model))
 })
 
-# ── invalid inputs ────────────────────────────────────────────────────────────
+# ---- invalid inputs ------------------------------------------------------------
 
 test_that("confirm_df() errors on unknown model name", {
   x <- make_drm_df("4PLM")
@@ -135,4 +135,112 @@ test_that("confirm_df() errors when par.3 column missing and model is not all-2P
     stringsAsFactors = FALSE
   )
   expect_error(confirm_df(x), "par.3")
+})
+
+test_that("confirm_df() errors when a parameter column holds text", {
+  x <- make_drm_df("2PLM")
+  x$par.1 <- c("1.2", "0.9")
+  expect_error(confirm_df(x), "numeric")
+
+  # an all-NA logical column is not text
+  y <- make_drm_df("2PLM")
+  y$par.3 <- NA
+  expect_no_error(confirm_df(y))
+})
+
+test_that("confirm_df() errors when cats is missing or less than 2", {
+  x <- make_drm_df("3PLM")
+  x$cats[2] <- 1L
+  expect_error(confirm_df(x), "score category")
+
+  x$cats[2] <- NA
+  expect_error(confirm_df(x), "score category")
+})
+
+test_that("confirm_df() errors when a dichotomous model has cats other than 2", {
+  x <- make_drm_df("3PLM")
+  x$cats[1] <- 3L
+  expect_error(confirm_df(x), "cats = 2")
+})
+
+test_that("confirm_df() errors when a polytomous item has more thresholds than cats - 1", {
+  # two GRM items with 3 and 4 categories, where the first has a third threshold
+  x <- data.frame(
+    id = c("A", "B"), cats = c(3L, 4L), model = "GRM", par.1 = c(1, 1.2),
+    par.2 = c(-1, -1), par.3 = c(0, 0), par.4 = c(1, 1)
+  )
+  expect_error(confirm_df(x), "more threshold parameters")
+
+  # NA in the unused threshold cell is accepted
+  x$par.4[1] <- NA
+  expect_no_error(confirm_df(x))
+})
+
+test_that("confirm_df() accepts a GRM item with two categories", {
+  x <- data.frame(
+    id = c("A", "B"), cats = c(2L, 3L), model = "GRM", par.1 = c(1, 1.2),
+    par.2 = c(0.3, -1), par.3 = c(NA, 0.5)
+  )
+  r <- confirm_df(x)
+  expect_equal(r$cats, c(2, 3))
+})
+
+test_that("confirm_df() adds par.3 when every item is 1PLM or 2PLM", {
+  # all 1PLM items without a par.3 column
+  x1 <- data.frame(id = c("A", "B"), cats = 2L, model = "1PLM", par.1 = 1, par.2 = c(0, 1))
+  r1 <- confirm_df(x1)
+  expect_equal(r1$par.3, c(0, 0))
+
+  # a mixture of 1PLM and 2PLM items without a par.3 column
+  x2 <- data.frame(
+    id = c("A", "B"), cats = 2L, model = c("1PLM", "2PLM"),
+    par.1 = c(1, 1.3), par.2 = c(0, 1)
+  )
+  r2 <- confirm_df(x2)
+  expect_equal(r2$par.3, c(0, 0))
+  expect_equal(r2$par.2, c(0, 1))
+})
+
+test_that("confirm_df() errors when a two-category GRM or GPCM item has a value in par.3", {
+  for (m in c("GRM", "GPCM")) {
+    x <- data.frame(
+      id = c("A", "B"), cats = c(2L, 3L), model = m, par.1 = c(1, 1.2),
+      par.2 = c(0.3, -1), par.3 = c(0.2, 0.5)
+    )
+    expect_error(confirm_df(x), "more threshold parameters")
+
+    # the cell must be NA
+    x$par.3[1] <- NA
+    expect_no_error(confirm_df(x))
+  }
+})
+
+test_that("confirm_df() reads a cats column stored as text or factor labels", {
+  x <- make_grm_df()
+  x$cats <- as.character(x$cats)
+  r1 <- confirm_df(x)
+  expect_true(is.numeric(r1$cats))
+  expect_equal(r1$cats, c(4, 4))
+
+  # factor labels are read as the numbers they show
+  x$cats <- factor(c(4, 4))
+  expect_equal(confirm_df(x)$cats, c(4, 4))
+
+  # the result equals that of numeric cats
+  expect_equal(confirm_df(x)$par.2, confirm_df(make_grm_df())$par.2)
+
+  # text that is not a number stops with a message
+  x$cats <- c("4", "many")
+  expect_error(confirm_df(x), "cats column")
+})
+
+test_that("info() and simdat() accept item metadata with a text cats column", {
+  meta <- data.frame(
+    id = c("A", "B"), cats = c("2", "4"), model = c("2PLM", "GRM"), par.1 = c(1, 1.2),
+    par.2 = c(0, -1), par.3 = c(NA, 0), par.4 = c(NA, 1)
+  )
+  num <- meta
+  num$cats <- c(2, 4)
+  expect_equal(info(meta, c(-1, 1))$iif, info(num, c(-1, 1))$iif)
+  expect_equal(dim(simdat(meta, theta = c(-1, 0, 1))), c(3L, 2L))
 })

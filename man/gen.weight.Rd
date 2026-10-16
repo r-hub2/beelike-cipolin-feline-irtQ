@@ -13,21 +13,21 @@ weights are to be generated. Default is 41.}
 \item{dist}{A character string indicating the distribution type used to
 generate weights. Available options are \code{"norm"} for a normal distribution,
 \code{"unif"} for a uniform distribution, and \code{"emp"} for an empirical
-distribution.
+distribution. Default is \code{"norm"}.
 \itemize{
 \item If \code{dist = "norm"}, either \code{n} or \code{theta} must be provided.
-\item If \code{dist = "unif"}, only \code{n} is applicable.
-\item If \code{dist = "emp"}, only \code{theta} must be specified.
+\item If \code{dist = "unif"}, only \code{n} is used; \code{theta} must not be supplied.
+\item If \code{dist = "emp"}, \code{theta} is required.
 }}
 
 \item{mu, sigma}{Mean and standard deviation of the normal distribution (used
-when \code{dist = "norm"}).}
+when \code{dist = "norm"}). Defaults are 0 and 1.}
 
 \item{l, u}{Lower and upper bounds of the uniform distribution (used when
-\code{dist = "unif"}).}
+\code{dist = "unif"}). Defaults are -4 and 4.}
 
-\item{theta}{A numeric vector of empirical theta (node) values for which
-weights are generated.}
+\item{theta}{A numeric vector of theta (node) values for which weights are
+generated. Used when \code{dist = "norm"} or \code{dist = "emp"}.}
 }
 \value{
 A data frame with two columns:
@@ -42,8 +42,8 @@ values to be used in functions such as \code{\link[=est_score]{est_score()}},
 \code{\link[=sx2_fit]{sx2_fit()}}, and \code{\link[=covirt]{covirt()}}.
 }
 \details{
-If \code{theta} is not specified, \emph{n} equally spaced quadrature points
-and corresponding weights are generated from either the normal or uniform
+If \code{theta} is not specified, \emph{n} quadrature points and
+corresponding weights are generated from either the normal or uniform
 distribution:
 \itemize{
 \item When \code{dist = "norm"}, Gaussian quadrature points and weights are computed

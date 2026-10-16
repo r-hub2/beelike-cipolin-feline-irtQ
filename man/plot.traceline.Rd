@@ -23,38 +23,37 @@
 )
 }
 \arguments{
-\item{x}{x An object of class \code{traceline} obtained from \code{\link[=traceline]{traceline()}}.}
+\item{x}{An object of class \code{traceline} obtained from \code{\link[=traceline]{traceline()}}.}
 
 \item{item.loc}{A numeric vector specifying the position(s) of the item(s) to
 plot. If \code{NULL} (default), the test characteristic curve (TCC) for the
 entire test form is plotted.}
 
-\item{score.curve}{Logical. If \code{TRUE}, plots the item score curve, defined
-as the weighted sum of category probabilities across score categories, in
-a panel.
-
-If \code{FALSE}, plots item characteristic curves (ICCs) for all score categories,
-either in separate panels or in a single panel depending on the \code{overlap}
-setting.
-
-For dichotomous items, the item score curve is equivalent to the ICC for
-score category 1. Ignored when \code{item.loc = NULL}. Default is \code{FALSE}.}
+\item{score.curve}{Logical. If \code{TRUE}, plots the item score curve, which is
+the expected item score (the sum of category scores weighted by their
+probabilities) as a function of theta. If \code{FALSE}, plots the item
+characteristic curves (ICCs) of all score categories. For dichotomous
+items, the item score curve equals the ICC for score category 1. Ignored
+when \code{item.loc = NULL}. Default is \code{FALSE}.}
 
 \item{overlap}{Logical. Determines how multiple curves are displayed when
-plotting ICCs or item score curves.
+plotting ICCs or item score curves. If \code{TRUE}, curves are overlaid in
+different colors: the category ICCs of each item share one panel per item
+when \code{score.curve = FALSE}, and the score curves of all items share a
+single panel when \code{score.curve = TRUE}. If \code{FALSE}, each curve is drawn in
+its own panel: one panel per score category of a single item when
+\code{score.curve = FALSE}, or one panel per item when \code{score.curve = TRUE}.
+Default is \code{FALSE}.}
 
-If \code{TRUE}, curves are overlaid in a single panel using different colors.
-If \code{FALSE}, each curve is drawn in a separate panel - either one panel per
-item or per score category, depending on the setting of \code{score.curve}.}
-
-\item{layout.col}{An integer value indicating the number of columns in the
-plot when displaying multiple panels. Used only when \code{overlap = FALSE}.
-Default is 2.}
+\item{layout.col}{An integer value indicating the number of panel columns
+when multiple panels are drawn. Not used when \code{overlap = TRUE} and
+\code{score.curve = TRUE}. Default is 2.}
 
 \item{xlab.text, ylab.text}{Character strings specifying the labels for
-the x and y axes, respectively.}
+the x and y axes, respectively. If missing, default labels are used.}
 
-\item{main.text}{Character string specifying the overall title of the plot.}
+\item{main.text}{Character string specifying the overall title of the plot.
+If missing, a default title is used.}
 
 \item{lab.size}{Numeric value specifying the font size of axis titles.
 Default is 15.}
@@ -66,21 +65,24 @@ Default is 15.}
 Default is 15.}
 
 \item{line.color}{A character string specifying the color of the plot lines.
-See \url{http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/} for available
-color names.}
+Default is \code{"#F8766D"}. Not used when curves are overlaid
+(\code{overlap = TRUE} with \code{item.loc} specified), where colors are assigned
+automatically. See \url{http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/}
+for available color names.}
 
 \item{line.size}{Numeric value specifying the thickness of plot lines.
 Default is 1.}
 
-\item{strip.size}{Numeric. Font size of facet labels when ICCs are plotted.}
+\item{strip.size}{Numeric. Font size of the panel (facet) labels. Default is
+12.}
 
 \item{...}{Additional arguments passed to \code{\link[ggplot2:geom_line]{ggplot2::geom_line()}} from
 the \pkg{ggplot2} package.}
 }
 \value{
-This method displays item characteristic curves (ICCs), item score
-curves, or the test characteristic curve (TCC), depending on the specified
-arguments.
+This method prints the plot of item characteristic curves (ICCs),
+item score curves, or the test characteristic curve (TCC), and invisibly
+returns the \pkg{ggplot2} object.
 }
 \description{
 This method visualizes item characteristic curves (ICCs), item score curves,
@@ -89,12 +91,10 @@ ICCs or item score curves can be plotted for one or more selected items,
 while the TCC is plotted for the entire test form.
 }
 \details{
-All plots are generated using the \pkg{ggplot2} package.
-If \code{item.loc = NULL}, the test characteristic curve (TCC) for the entire test
-form is plotted. If \code{item.loc} is specified, it should be a vector of
-positive integers indicating the position(s) of the items to be plotted.
-For example, if the test form includes ten items and you wish to plot the
-score curves of the 1st, 2nd, and 3rd items, set \code{item.loc = 1:3}.
+All plots are drawn with the \pkg{ggplot2} package. If \code{item.loc = NULL},
+the test characteristic curve (TCC) of the entire test form is plotted.
+Otherwise, \code{item.loc} gives the positions of the items to plot; for example,
+\code{item.loc = 1:3} plots the first three items.
 }
 \examples{
 ## Example using a "-prm.txt" file exported from flexMIRT

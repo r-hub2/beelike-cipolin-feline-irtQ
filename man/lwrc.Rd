@@ -10,9 +10,8 @@ lwrc(x = NULL, theta, prob = NULL, cats, D = 1)
 \item{x}{A data frame containing item metadata (e.g., item parameters, number
 of categories, IRT model types, etc.). See \code{\link[=est_irt]{est_irt()}} or
 \code{\link[=simdat]{simdat()}} for more details about the item metadata. This data frame
-can be easily created using the \code{\link[=shape_df]{shape_df()}} function. If \code{prob} is
-\code{NULL}, the item metadata in \code{x} is used in the recursion formula. See
-\strong{Details} below.}
+can be easily created using the \code{\link[=shape_df]{shape_df()}} function. If \code{x} is
+supplied, \code{prob} and \code{cats} are ignored. Default is \code{NULL}.}
 
 \item{theta}{A vector of theta values at which the conditional distributions
 of observed scores are computed. This argument is required only when item
@@ -21,8 +20,8 @@ metadata is provided via the \code{x} argument.}
 \item{prob}{A matrix containing the category response probabilities for each
 item. Each row corresponds to an item, and each column represents a score
 category. If items have different numbers of categories, empty cells should
-be filled with zeros or \code{NA} values. If \code{x} is \code{NULL}, this matrix is used
-in the recursion formula.}
+be filled with zeros or \code{NA} values. Used only when \code{x} is \code{NULL}.
+Default is \code{NULL}.}
 
 \item{cats}{A numeric vector specifying the number of score categories for
 each item. For example, a dichotomous item has two categories. This
@@ -30,28 +29,28 @@ argument is required only when a probability matrix is provided via the
 \code{prob} argument.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 }
 \value{
-When the \code{prob} argument is provided, the function returns a vector
-of probabilities for all possible observed scores on a test.
+When \code{prob} is used, a named numeric vector (\code{score.0}, \code{score.1},
+...) of the probabilities of all possible summed scores.
 
-When the \code{x} argument is specified, it returns a matrix of conditional
-probabilities for each observed score across all specified theta values.
+When \code{x} is used, a matrix of conditional probabilities with one row per
+summed score (\code{score.0}, \code{score.1}, ...) and one column per theta value
+(\code{theta.1}, \code{theta.2}, ...).
 }
 \description{
-This function computes the conditional distributions of number-correct (or
-observed) scores given either the probabilities of category responses for
-each item or a set of theta values, using the Lord and Wingersky recursion
-formula (1984).
+This function computes the conditional distributions of summed (observed)
+scores with the Lord and Wingersky (1984) recursion formula, given either
+the category response probabilities of each item or item metadata and a set
+of theta values.
 }
 \details{
-The Lord and Wingersky recursive algorithm provides an efficient
-method for calculating the compound probabilities of all possible
-number-correct (i.e., observed) scores on a test, based on IRT models. This
-algorithm is particularly useful for obtaining the IRT model-based
-distribution of observed scores.
+The Lord and Wingersky recursion efficiently computes the
+probabilities of all possible summed scores on a test under IRT models,
+which gives the model-based distribution of observed scores. It applies to
+both dichotomous and polytomous items.
 
 The conditional distributions of observed scores can be computed using
 either the item metadata specified in \code{x} or the category probability
@@ -107,9 +106,9 @@ lwrc(x = x, theta = seq(-4, 4, 0.2), D = 1)
 Kolen, M. J., & Brennan, R. L. (2004). \emph{Test equating, scaling,
 and linking} (2nd ed.). Springer.
 
-Lord, F., & Wingersky, M. (1984). Comparison of IRT true score and
-equipercentile observed score equatings. \emph{Applied Psychological
-Measurement, 8}(4), 453-461.
+Lord, F. M., & Wingersky, M. S. (1984). Comparison of IRT true-score and
+equipercentile observed-score "equatings." \emph{Applied Psychological
+Measurement, 8}(4), 453-461. \doi{10.1177/014662168400800409}.
 }
 \author{
 Hwanggyu Lim \email{hglim83@gmail.com}

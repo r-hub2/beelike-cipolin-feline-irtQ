@@ -42,22 +42,24 @@ est_irt(
 )
 }
 \arguments{
-\item{x}{A data frame containing item metadata. This metadata is required to
-retrieve essential information for each item (e.g., number of score
-categories, IRT model type, etc.) necessary for calibration. You can create
-an empty item metadata frame using the function \code{\link[=shape_df]{shape_df()}}.
+\item{x}{A data frame containing item metadata (item IDs, numbers of score
+categories, IRT models, and item parameters); see Details for its format.
+You can create an empty item metadata frame using the function
+\code{\link[=shape_df]{shape_df()}}. The item parameters in \code{x} are used as starting values
+when \code{use.startval = TRUE} and are otherwise ignored, except for the fixed
+items in FIPC, whose parameters are held at the values in \code{x}. If
+\code{x = NULL}, the models and numbers of score categories are taken from
+\code{model} and \code{cats}. When \code{fipc = TRUE}, \code{x} must be supplied. Default is
+\code{NULL}.}
 
-When \code{use.startval = TRUE}, the item parameters specified in the metadata
-will be used as starting values for parameter estimation. If \code{x = NULL},
-both \code{model} and \code{cats} arguments must be specified. Note that when \code{fipc = TRUE} to implement FIPC, item metadata for the test form must be supplied
-via the \code{x} argument. See \strong{below} for more details. Default is \code{NULL}.}
-
-\item{data}{A matrix of examinees' item responses corresponding to the items
-specified in the \code{x} argument. Rows represent examinees and columns
-represent items.}
+\item{data}{A matrix of examinees' item responses, with rows for examinees
+and columns for items in the same order as the items in \code{x}. Responses
+to an item with K score categories must be integers from 0 to K - 1.
+Missing responses are coded as \code{NA} or, in functions that have a
+\code{missing} argument, as the value given in \code{missing}.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 
 \item{model}{A character vector specifying the IRT model to fit each item.
@@ -68,9 +70,11 @@ Available values are:
 }
 
 Here, \code{"GRM"} denotes the graded response model and \code{"GPCM"} the
-(generalized) partial credit model. Note that \code{"DRM"} serves as a general
-label covering all three dichotomous IRT models. If a single model name is
-provided, it is recycled for all items. This argument is only used when \code{x = NULL} and \code{fipc = FALSE}. Default is \code{NULL}.}
+(generalized) partial credit model. Note that \code{"DRM"} is a general label
+for dichotomous items; in this function, items labeled \code{"DRM"} are fitted
+with the 3PLM, and a warning is issued. If a single model name is provided,
+it is recycled for all items. This argument is only used when \code{x = NULL}
+and \code{fipc = FALSE}. Default is \code{NULL}.}
 
 \item{cats}{Numeric vector specifying the number of score categories per
 item. For dichotomous items, this should be 2. If a single value is
@@ -80,9 +84,11 @@ models specified in the \code{model} argument are dichotomous (\code{"1PLM"},
 item. This argument is used only when \code{x = NULL} and \code{fipc = FALSE}.
 Default is \code{NULL}.}
 
-\item{item.id}{Character vector of item identifiers. If \code{NULL}, IDs are
-generated automatically. When \code{fipc = TRUE}, a provided \code{item.id} will
-override any IDs present in \code{x}. Default is \code{NULL}.}
+\item{item.id}{Character vector of item identifiers. If \code{NULL}, the IDs in
+\code{x} are used, or IDs are generated automatically when \code{x = NULL}. A
+provided \code{item.id} replaces any IDs in \code{x}, with or without FIPC, and must
+have one value per item. With \code{fipc = TRUE}, \code{fix.id} then refers to the
+new IDs. Default is \code{NULL}.}
 
 \item{fix.a.1pl}{Logical. If \code{TRUE}, the slope parameters of all 1PLM items
 are fixed to \code{a.val.1pl}; otherwise, they are constrained to be equal and
@@ -93,8 +99,8 @@ slopes fixed to \code{a.val.gpcm}; otherwise, each item's slope is estimated.
 Default is \code{FALSE}.}
 
 \item{fix.g}{Logical. If \code{TRUE}, all 3PLM guessing parameters are fixed to
-\code{g.val}; otherwise, each guessing parameter is estimated. Default is
-\code{FALSE}.}
+\code{g.val}; otherwise, each guessing parameter is estimated. The prior in
+\code{gprior} is then not used. Default is \code{FALSE}.}
 
 \item{a.val.1pl}{Numeric. Value to which the slope parameters of 1PLM items
 are fixed when \code{fix.a.1pl = TRUE}. Default is 1.}
@@ -113,13 +119,18 @@ item discrimination (slope) parameters during calibration. Default is
 item difficulty (or threshold) parameters during calibration. Default is
 \code{FALSE}.}
 
-\item{use.gprior}{Logical. If \code{TRUE}, applies a prior distribution to all
-3PLM guessing parameters during calibration. Default is \code{TRUE}.}
+\item{use.gprior}{Logical. If \code{TRUE}, applies the prior distribution in
+\code{gprior} to the guessing parameters of 3PLM items when they are estimated;
+the prior is not used when \code{fix.g = TRUE}. Default is \code{TRUE}.}
 
 \item{aprior, bprior, gprior}{A list specifying the prior distribution for all
-item discrimination (slope), difficulty (or threshold), guessing
-parameters. Three distributions are supported: Beta, Log-normal, and
-Normal. The list must have two elements:
+item discrimination (slope), difficulty (or threshold), and guessing
+parameters. The slope prior is placed on \code{D} times the slope, that is,
+the density in \code{aprior} is evaluated at \code{D * a}; with \code{D = 1} (the
+default), this is the slope itself. The priors also enter the information
+matrix from which the standard errors are computed. Three distributions
+are supported: Beta, Log-normal, and Normal. The list must have two
+elements:
 \itemize{
 \item \code{dist}: A character string, one of \code{"beta"}, \code{"lnorm"}, or \code{"norm"}.
 \item \code{params}: A numeric vector of length two giving the distribution's
@@ -136,107 +147,134 @@ Defaults are:
 
 for discrimination, difficulty, and guessing parameters, respectively.}
 
-\item{missing}{A value indicating missing responses in the data set. Default
-is \code{NA}.}
+\item{missing}{A value indicating missing responses in the data set, in
+addition to \code{NA}, which is always treated as missing. Missing responses are
+omitted from the likelihood, which assumes that they are missing at random.
+Default is \code{NA}.}
 
 \item{Quadrature}{A numeric vector of length two:
 \itemize{
 \item first element: number of quadrature points
 \item second element: symmetric bound (absolute value) for those points
+}
+
 For example, \code{c(49, 6)} specifies 49 evenly spaced points from -6 to 6.
-These points are used in the E-step of the EM algorithm. Default is \code{c(49, 6)}.
-}}
+The points are used to approximate the integral over the latent ability
+distribution in the E-step of the EM algorithm. \code{Quadrature} is ignored
+when \code{weights} is supplied. Default is \code{c(49, 6)}.}
 
-\item{weights}{A two-column matrix or data frame containing the quadrature
-points (in the first column) and their corresponding weights (in the second
-column) for the latent variable prior distribution. If not \code{NULL}, the
-scale of the latent ability distribution is fixed to match the scale of the
-provided quadrature points and weights. The weights and points can be
-conveniently generated using the function \code{\link[=gen.weight]{gen.weight()}}.
+\item{weights}{A two-column matrix or data frame of quadrature points (first
+column) and weights (second column) that defines the latent ability
+distribution; it can be created with \code{\link[=gen.weight]{gen.weight()}}. The weights
+should sum to 1; weights that do not sum to 1 are rescaled to sum to 1
+with a warning. The number of points may differ from \code{Quadrature[1]}. If
+supplied, \code{Quadrature}, \code{group.mean}, and \code{group.var} are not used.
+Without FIPC, the mean and variance of this distribution fix the scale:
+the distribution is used as it is when \code{EmpHist = FALSE}, and its shape is
+updated but rescaled to its mean and variance when \code{EmpHist = TRUE}, in
+which case the quadrature points must be equally spaced, because the
+histogram is rescaled by interpolation on an equally spaced grid. With
+FIPC, it is only the initial distribution of the first EM cycle, which is
+then updated (see Details).
 
-If \code{NULL}, a normal prior density is used instead, based on the
-information provided in the \code{Quadrature}, \code{group.mean}, and \code{group.var}
-arguments. Default is \code{NULL}.}
+If \code{NULL}, a normal distribution with mean \code{group.mean} and variance
+\code{group.var} at the points given by \code{Quadrature} is used. Default is
+\code{NULL}.}
 
-\item{group.mean}{A numeric value specifying the mean of the latent variable
-prior distribution when \code{weights = NULL}. Default is 0. This value is fixed
-to resolve the indeterminacy of the item parameter scale during
-calibration. However, the scale of the prior distribution is updated when
-FIPC is implemented.}
+\item{group.mean}{A numeric value specifying the mean of the normal latent
+ability distribution when \code{weights = NULL}. Without FIPC, the mean is fixed
+at this value to identify the scale of the item parameters, also when
+\code{EmpHist = TRUE}. With FIPC, it is the mean of the initial distribution,
+and the mean is then estimated. Default is 0.}
 
 \item{group.var}{A positive numeric value specifying the variance of the
-latent variable prior distribution when \code{weights = NULL}. Default is 1.
-This value is fixed to resolve the indeterminacy of the item parameter
-scale during calibration. However, the scale of the prior distribution is
-updated when FIPC is implemented.}
+normal latent ability distribution when \code{weights = NULL}. Without FIPC,
+the variance is fixed at this value to identify the scale of the item
+parameters, also when \code{EmpHist = TRUE}. With FIPC, it is the variance of
+the initial distribution, and the variance is then estimated. Default is
+1.}
 
-\item{EmpHist}{Logical. If \code{TRUE}, the empirical histogram of the latent
-variable prior distribution is estimated simultaneously with the item
-parameters using the approach proposed by Woods (2007). Item calibration is
-conducted relative to the estimated empirical prior. See below for details.}
+\item{EmpHist}{Logical. If \code{TRUE}, the latent ability distribution is
+estimated as an empirical histogram on the quadrature points together with
+the item parameters (Woods, 2007). Item calibration is conducted relative
+to the estimated empirical histogram. See Details. Default is \code{FALSE}.}
 
 \item{use.startval}{Logical. If \code{TRUE}, the item parameters provided in the
-item metadata (i.e., the \code{x} argument) are used as starting values for item
-parameter estimation. Otherwise, internally generated starting values are
-used. Default is \code{FALSE}.}
+item metadata (i.e., the \code{x} argument) are used as starting values for the
+items whose parameters are estimated; \code{x} must then be supplied.
+Otherwise, internally generated starting values are used. Default is
+\code{FALSE}.}
 
-\item{Etol}{A positive numeric value specifying the convergence criterion for
-the E-step of the EM algorithm. Default is 1e-4.
-Specifically, the EM algorithm terminates when the largest absolute difference
-in item parameter estimates between consecutive iterations is less than or
-equal to this value. When FIPC is used and all items are fixed, so that only
-the latent ability distribution is estimated, the criterion is applied to
-the largest absolute change in the mean and variance of the prior
-distribution.}
+\item{Etol}{A positive numeric value specifying the convergence criterion of
+the EM algorithm. The EM cycles stop when the largest absolute change in
+the estimated item parameters between two consecutive cycles is less than
+or equal to \code{Etol}. With FIPC, only the parameters of the items that are
+not fixed are compared. The mean and variance of the latent ability
+distribution estimated with FIPC, and the weights of an empirical
+histogram (\code{EmpHist = TRUE}), are not part of the criterion, so they can
+be less converged than the item parameters; a smaller \code{Etol} gives more
+precise estimates of them. In particular, an estimated histogram can keep
+changing very slowly over many cycles (toward a spiky distribution) while
+the log-likelihood barely changes, so \code{group.par} and \code{weights} then
+depend on \code{Etol}; with small samples, the item parameters can then also
+need many cycles, or more than \code{MaxE}, to meet \code{Etol}. When all items are
+fixed, the criterion is applied to the largest absolute change in the mean
+and variance of the latent ability distribution. \code{Etol} is not used when
+\code{fipc.method = "OEM"} with items to calibrate. The printed output of the
+fitted object refers to this criterion as the convergence criterion of the
+E-step. Default is \code{1e-4}.}
 
-\item{MaxE}{A positive integer specifying the maximum number of iterations
-for the E-step in the EM algorithm. Default is \code{500}.}
+\item{MaxE}{A positive integer specifying the maximum number of EM cycles. It
+is set to 1 when \code{fipc.method = "OEM"}. The printed output of the fitted
+object refers to the cycles as E-step cycles. Default is \code{500}.}
 
-\item{control}{A named list of options passed directly to \code{\link[stats:nlminb]{stats::nlminb()}}
-in each M-step optimization of the EM algorithm. By default:
-\code{control = list(eval.max = 500, iter.max = 200, x.tol = 1e-4)}, where
+\item{control}{A named list of options passed directly to \code{\link[stats:nlminb]{stats::nlminb()}},
+which maximizes the M-step objective of each item. The default is
+\code{list(eval.max = 500, iter.max = 200, x.tol = 1e-4)}, where
 \itemize{
-\item \code{eval.max} = 500 limits the number of function evaluations
-\item \code{iter.max} = 200 caps the number of internal optimizer iterations
-\item \code{x.tol} = 1e-4 sets the absolute change threshold in parameter values
-below which \code{\link[stats:nlminb]{stats::nlminb()}} considers the solution to have converged
-Users may additionally supply other \code{nlminb()} control options
-(such as \code{abs.tol}, \code{rel.tol}, \code{trace}, etc.) as needed.
-}}
+\item \code{eval.max} is the maximum number of objective function evaluations,
+\item \code{iter.max} is the maximum number of optimizer iterations, and
+\item \code{x.tol} is the X-convergence tolerance of \code{\link[stats:nlminb]{stats::nlminb()}}.
+}
+
+A partial list may be supplied; options that are not supplied keep their
+default values. Other options of \code{\link[stats:nlminb]{stats::nlminb()}}, such as \code{rel.tol} or
+\code{trace}, can also be supplied.}
 
 \item{fipc}{Logical. If \code{TRUE}, fixed item parameter calibration (FIPC) is
 applied during item parameter estimation. When \code{fipc = TRUE}, the
 information on which items are fixed must be provided via either \code{fix.loc}
-or \code{fix.id}. See below for details.}
+or \code{fix.id}. See Details.}
 
-\item{fipc.method}{A character string specifying the FIPC method. Available
-options are:
+\item{fipc.method}{A character string specifying the FIPC method, used only
+when \code{fipc = TRUE}. Available options are:
 \itemize{
 \item \code{"OEM"}: No Prior Weights Updating and One EM Cycle (NWU-OEM; Wainer &
-Mislevy, 1990)
+Mislevy, 1990).
 \item \code{"MEM"}: Multiple Prior Weights Updating and Multiple EM Cycles
-(MWU-MEM; Kim, 2006) When \code{fipc.method = "OEM"}, the maximum number of
-E-steps is automatically set to 1, regardless of the value specified in
-\code{MaxE}.
-}}
+(MWU-MEM; Kim, 2006).
+}
 
-\item{fix.loc}{A vector of positive integers specifying the row positions of
-the items to be fixed in the item metadata (i.e., \code{x}) when FIPC is
-implemented (i.e., \code{fipc = TRUE}). For example, suppose that five items
-located in the 1st, 2nd, 4th, 7th, and 9th rows of \code{x} should be fixed.
-Then use \code{fix.loc = c(1, 2, 4, 7, 9)}. Note that if \code{fix.id} is not \code{NULL},
-the information provided in \code{fix.loc} is ignored. See below for details.}
+When \code{fipc.method = "OEM"}, a single EM cycle is run regardless of \code{MaxE}.
+See Details. Default is \code{"MEM"}.}
 
-\item{fix.id}{A character vector specifying the IDs of the items to be fixed
-when FIPC is implemented (i.e., \code{fipc = TRUE}). For example, suppose five
-items with IDs "CMC1", "CMC2", "CMC3", "CMC4", and "CMC5" are to be fixed,
-and that all item IDs are supplied via \code{item.id} column in the \code{x}
-argument. Then use \code{fix.id = c("CMC1", "CMC2", "CMC3", "CMC4", "CMC5")}.
-Note that if \code{fix.id} is not \code{NULL}, the information in \code{fix.loc} is
-ignored. See below for details.}
+\item{fix.loc}{A vector of positive integers giving the row positions in \code{x}
+of the items to be fixed when \code{fipc = TRUE}. For example, suppose that five
+items located in the 1st, 2nd, 4th, 7th, and 9th rows of \code{x} should be
+fixed. Then use \code{fix.loc = c(1, 2, 4, 7, 9)}. It must not contain
+duplicated positions. If \code{fix.id} is also supplied, \code{fix.loc} is ignored
+with a warning. See Details.}
 
-\item{se}{Logical. If \code{FALSE}, standard errors of the item parameter
-estimates are not computed. Default is \code{TRUE}.}
+\item{fix.id}{A character vector of the IDs of the items to be fixed when
+\code{fipc = TRUE}. The IDs are matched to the first column (\code{id}) of \code{x}, or to
+\code{item.id} when it is supplied. For example, use
+\code{fix.id = c("CMC1", "CMC2", "CMC3", "CMC4", "CMC5")} to fix the items with
+these IDs. If \code{fix.id} is not \code{NULL}, \code{fix.loc} is ignored. See Details.}
+
+\item{se}{Logical. If \code{FALSE}, the standard errors and the
+variance-covariance matrix of the item parameter estimates are not
+computed; \code{se.est} is then filled with \code{NA} and \code{covariance} is \code{NULL}.
+Default is \code{TRUE}.}
 
 \item{verbose}{Logical. If \code{FALSE}, all progress messages, including
 information about the EM algorithm process, are suppressed. Default is
@@ -246,72 +284,122 @@ information about the EM algorithm process, are suppressed. Default is
 This function returns an object of class \code{est_irt}. The returned
 object contains the following components:
 
-\item{estimates}{A data frame containing both the item parameter estimates
-and their corresponding standard errors.}
+\item{estimates}{A data frame with the item ID, number of score
+categories, and model of each item, followed by the item parameter
+estimates and their standard errors in alternating columns (\code{par.1},
+\code{se.1}, \code{par.2}, \code{se.2}, ...).}
 
 \item{par.est}{A data frame of item parameter estimates, structured
 according to the item metadata format.}
 
 \item{se.est}{A data frame of standard errors for the item parameter
-estimates, computed using the cross-product approximation method
-(Meilijson, 1989).}
+estimates, computed from the inverse of the information matrix. The
+information matrix is the cross-product (empirical) information matrix of
+the marginal log-likelihood evaluated at the final estimates (Meilijson,
+1989), plus the prior information (the negative second derivatives of the
+log prior densities) for the parameters that have prior distributions.
+With FIPC, the latent ability distribution is treated as known in this
+matrix, so the uncertainty of the estimated distribution is not reflected
+in these standard errors. Standard errors are \code{NA} for parameters that are
+not estimated (for example, fixed slopes or guessing parameters, and the
+items fixed in FIPC) and for all parameters when \code{se = FALSE}. The
+standard error of a common slope of 1PLM items appears only in the row of
+the first 1PLM item. A value of 99999 indicates that the standard error
+could not be obtained.}
 
-\item{pos.par}{A data frame indicating the position index of each estimated
-item parameter. The position information is useful for interpreting
-the variance-covariance matrix of item parameter estimates}
+\item{pos.par}{A data frame indicating, for each estimated item parameter,
+its row (and column) position in \code{covariance}. Parameters that are not
+estimated are \code{NA}, and the position of a common slope of 1PLM items is
+given only in the row of the first 1PLM item. \code{NULL} when FIPC is used
+with all items fixed.}
 
-\item{covariance}{A variance-covariance matrix of the item parameter
-estimates.}
+\item{covariance}{The variance-covariance matrix of the item parameter
+estimates (the inverse of the information matrix described in \code{se.est}),
+without row or column names; the order of the parameters is given by
+\code{pos.par}. \code{NULL} when \code{se = FALSE} or when no item parameter is
+estimated.}
 
-\item{loglikelihood}{The marginal log-likelihood, calculated as the sum of
-the log-likelihoods across all items.}
+\item{loglikelihood}{The marginal log-likelihood of the response data at
+the final estimates: the sum over examinees of the logarithm of the
+probability of each examinee's response pattern, integrated over the
+latent ability distribution with the quadrature points and weights. With
+FIPC, the responses to all items, including the fixed items, are used. The
+log prior densities of the item parameters are not included.}
 
-\item{aic}{Akaike Information Criterion (AIC) based on the log-likelihood.}
+\item{aic}{Akaike information criterion,
+\code{-2 * loglikelihood + 2 * npar.est}.}
 
-\item{bic}{Bayesian Information Criterion (BIC) based on the
-log-likelihood.}
+\item{bic}{Bayesian information criterion,
+\code{-2 * loglikelihood + npar.est * log(ncase)}.}
 
-\item{group.par}{A data frame containing the mean, variance, and standard
-deviation of the latent variable prior distribution.}
+\item{group.par}{A data frame with columns \code{mu}, \code{sigma2}, and \code{sigma}
+(mean, variance, and standard deviation of the latent ability
+distribution) and rows \code{estimates} and \code{se}. Without FIPC, the values are
+fixed at \code{group.mean} and \code{group.var} (or at the mean and variance of
+\code{weights}, if supplied) and \code{se} is \code{NA}. When \code{EmpHist = TRUE}, the
+empirical histogram is rescaled in each cycle to have this mean and
+variance. Because the rescaling interpolates on the quadrature points, the
+mean and variance computed from the returned \code{weights} can differ slightly
+from the reported values. With FIPC, the values are the mean and variance
+of the final latent distribution (these are the mean and variance of the
+returned \code{weights}), and \code{se} gives
+approximate standard errors, \code{sigma / sqrt(N)} for the mean and
+\code{sigma2 * sqrt(2 / (N - 1))} for the variance, with the delta method for
+\code{sigma}, where \code{N} is the number of examinees; these treat the abilities as
+observed and are therefore usually too small.}
 
-\item{weights}{A two-column data frame of quadrature points (column 1) and
-corresponding weights (column 2) of the (updated) latent prior distribution.}
+\item{weights}{A data frame with columns \code{theta} and \code{weight} giving the
+quadrature points and the weights of the final latent ability
+distribution. Without FIPC and with \code{EmpHist = FALSE}, it is the
+distribution given by \code{group.mean} and \code{group.var}, or \code{weights} as
+supplied (rescaled to sum to 1 if needed). With \code{fipc.method = "OEM"}, it
+is the distribution updated once after the item parameters were
+estimated.}
 
-\item{posterior.dist}{A matrix of normalized posterior densities for all
-response patterns at each quadrature point. Rows and columns represent
-response patterns and quadrature points, respectively.}
+\item{posterior.dist}{A matrix of the posterior probabilities of the
+quadrature points for each examinee, computed at the final estimates, with
+one row per examinee and one column per quadrature point; each row sums to
+1.}
 
-\item{data}{A data frame of examinees' response data.}
+\item{data}{A matrix of the examinees' response data, with the missing
+values coded as \code{NA}.}
 
 \item{scale.D}{The scaling factor used in the IRT model.}
 
-\item{ncase}{The total number of response patterns.}
+\item{ncase}{The number of examinees (rows of \code{data}).}
 
 \item{nitem}{The total number of items in the response data.}
 
-\item{Etol}{The convergence criterion for the E-step of the EM algorithm.}
+\item{Etol}{The convergence criterion of the EM algorithm.}
 
-\item{MaxE}{The maximum number of E-steps allowed in the EM algorithm.}
+\item{MaxE}{The maximum number of EM cycles (1 when
+\code{fipc.method = "OEM"}).}
 
-\item{aprior}{A list describing the prior distribution used for discrimination
-parameters.}
+\item{aprior}{The prior distribution specified for the slope parameters
+when \code{use.aprior = TRUE}; \code{NULL} otherwise.}
 
-\item{bprior}{A list describing the prior distribution used for difficulty
-parameters.}
+\item{bprior}{The prior distribution specified for the difficulty (or
+threshold) parameters when \code{use.bprior = TRUE}; \code{NULL} otherwise.}
 
-\item{gprior}{A list describing the prior distribution used for guessing
-parameters.}
+\item{gprior}{The prior distribution specified for the guessing parameters
+when \code{use.gprior = TRUE}; \code{NULL} otherwise.}
 
-\item{npar.est}{The total number of parameters estimated.}
+\item{npar.est}{The number of freely estimated parameters used for \code{aic}
+and \code{bic}: the estimated item parameters, the mean and variance of the
+latent distribution when they are estimated, and the weights of the
+empirical histogram when \code{EmpHist = TRUE}. See Details.}
 
 \item{niter}{The number of completed EM cycles.}
 
-\item{maxpar.diff}{The largest absolute change in the estimates in
-the last EM cycle.}
+\item{maxpar.diff}{The largest absolute change in the estimated item
+parameters in the last EM cycle (for FIPC with all items fixed, in the
+mean and variance of the latent ability distribution). With
+\code{fipc.method = "OEM"}, it is the change from the starting values.}
 
 \item{EMtime}{Time (in seconds) spent on EM cycles.}
 
-\item{SEtime}{Time (in seconds) spent computing standard errors.}
+\item{SEtime}{Time (in seconds) spent computing standard errors; \code{NULL}
+when they are not computed.}
 
 \item{TotalTime}{Total computation time (in seconds).}
 
@@ -322,20 +410,35 @@ cycles was less than or equal to \code{Etol}. When \code{fipc.method = "OEM"} wi
 new items to calibrate, the single EM cycle is not judged by \code{Etol} and
 only the M-step check applies. For FIPC with all items fixed, see \code{Etol}.}
 
-\item{test.2}{Second-order test result indicating whether the information matrix
-is positive definite, a necessary condition for identifying a local maximum.
-The message reports a possible local maximum only when the first-order test
-is also satisfied.}
+\item{test.2}{A message indicating whether the information matrix used
+for the standard errors (see \code{se.est}) is positive definite. Printed
+results label it "Second-order test", but because the cross-product
+information matrix is positive semidefinite by construction, this check
+mainly detects a singular (rank-deficient) information matrix, for
+example due to unidentified parameters; it is not a second-order test of
+the log-likelihood surface. The message reports a possible local maximum
+only when the first-order test is also satisfied. When FIPC is used with
+all items fixed, no information matrix is computed, and the message says
+so.}
 
 \item{var.note}{A note indicating whether the variance-covariance matrix
 was successfully obtained from the information matrix.}
 
 \item{fipc}{Logical. Indicates whether FIPC was used.}
 
-\item{fipc.method}{The method used for FIPC.}
+\item{fipc.method}{The FIPC method used; \code{NULL} when \code{fipc = FALSE}.}
 
-\item{fix.loc}{A vector of integers specifying the row locations of fixed items
-when FIPC was applied.}
+\item{fix.loc}{An integer vector of the row positions of the fixed items
+in \code{x}, also when the items were specified with \code{fix.id}; \code{NULL} when
+\code{fipc = FALSE}.}
+
+\item{call}{The matched call.}
+
+\item{npar.detail}{An integer vector with the elements \code{item} (free item
+parameters), \code{dist} (mean and variance of the latent distribution), and
+\code{weight} (weights of the empirical histogram), whose sum is \code{npar.est}.
+It is the last element of the object; when it is absent, \code{summary()} shows
+the total only.}
 
 Note that you can easily extract components from the output using the
 \code{\link[=getirt]{getirt()}} function.
@@ -343,20 +446,23 @@ Note that you can easily extract components from the output using the
 \description{
 This function fits unidimensional item response theory (IRT) models to
 mixed-format data comprising both dichotomous and polytomous items, using
-marginal maximum likelihood estimation via the expectation - maximization
-(MMLE-EM) algorithm (Bock & Aitkin, 1981). It also supports fixed item
-parameter calibration (FIPC; Kim, 2006), a practical method for pretest (or
-newly developed) item calibration in computerized adaptive testing (CAT).
-FIPC enables the parameter estimates of pretest items to be placed on the
-same scale as those of operational items (Ban et al., 2001). For dichotomous
-items, the function supports the one-, two-, and three-parameter logistic
-models. For polytomous items, it supports the graded response model (GRM) and
-the (generalized) partial credit model (GPCM).
+marginal maximum likelihood estimation via the expectation-maximization
+(MMLE-EM) algorithm (Bock & Aitkin, 1981). When prior distributions are
+specified for item parameters, the estimates are the modes of the marginal
+posterior distribution (Bayes modal estimates). The function also supports
+fixed item parameter calibration (FIPC; Kim, 2006), a practical method for
+pretest (or newly developed) item calibration in computerized adaptive
+testing (CAT). FIPC enables the parameter estimates of pretest items to be
+placed on the same scale as those of operational items (Ban et al., 2001).
+For dichotomous items, the function supports the one-, two-, and
+three-parameter logistic models. For polytomous items, it supports the
+graded response model (GRM) and the (generalized) partial credit model
+(GPCM).
 }
 \details{
 A specific format of data frame should be used for the argument \code{x}.
 The first column should contain item IDs, the second column should contain
-the number of unique score categories for each item, and the third column
+the number of score categories of each item, and the third column
 should specify the IRT model to be fitted to each item. Available IRT models
 are:
 \itemize{
@@ -367,7 +473,8 @@ are:
 Note that \code{"DRM"} serves as a general label covering all dichotomous IRT
 models (i.e., \code{"1PLM"}, \code{"2PLM"}, and \code{"3PLM"}), while \code{"GRM"} and \code{"GPCM"}
 represent the graded response model and (generalized) partial credit model,
-respectively.
+respectively. In \code{est_irt()}, items labeled \code{"DRM"} are calibrated with the
+3PLM.
 
 The subsequent columns should contain the item parameters for the specified
 models. For dichotomous items, the fourth, fifth, and sixth columns represent
@@ -378,36 +485,43 @@ respectively. When \code{"1PLM"} or \code{"2PLM"} is specified in the third colu
 For polytomous items, the item discrimination (slope) parameter should appear
 in the fourth column, and the item difficulty (or threshold) parameters for
 category boundaries should occupy the fifth through the last columns. When
-the number of unique score categories differs across items, unused parameter
+the number of score categories differs across items, unused parameter
 cells should be filled with \code{NA}s.
 
 In the \pkg{irtQ} package, the threshold parameters for GPCM items are
 expressed as the item location (or overall difficulty) minus the threshold
-values for each score category. Note that when a GPCM item has \emph{K} unique
-score categories, \emph{K - 1} threshold parameters are required, since the
-threshold for the first category boundary is always fixed at 0. For example,
-if a GPCM item has five score categories, four threshold parameters must be
-provided.
+values for each score category. Note that a GPCM item with \emph{K} score
+categories has \emph{K - 1} threshold parameters, because the term for the lowest
+score category (score 0) is fixed at 0 and is not included in the metadata.
+For example, if a GPCM item has five score categories, four threshold
+parameters must be provided.
 
 An example of a data frame for a single-format test is shown below:
-\tabular{lrlrrrrr}{
-ITEM1  \tab 2 \tab 1PLM \tab 1.000 \tab  1.461 \tab         NA \cr
-ITEM2  \tab 2 \tab 2PLM \tab 1.921 \tab -1.049 \tab         NA \cr
-ITEM3  \tab 2 \tab 3PLM \tab 1.736 \tab  1.501 \tab  0.203 \cr
-ITEM4  \tab 2 \tab 3PLM \tab 0.835 \tab -1.049 \tab  0.182 \cr
-ITEM5  \tab 2 \tab DRM \tab 0.926 \tab  0.394 \tab  0.099
+\tabular{lrlrrr}{
+id \tab cats \tab model \tab par.1 \tab par.2 \tab par.3 \cr
+ITEM1 \tab 2 \tab 1PLM \tab 1.000 \tab 1.461 \tab NA \cr
+ITEM2 \tab 2 \tab 2PLM \tab 1.921 \tab -1.049 \tab NA \cr
+ITEM3 \tab 2 \tab 3PLM \tab 1.736 \tab 1.501 \tab 0.203 \cr
+ITEM4 \tab 2 \tab 3PLM \tab 0.835 \tab -1.049 \tab 0.182 \cr
+ITEM5 \tab 2 \tab DRM \tab 0.926 \tab 0.394 \tab 0.099
 }
 
 An example of a data frame for a mixed-format test is shown below:
 \tabular{lrlrrrrr}{
-ITEM1  \tab 2 \tab 1PLM \tab 1.000 \tab  1.461 \tab         NA \tab         NA \tab         NA\cr
-ITEM2  \tab 2 \tab 2PLM \tab 1.921 \tab -1.049 \tab         NA \tab         NA \tab         NA\cr
-ITEM3  \tab 2 \tab 3PLM \tab 0.926 \tab  0.394 \tab  0.099 \tab         NA \tab         NA\cr
-ITEM4  \tab 2 \tab DRM \tab 1.052 \tab -0.407 \tab  0.201 \tab         NA \tab         NA\cr
-ITEM5  \tab 4 \tab GRM  \tab 1.913 \tab -1.869 \tab -1.238 \tab -0.714 \tab         NA \cr
-ITEM6  \tab 5 \tab GRM  \tab 1.278 \tab -0.724 \tab -0.068 \tab  0.568 \tab  1.072\cr
-ITEM7  \tab 4 \tab GPCM  \tab 1.137 \tab -0.374 \tab  0.215 \tab  0.848 \tab         NA \cr
-ITEM8  \tab 5 \tab GPCM  \tab 1.233 \tab -2.078 \tab -1.347 \tab -0.705 \tab -0.116
+id \tab cats \tab model \tab par.1 \tab par.2 \tab par.3 \tab par.4
+\tab par.5 \cr
+ITEM1 \tab 2 \tab 1PLM \tab 1.000 \tab 1.461 \tab NA \tab NA \tab NA \cr
+ITEM2 \tab 2 \tab 2PLM \tab 1.921 \tab -1.049 \tab NA \tab NA \tab NA \cr
+ITEM3 \tab 2 \tab 3PLM \tab 0.926 \tab 0.394 \tab 0.099 \tab NA \tab NA \cr
+ITEM4 \tab 2 \tab DRM \tab 1.052 \tab -0.407 \tab 0.201 \tab NA \tab NA \cr
+ITEM5 \tab 4 \tab GRM \tab 1.913 \tab -1.869 \tab -1.238 \tab -0.714 \tab
+NA \cr
+ITEM6 \tab 5 \tab GRM \tab 1.278 \tab -0.724 \tab -0.068 \tab 0.568 \tab
+1.072 \cr
+ITEM7 \tab 4 \tab GPCM \tab 1.137 \tab -0.374 \tab 0.215 \tab 0.848 \tab
+NA \cr
+ITEM8 \tab 5 \tab GPCM \tab 1.233 \tab -2.078 \tab -1.347 \tab -0.705 \tab
+-0.116
 }
 
 See the \emph{IRT Models} section in the \link{irtQ-package} documentation for more
@@ -425,8 +539,23 @@ metadata can be easily created using \code{\link[=shape_df]{shape_df()}}.
 through the arguments \code{model} and \code{cats}.
 }
 
-If \code{x = NULL}, the function uses the information specified in \code{model} and
-\code{cats}.
+If \code{x} is supplied, \code{model} and \code{cats} are ignored. If \code{x = NULL}, the
+function uses \code{model} and \code{cats}; \code{cats} may be omitted when all items are
+dichotomous.
+
+Item parameters are estimated with the EM algorithm of Bock and Aitkin
+(1981). In the E-step, the posterior distribution of each examinee over the
+quadrature points is computed from the current item parameters and the
+current latent distribution, and the expected numbers of examinees and of
+responses in each score category are obtained at each quadrature point. In
+the M-step, the expected complete-data log-likelihood of each item, plus the
+log prior densities when priors are used, is maximized with
+\code{\link[stats:nlminb]{stats::nlminb()}} using analytic gradients and Hessians; the 1PLM items with
+a common slope are estimated jointly. The cycles are repeated until the
+convergence criterion given by \code{Etol} is met or \code{MaxE} cycles are completed.
+Missing responses are omitted from the likelihood. The slopes of dichotomous
+items are not bounded during estimation, whereas those of GRM and GPCM items
+are kept positive.
 
 To implement FIPC, the item metadata must be provided via the \code{x} argument.
 This is because the item parameters of the fixed items in the metadata are
@@ -435,8 +564,8 @@ distribution when calibrating the remaining (freely estimated) items. More
 specifically, the latent prior distribution is estimated based on the
 fixed items, and then used to calibrate the new (pretest) items so that their
 parameters are placed on the same scale as those of the fixed items (Kim,
-2006).The full item metadata, including both fixed and non-fixed items, can be
-conveniently created using the \code{\link[=shape_df_fipc]{shape_df_fipc()}} function.
+2006). The full item metadata, including both fixed and non-fixed items, can
+be conveniently created using the \code{\link[=shape_df_fipc]{shape_df_fipc()}} function.
 
 In terms of approaches for FIPC, Kim (2006) described five different methods.
 Among them, two methods are available in the \code{\link[=est_irt]{est_irt()}} function. The
@@ -444,14 +573,26 @@ first method is \code{"NWU-OEM"}, which uses a single E-step in the EM
 algorithm (involving only the fixed items) followed by a single M-step
 (involving only the non-fixed items). This method was proposed by Wainer and
 Mislevy (1990) in the context of online calibration and can be implemented by
-setting \code{fipc.method = "OEM"}.
+setting \code{fipc.method = "OEM"}. The item parameters are estimated with the
+initial latent distribution (given by \code{group.mean} and \code{group.var}, or by
+\code{weights}). The latent distribution returned in \code{group.par} and \code{weights} is
+computed once afterward from the posterior distributions based on the fixed
+items, and \code{EmpHist} affects only this returned distribution. When all items
+are fixed, the function always warns that the convergence criteria are not
+satisfied.
 
-The second method is \code{"MWU-MEM"}, which iteratively updates the latent
-variable prior distribution and estimates the parameters of the non-fixed
-items. In this method, the same procedure as the NWU-OEM approach is applied
-during the first EM cycle. From the second cycle onward, both the parameters
-of the non-fixed items and the weights of the prior distribution are
-concurrently updated. This method can be implemented by setting \code{fipc.method = "MEM"}. See Kim (2006) for more details.
+The second method is \code{"MWU-MEM"}, which runs multiple EM cycles and updates
+the weights of the latent ability distribution in every cycle (Kim, 2006;
+Kim & Kolen, 2016). The first cycle is the same as in NWU-OEM: the posterior
+distribution of each examinee is computed from the responses to the fixed
+items only. From the second cycle onward, the posterior distribution is
+computed from the responses to all items, using the fixed parameters and the
+current estimates of the other items, and the latent distribution is updated
+from the expected numbers of examinees at the quadrature points. With
+\code{EmpHist = TRUE}, the updated distribution is this empirical histogram, as in
+Kim (2006); with \code{EmpHist = FALSE}, it is a normal distribution with the
+mean and variance of the histogram. This method can be implemented by
+setting \code{fipc.method = "MEM"}.
 
 When \code{fipc = TRUE}, information about which items are to be fixed must be
 provided via either the \code{fix.loc} or \code{fix.id} argument. For example, suppose
@@ -464,17 +605,51 @@ using either \code{fix.loc = c(1, 2, 3, 4, 5)} or
 \code{fix.loc} and \code{fix.id} are not \code{NULL}, the information in \code{fix.loc} is
 ignored.
 
-When \code{EmpHist = TRUE}, the empirical histogram of the latent variable prior
-distribution (i.e., the densities at the quadrature points) is estimated
-simultaneously with the item parameters. If \code{EmpHist = TRUE} and
-\code{fipc = TRUE}, the scale parameters of the empirical
-prior distribution (e.g., mean and variance) are also estimated.
-If \code{EmpHist = TRUE} and \code{fipc = FALSE}, the scale parameters are fixed to
-the values specified in \code{group.mean} and \code{group.var}. When \code{EmpHist = FALSE},
-a normal  prior distribution is used instead. If \code{fipc = TRUE}, the scale
-parameters of this normal prior are estimated along with the item parameters.
-If \code{fipc = FALSE}, they are fixed to the values specified in \code{group.mean} and
-\code{group.var}.
+When \code{EmpHist = TRUE}, the latent distribution is an empirical histogram: in
+each EM cycle, the weight at each quadrature point is updated to the average
+of the posterior probabilities of the examinees at that point (Woods, 2007).
+Without FIPC, the updated histogram is then rescaled so that its mean and
+variance equal \code{group.mean} and \code{group.var} (or the mean and variance of
+\code{weights}, if supplied): the quadrature points are standardized and
+transformed to the target scale, the weights are interpolated back to the
+original points (and extrapolated at the ends), and the weights are
+renormalized. With FIPC, the histogram is not rescaled, so its mean and
+variance are estimated. When \code{EmpHist = FALSE}, a normal distribution is
+used. With FIPC, its mean and variance are updated in each cycle to those of
+the histogram; otherwise, they are fixed at \code{group.mean} and \code{group.var}.
+
+A maximum likelihood estimate does not exist for an item with a score
+category that has no responses, which includes an item whose responses are
+all the same. The estimates of such an item can be extreme or remain near
+their starting values, and their standard errors are unreliable (a standard
+error of 99999 means that it could not be obtained). Before the estimation,
+one warning lists the IDs of these items; the items fixed in FIPC are not
+checked. A parameter with a prior distribution, such as the guessing
+parameter of a 3PLM item with \code{use.gprior = TRUE}, can still be stable.
+
+When prior distributions are used, the item parameters are Bayes modal
+estimates, and \code{loglikelihood} is the log-likelihood at these estimates
+without the log prior densities.
+
+The information criteria are \code{aic = -2 * loglikelihood + 2 * npar.est} and
+\code{bic = -2 * loglikelihood + npar.est * log(ncase)}. Here \code{loglikelihood} is
+the marginal log-likelihood without the prior densities of the item
+parameters, and \code{ncase} is the number of examinees. \code{npar.est} is the number
+of freely estimated parameters, which consists of (a) the item parameters
+that are estimated (a slope shared by 1PLM items is counted once; fixed
+parameters and the items fixed in FIPC are not counted), (b) the mean and
+variance of the latent distribution when they are estimated, which is the
+case with FIPC and \code{EmpHist = FALSE} (2 values), and (c) the weights of the
+empirical histogram when \code{EmpHist = TRUE}. Without FIPC, the histogram is
+rescaled to a fixed mean and variance (given by \code{group.mean} and \code{group.var},
+or by \code{weights}), so its Q weights, where Q is the number of quadrature
+points, have Q - 3 free values (the sum of the weights and the two moments
+are fixed). With FIPC, the histogram is not rescaled, so the weights have
+Q - 1 free values. The counts by type are returned in \code{npar.detail}.
+
+The print method of this class has an argument \code{digits} that is not used.
+It prints the log-likelihood with the number of significant digits given
+by \code{getOption("digits")} (7 by default).
 }
 \examples{
 \donttest{
@@ -525,7 +700,7 @@ plot(trace.2pl, item.loc = 1)
 
 # Fit the 2PL model and simultaneously estimate an empirical histogram
 # of the latent variable prior distribution
-# Also apply a looser convergence threshold for the E-step
+# Also apply a looser convergence threshold for the EM algorithm
 (mod.2pl.hist <- est_irt(data = LSAT6, D = 1, model = "2PLM", cats = 2,
                          EmpHist = TRUE, Etol = 0.001))
 (emphist <- getirt(mod.2pl.hist, what = "weights"))
@@ -563,7 +738,8 @@ summary(mod.drm.mix)
 ## 2. Item parameter estimation for mixed-format data (simulated data)
 ## -------------------------------------------------------------------
 ## Import the "-prm.txt" output file from flexMIRT
-flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt", package = "irtQ")
+flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt",
+                        package = "irtQ")
 
 # Extract item metadata
 x <- bring.flexmirt(file = flex_sam, "par")$Group1$full_df
@@ -582,11 +758,13 @@ sim.dat1 <- simdat(x = x, theta = score1, D = 1)
 # and the GRM to items 53, 54, and 55.
 # Use a Beta prior for guessing parameters, a log-normal prior for slope
 # parameters, and a normal prior for difficulty (threshold) parameters.
-# Also, specify the argument `x` to provide IRT model and score category information.
+# Also, specify the argument `x` to provide IRT model and score category
+# information.
 item.meta <- shape_df(item.id = x$id, cats = x$cats, model = x$model,
   default.par = TRUE)
 (mod.mix1 <- est_irt(
-  x = item.meta, data = sim.dat1, D = 1, use.aprior = TRUE, use.bprior = TRUE,
+  x = item.meta, data = sim.dat1, D = 1, use.aprior = TRUE,
+  use.bprior = TRUE,
   use.gprior = TRUE,
   aprior = list(dist = "lnorm", params = c(0.0, 0.5)),
   bprior = list(dist = "norm", params = c(0.0, 2.0)),
@@ -596,8 +774,9 @@ item.meta <- shape_df(item.id = x$id, cats = x$cats, model = x$model,
 # Display a summary of the estimation results
 summary(mod.mix1)
 
-# Estimate examinees' latent scores using MLE and the estimated item parameters
-(score.mle <- est_score(x = mod.mix1, method = "ML", range = c(-4, 4), ncore = 2))
+# Estimate examinees' latent scores using MLE and the estimated item
+# parameters
+(score.mle <- est_score(x = mod.mix1, method = "ML", range = c(-4, 4)))
 
 # Compute traditional model-fit statistics
 (fit.mix1 <- irtfit(
@@ -633,7 +812,8 @@ summary(mod.mix2)
 # Fit the 2PL model to all dichotomous items, the GPCM to items 39 and 40,
 # and the GRM to items 53, 54, and 55.
 # Also estimate the empirical histogram of the latent prior distribution.
-# Provide IRT model and score category information via `model` and `cats` arguments.
+# Provide IRT model and score category information via `model` and `cats`
+# arguments.
 (mod.mix3 <- est_irt(
   data = sim.dat1, D = 1,
   model = c(rep("2PLM", 38), rep("GPCM", 2), rep("2PLM", 12), rep("GRM", 3)),
@@ -644,7 +824,8 @@ plot(emphist$weight ~ emphist$theta, type = "h")
 
 # Fit the 2PL model to all dichotomous items, the PCM to items 39 and 40 by
 # fixing slope parameters to 1, and the GRM to items 53, 54, and 55.
-# Provide IRT model and score category information via `model` and `cats` arguments.
+# Provide IRT model and score category information via `model` and `cats`
+# arguments.
 (mod.mix4 <- est_irt(
   data = sim.dat1, D = 1,
   model = c(rep("2PLM", 38), rep("GPCM", 2), rep("2PLM", 12), rep("GRM", 3)),
@@ -660,7 +841,8 @@ summary(mod.mix4)
 ##    (simulated)
 ## ----------------------------------------------------------------
 ## Import the "-prm.txt" output file from flexMIRT
-flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt", package = "irtQ")
+flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt",
+                        package = "irtQ")
 
 # Select item metadata
 x <- bring.flexmirt(file = flex_sam, "par")$Group1$full_df
@@ -672,7 +854,8 @@ score2 <- rnorm(1000, mean = 0.4, sd = 1.3)
 # Simulate response data
 sim.dat2 <- simdat(x = x, theta = score2, D = 1)
 
-# Fit the 3PL model to all dichotomous items and the GRM to all polytomous items
+# Fit the 3PL model to all dichotomous items and the GRM to all polytomous
+# items
 # Fix five 3PL items (1st - 5th) and three GRM items (53rd - 55th)
 # Also estimate the empirical histogram of the latent variable distribution
 # Use the MEM method
@@ -706,7 +889,8 @@ fix.id <- c(x$id[1:5], x$id[53:55])
 # Display a summary of the estimation results
 summary(mod.fix1)
 
-# Fit the 3PL model to all dichotomous items and the GRM to all polytomous items
+# Fit the 3PL model to all dichotomous items and the GRM to all polytomous
+# items
 # Fix the same items as before (1st - 5th and 53rd - 55th)
 # This time, do not estimate the empirical histogram of the latent prior
 # Instead, estimate the scale of the normal prior distribution
@@ -725,8 +909,10 @@ fix.loc <- c(1:5, 53:55)
 (emphist <- getirt(mod.fix2, what = "weights"))
 plot(emphist$weight ~ emphist$theta, type = "h")
 
-# Fit the 3PL model to all dichotomous items and the GRM to all polytomous items
-# Fix only the five 3PL items (1st - 5th) and estimate the empirical histogram
+# Fit the 3PL model to all dichotomous items and the GRM to all polytomous
+# items
+# Fix only the five 3PL items (1st to 5th) and estimate the empirical
+# histogram
 # Use the OEM method (i.e., only one EM cycle is used)
 fix.loc <- c(1:5)
 (mod.fix3 <- est_irt(
@@ -745,7 +931,8 @@ plot(emphist$weight ~ emphist$theta, type = "h")
 # Display a summary of the estimation results
 summary(mod.fix3)
 
-# Fit the 3PL model to all dichotomous items and the GRM to all polytomous items
+# Fit the 3PL model to all dichotomous items and the GRM to all polytomous
+# items
 # Fix all 55 items and estimate only the latent ability distribution
 # Use the MEM method
 fix.loc <- c(1:55)
@@ -792,12 +979,14 @@ item parameters: Application of an EM algorithm. \emph{Psychometrika, 46},
 Kim, S. (2006). A comparative study of IRT fixed parameter calibration
 methods. \emph{Journal of Educational Measurement, 43}(4), 355-381.
 
+Kim, S., & Kolen, M. J. (2016). \emph{Multiple group IRT fixed-parameter
+estimation for maintaining an established ability scale} (CASMA Research
+Report No. 49). Center for Advanced Studies in Measurement and Assessment,
+University of Iowa.
+
 Meilijson, I. (1989). A fast improvement to the EM algorithm on its own
 terms. \emph{Journal of the Royal Statistical Society: Series B
 (Methodological), 51}, 127-138.
-
-Stocking, M. L. (1988). \emph{Scale drift in on-line calibration} (Research Rep.
-88-28). Princeton, NJ: ETS.
 
 Wainer, H., & Mislevy, R. J. (1990). Item response theory, item
 calibration, and proficiency estimation. In H. Wainer (Ed.), \emph{Computer

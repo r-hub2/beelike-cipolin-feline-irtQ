@@ -1,4 +1,4 @@
-#' Simulated Response Data
+#' Simulate Response Data
 #'
 #' This function generates simulated response data for single-format or
 #' mixed-format test forms. For dichotomous item response data, the IRT 1PL,
@@ -6,18 +6,16 @@
 #' graded response model (GRM), the partial credit model (PCM), and the
 #' generalized partial credit model (GPCM) are supported.
 #'
-#' @param x A data frame containing item metadata. This metadata is required to
-#'   retrieve essential information for each item (e.g., number of score
-#'   categories, IRT model type, etc.) necessary for calibration. You can create
-#'   an empty item metadata frame using the function [irtQ::shape_df()]. See
-#'   **below** for more details. Default is `NULL`.
+#' @param x A data frame containing item metadata (e.g., number of score
+#'   categories, IRT model, and item parameters). It can be created with
+#'   [irtQ::shape_df()]. See **Details**. Default is `NULL`.
 #' @param theta A numeric vector of ability (theta) values.
 #' @param a.drm A numeric vector of item discrimination (slope) parameters for
 #'   dichotomous IRT models.
 #' @param b.drm A numeric vector of item difficulty parameters for dichotomous
 #'   IRT models.
 #' @param g.drm A numeric vector of guessing parameters for dichotomous IRT
-#'   models.
+#'   models. A single value is used for all dichotomous items.
 #' @param a.prm A numeric vector of item discrimination (slope) parameters for
 #'   polytomous IRT models.
 #' @param d.prm A list of numeric vectors, where each vector contains difficulty
@@ -25,12 +23,13 @@
 #' @param cats A numeric vector indicating the number of score categories for
 #'   each item.
 #' @param D A scaling constant used in IRT models to make the logistic function
-#'   closely approximate the normal ogive function. A value of 1.7 is commonly
+#'   closely approximate the normal ogive function. A value of 1.702 is commonly
 #'   used for this purpose. Default is 1.
-#' @param pr.model A character vector specifying the polytomous IRT model used
-#'   to simulate responses for each polytomous item. Each element should be
-#'   either "GRM" (graded response model) or "GPCM" (generalized partial credit
-#'   model).
+#' @param pr.model A character vector specifying the IRT model of each
+#'   polytomous item, in the order the polytomous items appear in `cats`. Each
+#'   element is either `"GRM"` (graded response model) or `"GPCM"`
+#'   (generalized partial credit model). A single value is used for all
+#'   polytomous items.
 #'
 #' @details There are two ways to generate simulated response data. The first is
 #'   by providing a data frame of item metadata using the argument `x`. This
@@ -50,8 +49,7 @@
 #'   models. For dichotomous items, the fourth, fifth, and sixth columns
 #'   represent item discrimination (slope), item difficulty, and item guessing
 #'   parameters, respectively. When `"1PLM"` or `"2PLM"` is specified in the
-#'   third column, `NA`s must be entered in the sixth column for the guessing
-#'   parameters.
+#'   third column, the sixth column is ignored and can be `NA`.
 #'
 #'   For polytomous items, the item discrimination (slope) parameter should
 #'   appear in the fourth column, and the item difficulty (or threshold)
@@ -59,16 +57,15 @@
 #'   columns. When the number of unique score categories differs across items,
 #'   unused parameter cells should be filled with `NA`s.
 #'
-#'   In the \pkg{irtQ} package, the threshold parameters for GPCM items are
-#'   expressed as the item location (or overall difficulty) minus the threshold
-#'   values for each score category. Note that when a GPCM item has *K* unique
-#'   score categories, *K - 1* threshold parameters are required, since the
-#'   threshold for the first category boundary is always fixed at 0. For
-#'   example, if a GPCM item has five score categories, four threshold
-#'   parameters must be provided.
+#'   In the \pkg{irtQ} package, the threshold parameters of a GPCM item are
+#'   \eqn{b_v = \beta - \tau_v}, the overall item location minus the threshold
+#'   of each score category. A GPCM item with *K* unique score categories
+#'   requires *K - 1* threshold parameters, because the term for the lowest
+#'   score category is fixed at 0 and is not supplied. For example, a GPCM item
+#'   with five score categories requires four threshold parameters.
 #'
 #'   An example of a data frame for a single-format test is shown below:
-#' \tabular{lrlrrrrr}{
+#' \tabular{lrlrrr}{
 #'   ITEM1  \tab 2 \tab 1PLM \tab 1.000 \tab  1.461 \tab         NA \cr
 #'   ITEM2  \tab 2 \tab 2PLM \tab 1.921 \tab -1.049 \tab         NA \cr
 #'   ITEM3  \tab 2 \tab 3PLM \tab 1.736 \tab  1.501 \tab  0.203 \cr
@@ -93,19 +90,19 @@
 #'   way to create a data frame for the argument `x` is by using the function
 #'   [irtQ::shape_df()].
 #'
-#'   The second approach is to simulate response data by directly specifying
-#'   item parameters, instead of providing a metadata data frame via the `x`
-#'   argument (see examples below). In this case, the following arguments must
-#'   also be specified: `theta`, `cats`, `pr.model`, and `D`.
+#'   The second approach is to specify the item parameters directly instead of
+#'   `x` (see Examples). In this case, `theta` and `cats` are required, along
+#'   with `a.drm` and `b.drm` for dichotomous items and `a.prm`, `d.prm`, and
+#'   `pr.model` for polytomous items.
 #'
 #'   The `g.drm` argument is only required when simulating dichotomous item
 #'   responses under the 3PL model. It can be omitted entirely if all
 #'   dichotomous items follow the 1PL or 2PL model. However, if the test
 #'   includes a mixture of 1PL, 2PL, and 3PL items, the `g.drm` vector must be
-#'   specified for all items, using `NA` for non-3PL items. For example, if a
-#'   test consists of four dichotomous items where the first two follow the 3PL
-#'   model and the third and fourth follow the 1PL and 2PL models respectively,
-#'   then `g.drm = c(0.2, 0.1, NA, NA)` should be used.
+#'   specified for all dichotomous items, using `NA` for non-3PL items. For
+#'   example, if a test consists of four dichotomous items where the first two
+#'   follow the 3PL model and the third and fourth follow the 1PL and 2PL
+#'   models respectively, then `g.drm = c(0.2, 0.1, NA, NA)` should be used.
 #'
 #'   For dichotomous items, each element in `cats` should be set to 2. For
 #'   polytomous items, the number of unique score categories should be specified
@@ -120,9 +117,10 @@
 #'   response model and the generalized partial credit model, respectively, then
 #'   `pr.model = c("GRM", "GPCM")`.
 #'
-#' @return A matrix or vector of simulated item responses.
-#'   If a matrix is returned, rows correspond to examinees (theta values) and
-#'   columns to items.
+#' @return A numeric matrix of simulated item responses with one row per
+#'   examinee (theta value) and one column per item, in the item order of `x`
+#'   or `cats`. Responses range from 0 to K - 1 for an item with K score
+#'   categories. The matrix has no row or column names.
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
@@ -155,7 +153,7 @@
 #'
 #' # Simulate the response data
 #' simdat(
-#'   theta = theta, a.drm = a.drm, b.drm = b.drm, g.drm = NULL,
+#'   theta = theta, a.drm = a.drm, b.drm = b.drm, g.drm = g.drm,
 #'   a.prm = a.prm, d.prm = d.prm, cats = cats, pr.model = pr.model, D = 1
 #' )
 #'
@@ -205,7 +203,6 @@ simdat <- function(x = NULL,
     nitem <- nrow(x)
 
     # create an empty matrix
-    # res <- matrix(NA, nrow=nstd, ncol=nitem)
     res <- array(NA, c(nstd, nitem))
 
     # set initial numbers
@@ -217,8 +214,8 @@ simdat <- function(x = NULL,
     # (1) for DRM items
     if (!is.null(idx.drm)) {
       res.drm <- simdat_drm(theta,
-        a = comp$par[idx.drm, 1],
-        b = comp$par[idx.drm, 2], g = comp$par[idx.drm, 3], D = D
+        a = comp$pars[idx.drm, 1],
+        b = comp$pars[idx.drm, 2], g = comp$pars[idx.drm, 3], D = D
       )
       res[, idx.drm] <- res.drm
     }
@@ -226,7 +223,7 @@ simdat <- function(x = NULL,
     # (2) for PRM items
     if (!is.null(idx.prm)) {
       for (i in idx.prm) {
-        par.tmp <- stats::na.exclude(comp$par[i, ])
+        par.tmp <- stats::na.exclude(comp$pars[i, ])
         res[, i] <- simdat_prm(theta,
           a = par.tmp[1], d = par.tmp[-1], D = D,
           pr.model = comp$model[i]
@@ -235,19 +232,43 @@ simdat <- function(x = NULL,
     }
   } else {
     # check whether argument is correctly specified
-    if (missing(cats)) stop("Category of each item is missing", call. = FALSE)
+    if (missing(cats)) stop("The argument 'cats' is missing.", call. = FALSE)
 
     # Set conditions
     nstd <- length(theta)
     nitem <- length(cats)
 
     # Create an empty matrix
-    # res <- matrix(NA, nrow=nstd, ncol=nitem)
     res <- array(NA, c(nstd, nitem))
 
     # Set initial numbers
     idx.drm <- which(cats == 2)
     idx.prm <- which(cats > 2)
+
+    # Repeat a single guessing value for every dichotomous item
+    if (length(g.drm) == 1L && length(idx.drm) > 1L) g.drm <- rep(g.drm, length(idx.drm))
+
+    # Stop when the dichotomous parameters do not match the items with cats = 2
+    if (length(idx.drm) > 0L &&
+        (length(a.drm) != length(idx.drm) || length(b.drm) != length(idx.drm) ||
+         !(length(g.drm) %in% c(0L, length(idx.drm))))) {
+      stop("`a.drm`, `b.drm`, and `g.drm` must have one value per item with cats = 2.", call. = FALSE)
+    }
+
+    # Check the polytomous parameters only when polytomous items exist
+    if (length(idx.prm) > 0L) {
+      # Repeat a single polytomous model name for every polytomous item
+      if (length(pr.model) == 1L) pr.model <- rep(pr.model, length(idx.prm))
+
+      # Stop when the polytomous parameters do not match the items with cats > 2
+      if (length(a.prm) != length(idx.prm) || length(d.prm) != length(idx.prm) ||
+          length(pr.model) != length(idx.prm) || any(lengths(d.prm) != cats[idx.prm] - 1)) {
+        stop(
+          "`a.prm`, `d.prm` (cats - 1 thresholds each), and `pr.model` must match the items with cats > 2.",
+          call. = FALSE
+        )
+      }
+    }
 
     # Simulate data
     # (1) for DRM items
@@ -268,7 +289,7 @@ simdat <- function(x = NULL,
 }
 
 
-# A function for generating binary data for one item
+# Generate dichotomous responses for one or more items
 simdat_drm <- function(theta, a, b, g, D) {
   # Number of examinees
   nstd <- length(theta)
@@ -290,7 +311,7 @@ simdat_drm <- function(theta, a, b, g, D) {
   tmp <- stats::runif(nstd * nitem, 0, 1)
   rv_unif <- array(tmp, c(nstd, nitem))
 
-  # Simulated Response data for one item
+  # convert the probabilities to 0/1 responses
   sim[sim >= rv_unif] <- 1
   sim[sim < rv_unif] <- 0
 

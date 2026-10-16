@@ -1,25 +1,25 @@
 #' Multistage-Adaptive Test (MST) Simulation
 #'
 #' @description
-#' Simulates an MST administration for a panel of examinees. At each stage,
+#' Simulates an MST administration for a set of examinees. At each stage,
 #' examinees are routed to a module based on their current ability estimate
 #' (or a set of cut scores), and a final ability estimate is computed from the
 #' accumulated responses across all administered stages. The function supports
 #' all IRT models available in \pkg{irtQ} (1PLM, 2PLM, 3PLM, GRM, GPCM) and
 #' all scoring methods available in \code{\link{est_score}}.
 #'
-#' The overall structure - separate \code{route_score} and \code{final_score}
-#' list arguments, and the \code{route_map}/\code{module} matrix conventions -
-#' was inspired by the \code{randomMST()} function in the \pkg{mstR} package
-#' (Magis et al., 2017).
+#' The overall structure, with separate \code{route_score} and
+#' \code{final_score} list arguments and the \code{route_map} and
+#' \code{module} matrix conventions, was inspired by the \code{randomMST()}
+#' function in the \pkg{mstR} package (Magis et al., 2017).
 #'
 #' @param x A data frame of item bank metadata following the irtQ format
 #'   (columns: \code{id}, \code{cats}, \code{model}, \code{par.1},
 #'   \code{par.2}, ...). Use \code{\link{shape_df}} to create this frame or
 #'   \code{\link{bring.flexmirt}} / \code{\link{bring.bilog}} /
 #'   \code{\link{bring.parscale}} / \code{\link{bring.mirt}} to import from
-#'   IRT software output. The function calls \code{confirm_df(x)} internally
-#'   to validate and normalise the metadata.
+#'   IRT software output. The item metadata are checked and completed
+#'   internally before the simulation.
 #'
 #' @param route_map A binary square matrix defining the MST transition
 #'   structure. An entry of 1 in row \emph{i} and column \emph{j} means that a
@@ -44,8 +44,13 @@
 #'
 #' @param response An optional \emph{N} x \emph{J} matrix of observed item
 #'   responses, where \emph{N} is the number of examinees and \emph{J} is the
-#'   total number of items in the item bank (\code{nrow(x)}). Responses for
-#'   items not administered at a given stage may be \code{NA}. If \code{NULL}
+#'   total number of items in the item bank (\code{nrow(x)}). Only the
+#'   responses to the items of the administered modules are used, so the entries
+#'   for the other items are ignored and may be \code{NA}. A missing response to
+#'   an administered item (\code{NA} or the value given in \code{missing}) is
+#'   excluded from the likelihood for \code{"ML"}, \code{"WL"}, \code{"MLF"},
+#'   \code{"MAP"}, and \code{"EAP"}, and counted as 0 in the sum score for
+#'   \code{"EAP.SUM"} and \code{"INV.TCC"}. If \code{NULL}
 #'   and \code{theta} is provided, responses are simulated internally via
 #'   \code{\link{simdat}}. If both \code{theta} and \code{response} are
 #'   provided, \code{response} is used as-is and \code{theta} is retained for
@@ -54,20 +59,20 @@
 #'   useful when you want to compare different routing methods or scoring
 #'   options on the \emph{same} set of item responses.
 #'
-#' @param D A numeric scaling constant for the IRT model. Use \code{D = 1}
-#'   (default) for the logistic metric or \code{D = 1.702} to approximate the
-#'   normal ogive.
+#' @param D A scaling constant used in IRT models to make the logistic function
+#'   closely approximate the normal ogive function. A value of 1.702 is commonly
+#'   used for this purpose. Default is 1.
 #'
 #' @param ini_mod Either \code{NULL} (default) or a single positive integer
 #'   index into the stage-1 module list
 #'   (\code{panel_info(route_map)$config[[1]]}). When \code{NULL}, each
 #'   examinee is independently and randomly assigned to one of the stage-1
-#'   modules with equal probability - appropriate for MST panels that use
-#'   spiralling or booklet-based stage-1 assignment, or for panels with only
-#'   a single stage-1 module (where random assignment is equivalent to a
-#'   fixed assignment). When an integer is supplied, all examinees begin with
-#'   that stage-1 module; use \code{ini_mod = 1} to force all examinees to
-#'   the first (and typically only) stage-1 module.
+#'   modules with equal probability. This is appropriate for panels that use
+#'   spiraling or booklet-based stage-1 assignment, and it is equivalent to a
+#'   fixed assignment for panels with a single stage-1 module. When an integer
+#'   is supplied, all examinees begin with that stage-1 module; use
+#'   \code{ini_mod = 1} to force all examinees to the first (and typically
+#'   only) stage-1 module.
 #'
 #' @param route_method A character string specifying the adaptive routing
 #'   method used to select the next module at each stage transition.
@@ -94,8 +99,15 @@
 #'   0.5), c(-0.6, 0.6))} routes examinees whose stage-1 score is below
 #'   \eqn{-0.5} to the easiest stage-2 module, from \eqn{-0.5} up to but not
 #'   including \eqn{0.5} to the medium module, and \eqn{0.5} or above to the
-#'   hardest module. Ignored when \code{route_method} is \code{"bmat"} or
-#'   \code{"mfi"}. Default is \code{NULL}.
+#'   hardest module (the modules numbered from easiest to hardest). Each
+#'   element must contain finite values in strictly ascending order and have
+#'   one fewer value than the number of modules in stage \emph{s}+1; cut score
+#'   \emph{k} separates the \emph{k}-th and the (\emph{k}+1)-th module of that
+#'   stage in the order of the module indices. A \code{NULL} element is read as
+#'   an empty vector for a stage with a single module. The output element
+#'   \code{cut_score} of \code{\link{find_cut}} can be passed directly.
+#'   Ignored when \code{route_method} is \code{"bmat"} or \code{"mfi"}.
+#'   Default is \code{NULL}.
 #'
 #' @param route_score A named list specifying the scoring method and options
 #'   used to obtain intermediate ability estimates for routing decisions
@@ -106,22 +118,29 @@
 #'       (maximum likelihood with fences; Han, 2016), \code{"MAP"} (maximum
 #'       a posteriori), \code{"EAP"} (expected a posteriori; Bock & Mislevy,
 #'       1982), \code{"EAP.SUM"} (EAP summed scoring; Thissen et al., 1995),
-#'       or \code{"INV.TCC"} (inverse test characteristic curve scoring; Lim
-#'       et al., 2021). For \code{"EAP.SUM"} and \code{"INV.TCC"}, a
+#'       or \code{"INV.TCC"} (inverse test characteristic curve scoring; see
+#'       \code{\link{est_score}}). For \code{"EAP.SUM"} and \code{"INV.TCC"}, a
 #'       sum-score-to-theta lookup table is pre-computed once per partial
 #'       pathway (the modules of stages 1 to \emph{s}) before the simulation
 #'       loop; routing theta is then obtained by a single
 #'       named-vector lookup, making the approach efficient for large \eqn{N}.
 #'       Default: \code{"ML"}.}
 #'     \item{\code{range}}{Numeric vector of length 2: lower and upper bounds
-#'       for the ability scale. Default: \code{c(-5, 5)}.}
+#'       of the ability estimates for \code{"ML"}, \code{"WL"}, \code{"MLF"},
+#'       and \code{"MAP"}; also the default fence locations for \code{"MLF"}.
+#'       Default: \code{c(-5, 5)}.}
 #'     \item{\code{norm.prior}}{Numeric vector of length 2: mean and SD of the
-#'       normal prior for MAP/EAP. Default: \code{c(0, 1)}.}
-#'     \item{\code{nquad}}{Integer: number of quadrature points for EAP.
-#'       Default: \code{41}.}
-#'     \item{\code{tol}}{Numeric: convergence tolerance for iterative methods.
+#'       normal prior for \code{"MAP"}, \code{"EAP"}, and \code{"EAP.SUM"}.
+#'       Default: \code{c(0, 1)}.}
+#'     \item{\code{nquad}}{Integer: number of quadrature points for
+#'       \code{"EAP"} and \code{"EAP.SUM"}. Default: \code{41}.}
+#'     \item{\code{tol}}{A single positive number: convergence tolerance of the
+#'       Fisher scoring iterations for \code{"ML"}, \code{"WL"}, \code{"MLF"},
+#'       and \code{"MAP"}, and of the bisection search for \code{"INV.TCC"}.
 #'       Default: \code{1e-4}.}
-#'     \item{\code{max.iter}}{Integer: maximum iterations. Default: \code{100}.}
+#'     \item{\code{max.iter}}{A single positive whole number: maximum number of
+#'       Fisher scoring iterations for \code{"ML"}, \code{"WL"}, \code{"MLF"},
+#'       and \code{"MAP"}. Default: \code{100}.}
 #'     \item{\code{fence.a}}{Numeric: discrimination parameter of fence items
 #'       for MLF. Default: \code{3.0}.}
 #'     \item{\code{fence.b}}{Numeric vector of length 2 or \code{NULL}:
@@ -129,11 +148,15 @@
 #'       \code{NULL}, \code{range} is used. Default: \code{NULL}.}
 #'     \item{\code{intpol}}{Logical: enable linear interpolation for
 #'       \code{"INV.TCC"}. Default: \code{TRUE}.}
-#'     \item{\code{range.tcc}}{Numeric vector of length 2: theta search range
-#'       for \code{"INV.TCC"}. Default: \code{c(-7, 7)}.}
+#'     \item{\code{range.tcc}}{Numeric vector of length 2: ability estimates
+#'       assigned to the lowest and the maximum possible sum scores for
+#'       \code{"INV.TCC"} when \code{intpol = TRUE} (see
+#'       \code{\link{est_score}}). Default: \code{c(-7, 7)}.}
 #'     \item{\code{max.it}}{Integer: maximum bisection iterations for
 #'       \code{"INV.TCC"}. Default: \code{500L}.}
 #'   }
+#'   As in \code{\link{est_score}}, the function stops with an error when
+#'   \code{tol} or \code{max.iter} is not valid for the chosen method.
 #'   Unspecified fields take their defaults; the full default is
 #'   \code{list(method = "ML", range = c(-5, 5), norm.prior = c(0, 1),}
 #'   \code{nquad = 41L, tol = 1e-4, max.iter = 100L, fence.a = 3.0,}
@@ -148,18 +171,22 @@
 #'   \code{nquad = 41L, tol = 1e-4, max.iter = 100L, fence.a = 3.0, fence.b = NULL,}
 #'   \code{intpol = TRUE, range.tcc = c(-7, 7), max.it = 500L)}.
 #'
-#' @param se Logical. Whether to compute and return the standard error of the
-#'   final ability estimate. SE is computed for all \code{final_score} methods:
-#'   for \code{"ML"}, \code{"WL"}, \code{"MLF"}, \code{"MAP"}, and \code{"EAP"}
-#'   via the Fisher information / posterior variance; for \code{"EAP.SUM"} and
-#'   \code{"INV.TCC"} via the posterior standard deviation stored in the
-#'   pre-computed lookup table. Returns \code{NA} when \code{se = FALSE}, when
-#'   all responses are missing, or when the sum score falls outside the
-#'   estimable range (e.g. a perfect or zero score beyond \code{range.tcc}).
-#'   Default is \code{TRUE}.
+#' @param se Logical. Whether to return the standard error of the final ability
+#'   estimate. The standard errors are computed as in \code{\link{est_score}}:
+#'   from the test information for \code{"ML"}, \code{"WL"}, \code{"MLF"}, and
+#'   \code{"MAP"}, as the posterior standard deviation for \code{"EAP"} and
+#'   \code{"EAP.SUM"}, and, for \code{"INV.TCC"}, as the standard deviation of
+#'   the inverse TCC estimates over the conditional sum score distribution at
+#'   the estimate. For \code{"ML"}, \code{"WL"}, \code{"MLF"}, and
+#'   \code{"MAP"}, the standard error is set to 99.9999 when the estimate equals
+#'   a bound of \code{range}. The standard error is \code{NA} when
+#'   \code{se = FALSE}, when all responses are missing, or, for
+#'   \code{"INV.TCC"}, when the sum score has no ability estimate (for example,
+#'   with \code{intpol = FALSE}). Default is \code{TRUE}.
 #'
-#' @param missing A scalar specifying how missing (not-administered) responses
-#'   are represented in \code{response}. Default is \code{NA}.
+#' @param missing A scalar specifying the value that marks a missing response in
+#'   \code{response}. It is used only when \code{response} is supplied. Default
+#'   is \code{NA}.
 #'
 #' @param verbose Logical. If \code{TRUE}, prints progress messages to the
 #'   console during the simulation (approximately every 10\% of examinees).
@@ -190,7 +217,7 @@
 #' random sampling from \code{panel_info(route_map)$config[[1]]}. For panels
 #' with a single stage-1 module (the most common design), this is equivalent
 #' to a fixed assignment. For panels with multiple stage-1 modules (e.g., a
-#' 2-3-3 or 3-2-3 design), random assignment approximates the spiralling or
+#' 2-3-3 or 3-2-3 design), random assignment approximates the spiraling or
 #' booklet-based allocation used in operational testing. When \code{ini_mod}
 #' is an integer, all examinees start at the specified stage-1 module.
 #'
@@ -222,7 +249,12 @@
 #' concatenated, and the final ability estimate is computed using the
 #' \code{final_score} method. With \code{"EAP.SUM"} or \code{"INV.TCC"}, a
 #' missing response is counted as 0 in the sum score, as in
-#' \code{\link{est_score}}, but no warning is issued.
+#' \code{\link{est_score}}, but no warning is issued. The same rule applies to
+#' the routing estimates. When all responses up to a non-final stage are
+#' missing, the routing estimate is 0 after stage 1 and the previous routing
+#' estimate after a later stage. An examinee with no observed response to the
+#' administered items receives \code{NA} as the final estimate, and one warning
+#' reports the number of such examinees.
 #'
 #' \strong{Relation to \code{reval_mst()}}: With \code{route_method = NULL}, a
 #' \code{cut_score} list, and \code{route_score = list(method = "INV.TCC")},
@@ -240,19 +272,17 @@
 #'   \item{\code{est.theta}}{A numeric vector of length \emph{N} containing
 #'     the final ability estimate for each examinee.}
 #'   \item{\code{se.theta}}{A numeric vector of length \emph{N} containing
-#'     the standard error of the final ability estimate. All seven
-#'     \code{final_score} methods return SE; for \code{"EAP.SUM"} and
-#'     \code{"INV.TCC"}, SE is the posterior standard deviation from the
-#'     pre-computed lookup table. \code{NA} when \code{se = FALSE}, when all
-#'     responses are missing, or when the sum score falls outside the
-#'     estimable range.}
+#'     the standard errors of the final ability estimates (see the \code{se}
+#'     argument).}
 #'   \item{\code{theta.route}}{An \emph{N} x \code{n.stage} numeric matrix
 #'     of ability estimates. Column \emph{s} (\emph{s} < \code{n.stage}) is the
 #'     cumulative routing estimate after stage \emph{s}, computed from the
 #'     responses to all modules administered in stages 1 to \emph{s}; column
-#'     \code{n.stage} is the final estimate (equal to \code{est.theta}).}
+#'     \code{n.stage} is the final estimate (equal to \code{est.theta}). Column
+#'     names are \code{"stage.1"}, \code{"stage.2"}, etc.}
 #'   \item{\code{path}}{An \emph{N} x \code{n.stage} integer matrix of
-#'     administered module indices.}
+#'     administered module indices. Column names are \code{"stage.1"},
+#'     \code{"stage.2"}, etc.}
 #'   \item{\code{true.theta}}{The \code{theta} argument (true abilities), or
 #'     \code{NULL} if not provided.}
 #'   \item{\code{panel}}{The output of \code{\link{panel_info}(route_map)}.}
@@ -409,8 +439,9 @@
 #'
 #' ## ---------------------------------------------------------
 #' ## Example 4: TIF-based cut scores via find_cut()
-#' ## find_cut() computes principled cut scores from TIF crossings.
-#' ## This prevents anomalous routing under MFI-like heuristics.
+#' ## find_cut() derives the cut scores from the TIF crossings of adjacent
+#' ## modules; cut-score routing with these values avoids the path
+#' ## reversals that MFI routing can produce.
 #' ## ---------------------------------------------------------
 #' # Derive cut scores from TIF crossings between adjacent modules
 #' cut_result <- find_cut(
@@ -438,7 +469,7 @@
 #' )
 #' print(result_findcut)
 #'
-#' ## Visualise the TIF-based cut scores used for routing
+#' ## Visualize the TIF-based cut scores used for routing
 #' plot(cut_result)
 #'
 #' ## ---------------------------------------------------------
@@ -446,10 +477,11 @@
 #' ## (pre-computed lookup tables; efficient for large N)
 #' ## ---------------------------------------------------------
 #' # INV.TCC can be used as both the routing and final scoring method.
-#' # Before the examinee loop, run_mst() pre-computes a sum_score -> theta
-#' # lookup table for every unique partial pathway (routing) and for every
-#' # unique complete pathway (final scoring), consistent with the reval_mst()
-#' # approach.
+#' # Before the examinee loop, run_mst() pre-computes a sum score to theta
+#' # lookup table for every partial pathway (routing) and every complete
+#' # pathway (final scoring). This example uses bmat routing; the design
+#' # that reval_mst() evaluates analytically uses cut-score routing
+#' # (route_method = NULL) with INV.TCC routing and final scores.
 #' # SE is taken from the pre-computed lookup table.
 #'
 #' result_inv <- run_mst(
@@ -468,13 +500,15 @@
 #' # standard errors from the lookup table
 #' head(result_inv$se.theta)
 #'
-#' # Compare RMSE: INV.TCC routing vs. ML routing (result_bmat from Example 1)
+#' # Compare RMSE: INV.TCC routing and scoring vs. ML routing and scoring
+#' # (result_bmat from Example 1)
 #' rmse_inv <- sqrt(mean((result_inv$est.theta  - theta_true)^2, na.rm = TRUE))
 #' rmse_ml  <- sqrt(mean((result_bmat$est.theta - theta_true)^2, na.rm = TRUE))
 #' cat(sprintf("RMSE (INV.TCC routing + scoring): %.4f\n", rmse_inv))
 #' cat(sprintf("RMSE (ML    routing + scoring):   %.4f\n", rmse_ml))
 #' }
 #'
+#' @order 1
 #' @export
 run_mst <- function(x,
                     route_map,
@@ -523,7 +557,7 @@ run_mst <- function(x,
          call. = FALSE)
   }
 
-  # (B) Validate and normalise item metadata via confirm_df()
+  # (B) Validate and normalize item metadata via confirm_df()
   x <- confirm_df(x)
 
   # (C) Check route_method
@@ -577,7 +611,7 @@ run_mst <- function(x,
     fence.a    = 3.0,
     fence.b    = NULL,
     intpol     = TRUE,      # INV.TCC: use linear interpolation
-    range.tcc  = c(-7, 7), # INV.TCC: theta search range for bisection
+    range.tcc  = c(-7, 7), # INV.TCC: estimates for the lowest and the maximum sum scores
     max.it     = 500L       # INV.TCC: maximum bisection iterations
   )
 
@@ -588,6 +622,10 @@ run_mst <- function(x,
   route_args <- utils::modifyList(default_route, route_score)
   final_args <- utils::modifyList(default_final, final_score)
 
+  # Check the convergence controls of the routing and final scoring methods
+  check_score_ctrl(route_args, "route_score")
+  check_score_ctrl(final_args, "final_score")
+
   # --- Panel structure ---
 
   # Extract panel info: stage config, valid pathways, module/stage counts
@@ -596,6 +634,11 @@ run_mst <- function(x,
   n.mod      <- panel_data$n.module         # modules per stage
   tn.mod     <- sum(n.mod)                  # total modules across all stages
   pathway    <- panel_data$pathway          # valid pathway matrix
+
+  # Stop when the module matrix does not have one column per module of the panel
+  if (ncol(module) != tn.mod) {
+    stop("'module' must have one column per module in 'route_map'.", call. = FALSE)
+  }
 
   # Validate ini_mod: NULL (random per-examinee) or a single integer index
   if (!is.null(ini_mod)) {
@@ -612,11 +655,13 @@ run_mst <- function(x,
   # stage1_mods: all module indices that belong to stage 1
   stage1_mods <- panel_data$config[[1L]]          # integer vector, length = n.mod[1]
   fixed_start <- if (!is.null(ini_mod)) stage1_mods[ini_mod] else NULL
-  # modules of each stage in pathway order, used to map the cut scores of a
-  # stage transition to the modules they separate (as in reval_mst())
-  stage_mods <- lapply(seq_len(n.stg), function(s) unique(pathway[, s]))
+  # modules of each stage in ascending order of module index, used to map the
+  # cut scores of a stage transition to the modules they separate (as in
+  # reval_mst())
+  stage_mods <- panel_data$config
   # When fixed_start is NULL, each examinee is assigned a stage-1 module
-  # by sample() at the start of the per-examinee loop (see below).
+  # by drawing one of the stage-1 modules at the start of the per-examinee loop
+  # (see below).
 
   # Validate cut_score length matches the number of stage transitions
   if (is.null(route_method) && !is.null(cut_score)) {
@@ -624,6 +669,26 @@ run_mst <- function(x,
       stop(sprintf(
         "'cut_score' must be a list of length %d (one vector per stage transition).",
         n.stg - 1), call. = FALSE)
+    }
+
+    # Stop when a cut score vector does not separate the modules of the next stage
+    for (s in seq_len(n.stg - 1L)) {
+      # treat a NULL element as an empty vector of cut scores
+      if (is.null(cut_score[[s]])) cut_score[s] <- list(numeric(0))
+      cut_s <- cut_score[[s]]
+      if (!is.numeric(cut_s) || length(cut_s) != (n.mod[s + 1L] - 1L) ||
+          !all(is.finite(cut_s)) || is.unsorted(cut_s, strictly = TRUE)) {
+        # name the empty vector when the next stage has a single module
+        if (n.mod[s + 1L] == 1L) {
+          stop(sprintf(paste0(
+            "'cut_score[[%d]]' must be empty (numeric(0) or NULL) because ",
+            "stage %d has a single module."), s, s + 1L), call. = FALSE)
+        }
+        stop(sprintf(paste0(
+          "'cut_score[[%d]]' must contain %d finite value(s) in strictly ascending ",
+          "order, one fewer than the number of modules in stage %d."),
+          s, n.mod[s + 1L] - 1L, s + 1L), call. = FALSE)
+      }
     }
   }
 
@@ -649,6 +714,14 @@ run_mst <- function(x,
     empty_mods <- which(mod_item_counts == 0)
     stop(sprintf("Module(s) %s have no items assigned (column sum = 0 in 'module').",
                  paste(empty_mods, collapse = ", ")), call. = FALSE)
+  }
+
+  # --- Pre-compute the mean item location of each module (if bmat is used) ---
+  mod_loc_mean <- NULL
+  if (!is.null(route_method) && route_method == "bmat") {
+    # mean location of the items of each module, used to match modules to the
+    # routing estimate
+    mod_loc_mean <- vapply(item_mod, function(it) mean(mean_loc(it)), numeric(1L))
   }
 
   # --- Pre-compute EAP quadrature weights for routing (if EAP is used) ---
@@ -704,6 +777,25 @@ run_mst <- function(x,
                       g = rep(0, 2)),
       item.id  = c("fence.lower", "fence.upper"),
       cats     = 2,
+      model    = "3PLM"
+    )
+  }
+
+  # fence items for the final scoring with MLF (two 3PLM items appended to the
+  # items of each pathway)
+  x_fence_final <- NULL
+  if (final_args$method == "MLF") {
+    # fence difficulties default to the ability range
+    fence_b_final <- if (is.null(final_args$fence.b)) final_args$range
+                     else final_args$fence.b
+
+    # fence item metadata, built once because fence.a and fence.b are fixed
+    x_fence_final <- shape_df(
+      par.drm  = list(a = rep(final_args$fence.a, 2),
+                      b = fence_b_final,
+                      g = rep(0, 2)),
+      item.id  = c("fence.lower", "fence.upper"),
+      cats     = 2L,
       model    = "3PLM"
     )
   }
@@ -903,6 +995,9 @@ run_mst <- function(x,
     report_every <- max(1L, N %/% 10L)
   }
 
+  # number of examinees whose responses are all missing
+  n_all_missing <- 0L
+
   # --- Main loop over examinees ---
   for (i in seq_len(N)) {
 
@@ -914,8 +1009,9 @@ run_mst <- function(x,
     # Determine starting module for this examinee:
     #   fixed_start non-NULL -> same module for every examinee (ini_mod was integer)
     #   fixed_start NULL     -> uniformly sample from all stage-1 modules
+    # index into the stage-1 modules, since sample() on a single number k draws from 1:k
     current_mod <- if (!is.null(fixed_start)) fixed_start
-                   else sample(stage1_mods, size = 1L)
+                   else stage1_mods[sample.int(length(stage1_mods), size = 1L)]
     # Accumulate item indices and response vector across all administered stages
     items_acc  <- integer(0)       # item row indices in x (item bank)
     resp_acc   <- integer(0)       # corresponding response values
@@ -935,16 +1031,15 @@ run_mst <- function(x,
         # next_possible is ordered by module index (ascending)
 
         if (length(next_possible) == 1L) {
-          # Only one reachable module - no choice to make
+          # Only one reachable module, so no choice to make
           mod_s <- next_possible[1L]
 
         } else if (!is.null(route_method) && route_method == "bmat") {
           # b-matching: select module with mean location closest to current theta
           # theta_route_mat[i, s-1] holds the routing estimate from stage s-1
           theta_prev <- theta_route_mat[i, s - 1L]
-          mod_locs <- vapply(next_possible, function(m) {
-            mean(mean_loc(item_mod[[m]]))   # mean location of module m's items
-          }, numeric(1L))
+          # mean locations of the reachable modules, from the pre-computed values
+          mod_locs <- mod_loc_mean[next_possible]
           mod_s <- next_possible[which.min(abs(mod_locs - theta_prev))]
 
         } else if (!is.null(route_method) && route_method == "mfi") {
@@ -958,7 +1053,7 @@ run_mst <- function(x,
 
         } else {
           # Cut-score routing: use cut_score[[s-1]] for this transition
-          # cut_score[[s-1]] has length = (number of categories - 1) for stage s
+          # cut_score[[s-1]] has one fewer value than the number of modules in stage s
           theta_prev <- theta_route_mat[i, s - 1L]
           cut_s      <- cut_score[[s - 1L]]
           # positions of the reachable modules among the modules of stage s
@@ -1068,8 +1163,6 @@ run_mst <- function(x,
               method     = route_args$method,
               range      = route_args$range,
               norm.prior = route_args$norm.prior,
-              nquad      = route_args$nquad,
-              weights    = NULL,
               tol        = route_args$tol,
               max.iter   = route_args$max.iter,
               se         = FALSE,       # SE not needed for routing
@@ -1095,10 +1188,11 @@ run_mst <- function(x,
 
         if (!any(na_mask_acc)) {
           # All responses missing across entire path
+          n_all_missing  <- n_all_missing + 1L
           est_theta[i]   <- NA_real_
           se_theta[i]    <- NA_real_
           theta_route_mat[i, s] <- NA_real_
-          next   # skip to next examinee
+          next   # ends the stage loop for this examinee (final stage)
         }
 
         # Build item metadata for the full administered path
@@ -1132,18 +1226,6 @@ run_mst <- function(x,
 
           # Build elm_item for the accumulated path
           if (final_args$method == "MLF") {
-            # Determine fence.b
-            fence_b_final <- if (is.null(final_args$fence.b)) final_args$range
-                             else final_args$fence.b
-            # Build fence item metadata
-            x_fence_final <- shape_df(
-              par.drm  = list(a = rep(final_args$fence.a, 2),
-                              b = fence_b_final,
-                              g = rep(0, 2)),
-              item.id  = c("fence.lower", "fence.upper"),
-              cats     = 2L,
-              model    = "3PLM"
-            )
             # Coerce id to character so path items (id may be integer/numeric)
             # bind cleanly with the character fence item IDs
             x_path_aug <- dplyr::bind_rows(
@@ -1195,8 +1277,6 @@ run_mst <- function(x,
             method     = final_args$method,
             range      = final_args$range,
             norm.prior = final_args$norm.prior,
-            nquad      = final_args$nquad,
-            weights    = NULL,
             tol        = final_args$tol,
             max.iter   = final_args$max.iter,
             se         = se,
@@ -1213,6 +1293,13 @@ run_mst <- function(x,
       }  # end of stage s
     }  # end of stage loop
   }  # end of examinee loop
+
+  # warn once about the examinees whose responses are all missing
+  if (n_all_missing > 0L) {
+    warning(sprintf(
+      "%d examinee(s) have no observed response to the administered items; their final estimates are NA.",
+      n_all_missing), call. = FALSE)
+  }
 
   # --- Assemble result list ---
   rst <- list(
@@ -1240,7 +1327,39 @@ run_mst <- function(x,
 }
 
 # ---------------------------------------------------------------------------
-# mean_loc() - Internal helper for bmat routing
+# check_score_ctrl(): internal helper for run_mst()
+#
+# Checks the convergence controls of a merged route_score or final_score list
+# in the same way as est_score() checks its 'tol' and 'max.iter' arguments.
+#
+# @param args      A merged route_score or final_score list.
+# @param arg_name  The argument name used in the error message.
+# @return          NULL, invisibly; stops when a control is not valid.
+# ---------------------------------------------------------------------------
+check_score_ctrl <- function(args, arg_name) {
+
+  # stop when the convergence tolerance is not a single positive number
+  if (args$method %in% c("ML", "MLF", "WL", "MAP", "INV.TCC") &&
+      !(is.numeric(args$tol) && length(args$tol) == 1L &&
+        is.finite(args$tol) && args$tol > 0)) {
+    stop(sprintf("'%s$tol' must be a single positive number.", arg_name),
+         call. = FALSE)
+  }
+
+  # stop when the maximum number of iterations is not a positive whole number
+  if (args$method %in% c("ML", "MLF", "WL", "MAP") &&
+      !(is.numeric(args$max.iter) && length(args$max.iter) == 1L &&
+        is.finite(args$max.iter) && args$max.iter >= 1 &&
+        args$max.iter == round(args$max.iter))) {
+    stop(sprintf("'%s$max.iter' must be a single positive whole number.", arg_name),
+         call. = FALSE)
+  }
+
+  invisible(NULL)
+}
+
+# ---------------------------------------------------------------------------
+# mean_loc(): internal helper for bmat routing
 #
 # Computes the mean location parameter for each item in an item metadata
 # data frame. Used by the bmat (b-matching) routing method to select the

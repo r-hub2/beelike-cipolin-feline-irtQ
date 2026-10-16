@@ -9,19 +9,19 @@
 #' @param dist A character string indicating the distribution type used to
 #'   generate weights. Available options are `"norm"` for a normal distribution,
 #'   `"unif"` for a uniform distribution, and `"emp"` for an empirical
-#'   distribution.
+#'   distribution. Default is `"norm"`.
 #'   - If `dist = "norm"`, either `n` or `theta` must be provided.
-#'   - If `dist = "unif"`, only `n` is applicable.
-#'   - If `dist = "emp"`, only `theta` must be specified.
+#'   - If `dist = "unif"`, only `n` is used; `theta` must not be supplied.
+#'   - If `dist = "emp"`, `theta` is required.
 #' @param mu,sigma Mean and standard deviation of the normal distribution (used
-#'   when `dist = "norm"`).
+#'   when `dist = "norm"`). Defaults are 0 and 1.
 #' @param l,u Lower and upper bounds of the uniform distribution (used when
-#'   `dist = "unif"`).
-#' @param theta A numeric vector of empirical theta (node) values for which
-#'   weights are generated.
+#'   `dist = "unif"`). Defaults are -4 and 4.
+#' @param theta A numeric vector of theta (node) values for which weights are
+#'   generated. Used when `dist = "norm"` or `dist = "emp"`.
 #'
-#' @details If `theta` is not specified, *n* equally spaced quadrature points
-#' and corresponding weights are generated from either the normal or uniform
+#' @details If `theta` is not specified, *n* quadrature points and
+#' corresponding weights are generated from either the normal or uniform
 #' distribution:
 #' - When `dist = "norm"`, Gaussian quadrature points and weights are computed
 #' using `gauss.quad.prob()` from the \pkg{statmod} package.
@@ -74,9 +74,19 @@ gen.weight <- function(n = 41,
                        theta) {
   dist <- tolower(dist)
 
+  # stop on a distribution name that is not supported
+  if (!(length(dist) == 1L && dist %in% c("norm", "unif", "emp"))) {
+    stop("`dist` must be one of 'norm', 'unif', or 'emp'.", call. = FALSE)
+  }
+
+  # stop when theta is given with the uniform option, which uses n, l, and u only
+  if (dist == "unif" && !missing(theta)) {
+    stop("`theta` cannot be used with dist = 'unif'; use n, l, and u instead.", call. = FALSE)
+  }
+
   if (missing(theta)) {
     if (dist == "emp") {
-      stop("To use actual option in a distribution argument, theta values are needed.", call. = FALSE)
+      stop("Theta values are required when dist = 'emp'.", call. = FALSE)
     }
     if (dist == "norm") {
       wts.nd <- statmod::gauss.quad.prob(n, dist = dist, mu = mu, sigma = sigma)

@@ -1,6 +1,9 @@
-# This function computes the cross-product information matrix of the
-# item parameter estimates -- the sum over examinees of the outer
-# product of the per-examinee score function.
+# This function computes the cross-product (empirical) information matrix of
+# the item parameter estimates (Meilijson, 1989): the sum over examinees of the
+# outer product of the per-examinee score vector, where the score is the
+# gradient of the examinee's marginal log-likelihood, obtained as the posterior
+# expectation of the complete-data gradient over the quadrature points. Prior
+# information is not included here; info_prior() adds it.
 #
 # Mathematical structure exploited
 # --------------------------------
@@ -69,7 +72,7 @@ info_xpd <- function(elm_item, freq.cat, post_dist, quadpt, nstd,
       k       <- loc_1p_const[k_idx]    # original item index
       b_k_col <- col_offset + 1L + k_idx
 
-      # build Gamma_k of shape ntheta x 4 -- columns ordered as
+      # build Gamma_k of shape ntheta x 4, with columns ordered as
       #   [gamma_a(:,1), gamma_a(:,2), gamma_b_k(:,1), gamma_b_k(:,2)]
       Gamma_k <- matrix(0, nrow = ntheta, ncol = 4L)
 
@@ -77,7 +80,7 @@ info_xpd <- function(elm_item, freq.cat, post_dist, quadpt, nstd,
       # with a synthetic single-examinee response pattern in which only
       # item k_idx is observed at category c.  The returned gradient is
       # ntheta x (1 + n.1PLM); column 1 is the shared-a derivative and
-      # column (k_idx+1) is the b_k derivative -- by linearity in
+      # column (k_idx+1) is the b_k derivative; by linearity in
       # (r_i, f_i), other items' columns are exactly zero because their
       # synthetic r_i, f_i are zero.
       for (c in 1:2) {
@@ -89,7 +92,7 @@ info_xpd <- function(elm_item, freq.cat, post_dist, quadpt, nstd,
         grad_syn <- grad_llike(
           item_par = item_par, f_i = f_syn, r_i = r_syn,
           theta = quadpt, n.theta = ntheta, mod = "1PLM",
-          D = D, fix.a.1pl = fix.a.1pl, n.1PLM = n.1PLM
+          D = D, n.1PLM = n.1PLM
         )
 
         Gamma_k[, c]      <- grad_syn[, 1L]            # gamma_a (q, c)
@@ -140,21 +143,22 @@ info_xpd <- function(elm_item, freq.cat, post_dist, quadpt, nstd,
 
       # number of free parameters for this item, derived from a single
       # synthetic gradient call (probes the model's actual npar after
-      # all fix.* flags are applied -- avoids re-deriving the table)
+      # all fix.* flags are applied, which avoids re-deriving the table)
       npar_k <- if (score.cat == 2L) {
+        # the fixed guessing value g.val of the calibration is passed on
         ncol(grad_llike(
           item_par = item_par, f_i = rep(1, ntheta), r_i = rep(0, ntheta),
           theta = quadpt, n.theta = ntheta, mod = mod, D = D,
-          fix.a.1pl = ifelse(mod == "1PLM", TRUE, FALSE),
-          fix.g = fix.g, a.val.1pl = a.val.1pl, g.val = .2, n.1PLM = NULL
+          fix.g = fix.g, a.val.1pl = a.val.1pl, g.val = g.val, n.1PLM = NULL
         ))
       } else {
         # polytomous probe: synthetic r_i = e_1 (ntheta x cats)
         r_probe <- matrix(0, nrow = ntheta, ncol = score.cat)
         r_probe[, 1L] <- 1
+        # the scaling constant D of the calibration is passed on
         ncol(grad_llike(
           item_par = item_par, r_i = r_probe, theta = quadpt, n.theta = ntheta,
-          mod = mod, D = 1, fix.a.gpcm = ifelse(mod == "GPCM", fix.a.gpcm, FALSE),
+          mod = mod, D = D, fix.a.gpcm = ifelse(mod == "GPCM", fix.a.gpcm, FALSE),
           a.val.gpcm = a.val.gpcm, n.1PLM = NULL
         ))
       }
@@ -169,19 +173,20 @@ info_xpd <- function(elm_item, freq.cat, post_dist, quadpt, nstd,
           # binary item: synthetic f_i = 1 (responded), r_i = 1{c==2}
           f_syn <- rep(1, ntheta)
           r_syn <- if (c == 2L) rep(1, ntheta) else rep(0, ntheta)
+          # the fixed guessing value g.val of the calibration is passed on
           grad_syn <- grad_llike(
             item_par = item_par, f_i = f_syn, r_i = r_syn,
             theta = quadpt, n.theta = ntheta, mod = mod, D = D,
-            fix.a.1pl = ifelse(mod == "1PLM", TRUE, FALSE),
-            fix.g = fix.g, a.val.1pl = a.val.1pl, g.val = .2, n.1PLM = NULL
+            fix.g = fix.g, a.val.1pl = a.val.1pl, g.val = g.val, n.1PLM = NULL
           )
         } else {
           # polytomous item: synthetic r_i = e_c (ntheta x cats)
           r_syn <- matrix(0, nrow = ntheta, ncol = score.cat)
           r_syn[, c] <- 1
+          # the scaling constant D of the calibration is passed on
           grad_syn <- grad_llike(
             item_par = item_par, r_i = r_syn, theta = quadpt, n.theta = ntheta,
-            mod = mod, D = 1, fix.a.gpcm = ifelse(mod == "GPCM", fix.a.gpcm, FALSE),
+            mod = mod, D = D, fix.a.gpcm = ifelse(mod == "GPCM", fix.a.gpcm, FALSE),
             a.val.gpcm = a.val.gpcm, n.1PLM = NULL
           )
         }
@@ -215,13 +220,13 @@ info_xpd <- function(elm_item, freq.cat, post_dist, quadpt, nstd,
   crossprod(kernel_fisher)
 }
 
-# This function computes the information matrix of priors using the second derivatives of item parameter estimates
+# This function computes the prior information matrix: the second derivatives of the negative log prior densities
+# with respect to the item parameters, arranged in the same order as the cross-product information matrix
 #' @importFrom Matrix bdiag
 info_prior <- function(elm_item, D = 1, loc_1p_const, loc_else, n.1PLM,
-                       fix.a.1pl, fix.a.gpcm, fix.g, a.val.1pl, a.val.gpcm, g.val,
+                       fix.a.1pl, fix.a.gpcm, fix.g,
                        aprior, bprior, gprior, use.aprior, use.bprior, use.gprior, reloc.par) {
-  # a create a vector containing the gradient values of priors
-  # a create empty matrix to contain the gradient
+  # collect the prior Hessian matrix of each item
   hess_list <- NULL
 
   # extract model and cats object
@@ -266,7 +271,7 @@ info_prior <- function(elm_item, D = 1, loc_1p_const, loc_else, n.1PLM,
             fix.a.gpcm = fix.a.gpcm, n.1PLM = NULL
           )
 
-        # compute the gradient vectors
+        # compute the prior Hessian matrix of the item
         hess <- hess_prior(
           item_par = item_par, mod = mod, D = D, fix.a.1pl = ifelse(mod == "1PLM", TRUE, FALSE),
           fix.g = fix.g, aprior = aprior, bprior = bprior, gprior = gprior,
@@ -286,7 +291,7 @@ info_prior <- function(elm_item, D = 1, loc_1p_const, loc_else, n.1PLM,
             fix.a.gpcm = fix.a.gpcm, n.1PLM = NULL
           )
 
-        # compute the gradient vectors
+        # compute the prior Hessian matrix of the item
         hess <- hess_prior(
           item_par = item_par, mod = mod, D = D, fix.a.gpcm = ifelse(mod == "GPCM", fix.a.gpcm, FALSE),
           aprior = aprior, bprior = bprior, use.aprior = use.aprior, use.bprior = use.bprior

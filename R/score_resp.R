@@ -1,14 +1,14 @@
 #' Score Selected-Response Item Data Against an Answer Key
 #'
 #' This function converts raw selected-response (e.g., multiple-choice) item
-#' data - coded as the selected option (an option number, e.g., 1-5 for a
-#' five-option item; a single-letter option label, e.g., `"A"`-`"E"`; or any
-#' other option label in a different script or notation, such as Korean
-#' syllable labels or Roman numerals), a missing-response indicator for an
-#' omitted response, or a comma-separated string (e.g., `"1,5"` or `"A,C"`)
-#' for a double-marked (multiple-option) response - into a dichotomously
-#' scored item-response matrix (0 = incorrect, 1 = correct) using a supplied
-#' answer key. The option coding scheme is detected independently for each
+#' data into a dichotomously scored item response matrix (0 = incorrect,
+#' 1 = correct) using a supplied answer key. Each response is coded as the
+#' selected option (an option number, e.g., 1-5 for a five-option item; a
+#' Latin-letter option label, e.g., `"A"`-`"E"`; or any other option label,
+#' such as a Korean syllable label), as a missing-response indicator for an
+#' omitted response, or as a comma-separated string (e.g., `"1,5"` or
+#' `"A,C"`) for a double-marked (multiple-option) response. The option
+#' coding scheme is detected independently for each
 #' item from its own `key` value, so a single test form may freely mix
 #' numerically coded, letter-coded, and other label-coded items. Letter
 #' (and other case-bearing) option labels are matched case-insensitively
@@ -24,43 +24,43 @@
 #'   selected-response item cannot yield a partial-credit score by
 #'   construction. If polytomous item response data are available, supply an
 #'   already-scored response matrix (with categories 0, 1, 2, ..., cats - 1)
-#'   directly to downstream item-analysis functions instead of using
-#'   `score_resp()`. See **Details** for further discussion.
+#'   directly to downstream item-analysis functions such as [ctt()] or
+#'   [ctt_distr()] instead of using `score_resp()`.
 #'
 #' @param data A data frame or matrix of raw item responses, with examinees in
 #'   rows and items in columns (in the same left-to-right order as `key`).
 #'   Do not include non-item columns (e.g., group or examinee identifiers);
 #'   subset those out before calling `score_resp()`. Each cell should contain
-#'   either a single selected option - an option number (e.g., `2`), a
-#'   single-letter option label (e.g., `"C"`), or any other option label
-#'   (e.g., a Korean syllable label, or a Roman numeral such as `"II"`) -
-#'   matching whichever coding scheme is used for that item's `key`
-#'   value, a missing-response indicator (see `missing`), or a character
-#'   string of comma-separated options (e.g., `"1,5"` or `"A,C"`) for a
-#'   double-marked response. To keep double-marked responses as character
+#'   a single selected option in the coding scheme of that item's `key` value
+#'   (an option number such as `2`, a Latin-letter label such as `"C"`, or
+#'   any other option label such as a Korean syllable label), a
+#'   missing-response indicator (see `missing`), or a character string of
+#'   comma-separated options (e.g., `"1,5"` or `"A,C"`) for a double-marked
+#'   response. To keep double-marked responses as character
 #'   strings rather than having them coerced to `NA` on import, read the
 #'   source file with all item columns imported as text (e.g.,
 #'   `readxl::read_excel(..., col_types = "text")`) before passing `data` to
 #'   this function.
 #' @param key Either (a) a vector of correct options in item order (length
-#'   must equal `ncol(data)`), where each element is a numeric/integer option
-#'   number (e.g., `4`), a single-letter option label (e.g., `"D"`), or any
-#'   other non-blank option label (e.g., a Korean syllable label, or a
-#'   Roman numeral such as `"II"`), or (b) a data frame
-#'   with columns `item` and `key` giving the item number and its correct
-#'   option, respectively (the `key` column may likewise mix option formats
-#'   across rows). Each item's coding scheme is inferred independently from
-#'   its own key value, so items using different option formats may be
-#'   freely mixed within the same vector or data frame; letter (and other
-#'   case-bearing) values are matched case-insensitively. When a data frame
-#'   is supplied, it is internally sorted by `item` before use, so its row
-#'   order does not need to match the column order of `data`. The `item`
-#'   column may be numeric, character, or factor; it is matched by item
-#'   number.
+#'   must equal `ncol(data)`), where each element is an option number (e.g.,
+#'   `4`), a Latin-letter option label (e.g., `"D"`), or any other non-blank
+#'   option label (e.g., a Korean syllable label), or (b) a data frame with
+#'   columns `item` and `key` giving the item number and its correct option,
+#'   respectively. Each item's coding scheme is inferred independently from
+#'   its own key value, so items using different option formats may be mixed
+#'   within the same vector or data frame; letter (and other case-bearing)
+#'   values are matched case-insensitively. When a data frame is supplied, its
+#'   `item` column (numeric, character, or factor) must contain each of the
+#'   integers 1 to `ncol(data)` exactly once; the rows are sorted by item
+#'   number before use, so their order need not match the column order of
+#'   `data`. A key value that contains a comma names more than one option, and
+#'   `score_resp()` stops with an error because every item must have exactly
+#'   one correct option.
 #' @param missing A value indicating missing (omitted) responses in `data`,
 #'   analogous to the `missing` argument in [irtQ::est_irt()] and
-#'   [irtQ::est_score()]. Any cell equal to `missing` is recoded to `NA`
-#'   before scoring. Default is `NA`, meaning `data` is assumed to already use
+#'   [irtQ::est_score()]. Any cell equal to `missing`, after trimming
+#'   surrounding spaces, is recoded to `NA` before scoring. Default is `NA`,
+#'   meaning `data` is assumed to already use
 #'   `NA` (or an empty string) for omitted responses, and no recoding is
 #'   performed. Set this to whatever sentinel value a particular data set uses
 #'   for a missing response (e.g., `-9`, `"9"`) when it differs from `NA`.
@@ -68,8 +68,8 @@
 #' @details
 #' For each item, a response is scored as correct (1) only when it is a
 #' single, non-missing option that matches the corresponding value in `key`.
-#' All other cases - an omitted response, a double-marked response, or a
-#' single but incorrect option - are scored as incorrect (0). Missing and
+#' All other responses (an omitted response, a double-marked response, or a
+#' single but incorrect option) are scored as incorrect (0). Missing and
 #' double-marked responses are tallied separately in `resp_summary` so that
 #' omission and double-marking rates can be reported independently, even
 #' though both are scored as 0.
@@ -77,8 +77,9 @@
 #' Each item's option coding scheme is determined independently from its own
 #' `key` value, using one of three rules:
 #' \itemize{
-#'   \item If the key value parses as a number (e.g., `4`), responses to
-#'     that item are compared numerically.
+#'   \item If the key value is written with digits only (e.g., `4`,
+#'     optionally with a decimal part), responses to that item are compared
+#'     numerically.
 #'   \item If the key value consists of one or more Latin letters (e.g.,
 #'     `"D"`), responses are compared as letters, case-insensitively (`"d"`
 #'     and `"D"` are treated as the same option), and a response must itself
@@ -90,8 +91,8 @@
 #'     as a general option label: any
 #'     non-blank, non-double-marked response to that item is accepted as a
 #'     single valid option, and is compared to the key with a
-#'     case-insensitive (`toupper()`-based, which only affects any embedded
-#'     Latin characters) exact string match. There is no universal,
+#'     case-insensitive (`toupper()`-based) exact string match, which leaves
+#'     caseless scripts such as Hangul unchanged. There is no universal,
 #'     script-independent rule for "a well-formed option label" analogous to
 #'     the numeric or Latin-letter checks above, so this scheme cannot
 #'     distinguish a genuinely incorrect option from a garbled response
@@ -99,15 +100,16 @@
 #'     items using this scheme (see below).
 #' }
 #' This per-item detection means a single test form may freely mix items
-#' using any of the three schemes - only the value supplied in `key` for a
+#' using any of the three schemes: only the value supplied in `key` for a
 #' given item determines how that item's column in `data` is interpreted. A
 #' `key` value that is blank or `NA` causes `score_resp()` to stop with an
 #' error, since no correct option was actually supplied for that item.
 #'
 #' A response cell is classified as double-marked when, after coercion to
 #' character, it contains a comma (e.g., `"1,5"`, `"B,D"`). A response cell is
-#' classified as blank/omitted when it equals `missing` (recoded to `NA`
-#' beforehand), or is otherwise `NA` or an empty/whitespace-only string. For
+#' classified as blank/omitted when it equals `missing` after trimming
+#' surrounding spaces (recoded to `NA` beforehand), or is otherwise `NA` or an
+#' empty/whitespace-only string. For
 #' numeric- and Latin-letter-coded items, any response that is none of blank,
 #' double-marked, or a single valid option in the coding scheme used for that
 #' item (e.g., a numeric token where a letter was expected for a
@@ -117,27 +119,21 @@
 #' silently merged into the "wrong" count. As noted above, general
 #' label-coded items never populate `n_invalid`, since any non-blank,
 #' non-double-marked token is accepted as a single valid (though possibly
-#' incorrect) option for that scheme. Note that `n_correct + n_wrong` always
-#' equals `n`, but `n_blank`, `n_double`, and `n_invalid` are reported as
-#' separate diagnostic tallies, not as a four-way disjoint partition of
-#' `n_wrong`.
-#'
-#' This function performs dichotomous (single-key, selected-response) scoring
-#' only, since a selected-response item has exactly one correct option by
-#' design and therefore only two possible score categories (correct/incorrect).
-#' It is not generalized to items with more than two score categories (e.g.,
-#' partial-credit polytomous items). If such data become available, they
-#' should be supplied directly, already scored, to downstream item-analysis
-#' functions that support polytomous data, bypassing `score_resp()`.
+#' incorrect) option for that scheme. `n_correct + n_wrong` always equals
+#' `n`. `n_blank`, `n_double`, and `n_invalid` count disjoint subsets of
+#' `n_wrong`; the remaining wrong responses are single valid but incorrect
+#' options, which are not counted separately.
 #'
 #' @return A list with two elements:
 #' \item{scored}{A data frame with the same dimensions as `data`, containing
 #'   the dichotomously scored (0/1) item responses. Column names follow
 #'   `colnames(data)` (or `V1, V2, ...` when `data` has no column names).}
-#' \item{resp_summary}{A data frame with one row per item, reporting the
-#'   number and percentage of blank and double-marked responses, the number
-#'   of unrecognized/invalid response tokens (`n_invalid`), and the number
-#'   of examinees scored correct/incorrect, for each item.}
+#' \item{resp_summary}{A data frame with one row per item and the columns
+#'   `item` (item label), `key` (the correct option, as trimmed text), `n`
+#'   (number of examinees), `n_correct`, `n_wrong`, `n_blank`, `n_double`,
+#'   `n_invalid` (number of unrecognized response tokens), `pct_blank`, and
+#'   `pct_double` (percentages of blank and double-marked responses, rounded
+#'   to two decimal places).}
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
@@ -237,16 +233,19 @@ score_resp <- function(data, key, missing = NA) {
   # `missing = NA` means the input already uses R's native NA (or an empty
   # string) for omitted responses, so nothing is recoded here
   if (!is.na(missing)) {
-    data[data == as.character(missing)] <- NA
+    # compare after trimming so that " 9" or "9 " also counts as missing
+    missing_chr <- trimws(as.character(missing))
+    data[] <- lapply(data, function(x) {
+      x[which(trimws(x) == missing_chr)] <- NA
+      x
+    })
   }
 
   # resolve the `key` argument into a character vector of correct options
   # (trimmed strings), ordered to match the column order of `data`. the key
-  # is deliberately kept as character here (rather than coerced with
-  # as.numeric()) so that each item's correct option may be either a numeric
-  # option number (e.g., 4) or a single-letter option label (e.g., "D"); the
-  # coding scheme actually used for scoring is inferred separately for each
-  # item further below, from that item's own key value
+  # stays character so that an item's correct option may be a number, a
+  # Latin letter, or any other label; the coding scheme is inferred per item
+  # further below from that item's own key value
   if (is.data.frame(key)) {
 
     # a key data frame must supply both an item index column and a key column
@@ -267,13 +266,9 @@ score_resp <- function(data, key, missing = NA) {
     key_vec <- trimws(as.character(key$key))
     item_num <- sort(item_num)
 
-    # the key's item numbers must be exactly 1, 2, ..., n_item with no
-    # duplicates and no gaps; otherwise key values could silently misalign
-    # with data columns after sorting (e.g., a duplicated or skipped item
-    # number in a mistyped key would go undetected without this check).
-    # compare as integer (not identical() on raw `key$item`) so that numeric
-    # vs. integer storage mode never causes a false mismatch; only the
-    # actual item numbers matter here
+    # the key's item numbers must be exactly 1, 2, ..., n_item, so a
+    # duplicated or skipped item number cannot misalign key values with the
+    # columns of `data`; comparing integers ignores the storage mode
     if (!identical(item_num, seq_len(n_item))) {
       stop("`key$item` must contain exactly the integers 1:ncol(data), ",
            "with no duplicates or gaps. Check the answer key for a ",
@@ -294,15 +289,23 @@ score_resp <- function(data, key, missing = NA) {
          call. = FALSE)
   }
 
-  # a key value must not be blank/NA - that is the only requirement on `key`
-  # itself, since every non-blank value (a number, a Latin letter, a Korean
-  # syllable, a Roman numeral, or any other label) is handled as a valid
-  # option identifier by the per-item scheme detection below
+  # a key value must not be blank or NA; apart from the comma check below,
+  # this is the only requirement on `key` itself, since every non-blank value
+  # (a number, a Latin letter, a Korean syllable, or any other label) is a
+  # valid option identifier for the per-item scheme detection below
   if (any(is.na(key_vec) | key_vec == "")) {
     bad_pos <- which(is.na(key_vec) | key_vec == "")
     stop("`key` contains missing or blank value(s) at position(s): ",
          paste(bad_pos, collapse = ", "), ". Every item must have a ",
          "non-blank correct-option value.", call. = FALSE)
+  }
+
+  # a key value with a comma names more than one option, which cannot be scored
+  if (any(grepl(",", key_vec, fixed = TRUE))) {
+    bad_pos <- which(grepl(",", key_vec, fixed = TRUE))
+    stop("`key` contains more than one option at position(s): ",
+         paste(bad_pos, collapse = ", "), ". Every item must have exactly ",
+         "one correct option.", call. = FALSE)
   }
 
   # classify each item's key value into one of three option-coding schemes,
@@ -312,16 +315,15 @@ score_resp <- function(data, key, missing = NA) {
   #   - numeric-coded (e.g., "4"): compared as numbers
   #   - Latin-letter-coded (e.g., "D"): compared as letters, case-insensitive
   #   - anything else (e.g., a Korean syllable label, a Roman numeral
-  #     written in a non-Latin numeral script, a circled-number symbol):
+  #     written with non-Latin numeral characters, a circled-number symbol):
   #     compared as a general label (see Details for how this scheme
   #     differs from the other two)
   is_key_numeric <- grepl("^[0-9]+(\\.[0-9]+)?$", key_vec)
   is_key_latin <- grepl("^[A-Za-z]+$", key_vec)
 
-  # column names to carry over to the scored output; fall back to V1, V2, ...
-  # when the input has no column names (mirrors irtQ's default item labeling)
+  # column names to carry over to the scored output; as.data.frame() above
+  # gives unnamed input the names V1, V2, ...
   item_names <- colnames(data)
-  if (is.null(item_names)) item_names <- paste0("V", seq_len(n_item))
 
   # pre-allocate the scored (0/1) matrix and a list to collect per-item
   # summary rows (filled in the loop below)
@@ -360,23 +362,22 @@ score_resp <- function(data, key, missing = NA) {
     } else if (is_key_latin[j]) {
 
       # Latin-letter-coded item: a single valid response is one or more
-      # Latin letters; compare to the key case-insensitively (e.g., "a"
-      # matches a key of "D" only if they are literally the same letter once
-      # both are upper-cased)
+      # Latin letters; compare to the key case-insensitively (e.g., a
+      # response of "d" matches a key of "D")
       is_single <- !is_blank & !is_double & grepl("^[A-Za-z]+$", resp_chr)
       item_score[is_single & toupper(resp_chr) == toupper(key_vec[j])] <- 1L
 
     } else {
 
-      # general label-coded item (e.g., Korean syllable labels, Roman
-      # numerals in a non-Latin numeral script, circled-number symbols, or
-      # any other non-numeric, non-Latin-letter label): there is no
-      # universal, script-independent format check for "a well-formed
-      # option label" the way there is for numbers or Latin letters, so
-      # every non-blank, non-double-marked token is accepted as a single
-      # valid response for this item; toupper() is applied for consistency
-      # with the other two schemes, but is a no-op for non-Latin scripts
-      # such as Hangul, so this effectively reduces to an exact string match
+      # general label-coded item (e.g., Korean syllable labels, Roman numerals
+      # written with non-Latin numeral characters, circled-number symbols, or
+      # any other non-numeric, non-Latin-letter label): there is no universal,
+      # script-independent format check for "a well-formed option label" the
+      # way there is for numbers or Latin letters, so every non-blank,
+      # non-double-marked token is accepted as a single valid response for this
+      # item; toupper() is applied for consistency with the other two schemes,
+      # but is a no-op for non-Latin scripts such as Hangul, so this
+      # effectively reduces to an exact string match
       is_single <- !is_blank & !is_double
       item_score[is_single & toupper(resp_chr) == toupper(key_vec[j])] <- 1L
     }
@@ -397,8 +398,8 @@ score_resp <- function(data, key, missing = NA) {
     n_correct <- sum(item_score)           # count scored correct (1)
 
     # warn (once per item) if an unrecognized token shows up, since valid
-    # data is expected to contain only option numbers, missing indicators, or
-    # comma strings; anything else likely signals a data-quality issue
+    # data contain only option values, missing indicators, or comma strings;
+    # anything else likely signals a data-quality issue
     if (n_invalid > 0L) {
       warning("Item '", item_names[j], "' has ", n_invalid,
               " response(s) that are neither a valid option for this item, ",

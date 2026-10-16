@@ -15,51 +15,61 @@ covirt(
 )
 }
 \arguments{
-\item{x}{A data frame containing item metadata (e.g., item parameters, number
-of categories, IRT model types, etc.). See \code{\link[=est_irt]{est_irt()}} or
-\code{\link[=simdat]{simdat()}} for more details about the item metadata. This data frame
-can be easily created using the \code{\link[=shape_df]{shape_df()}} function.}
+\item{x}{A data frame containing item metadata (item IDs, numbers of score
+categories, IRT models, and item parameters). The item parameters are
+treated as the true values at which the information is evaluated; for 1PLM
+items and for PCM items specified in \code{pcm.loc}, the slope in \code{x} is held
+fixed. See \code{\link[=est_irt]{est_irt()}} or \code{\link[=simdat]{simdat()}} for the format of the item
+metadata, which can be created with \code{\link[=shape_df]{shape_df()}}.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 
-\item{nstd}{An integer or a vector of integers indicating the sample size(s).
-If a vector is provided, its length must match the number of items in the
-\code{x} argument. Default is 1,000. See \strong{Details}.}
+\item{nstd}{An integer, or a vector of integers with one value per item in
+\code{x}, giving the number of examinees used to calibrate the items. The
+information of each item is multiplied by its sample size, so the standard
+errors are proportional to 1 / sqrt(\code{nstd}). Default is 1000. See
+\strong{Details}.}
 
-\item{pcm.loc}{A vector of integers indicating the positions of items
-calibrated using the partial credit model (PCM). For PCM items, the
-variance-covariance matrices are computed only for the item category
-difficulty parameters. Default is \code{NULL}. See the \strong{Details} for more
-information.}
+\item{pcm.loc}{A vector of integers giving the positions (rows of \code{x}) of
+GPCM items that were calibrated with the partial credit model (PCM). For
+these items, the slope is held at the value in \code{x} and the
+variance-covariance matrices are computed only for the threshold
+parameters. Positions of items that are not GPCM items are ignored. Default
+is \code{NULL}. See \strong{Details}.}
 
 \item{norm.prior}{A numeric vector of length two specifying the mean and
-standard deviation of the normal prior distribution. These values are used
-to generate the Gaussian quadrature points and weights when \code{weights = NULL}.
-Default is \code{c(0, 1)}.}
+standard deviation of the normal ability distribution over which the
+information is integrated. Used to generate the Gaussian quadrature points
+and weights when \code{weights = NULL}. Default is \code{c(0, 1)}.}
 
-\item{nquad}{An integer indicating the number of Gaussian quadrature points
-to be generated from the normal prior distribution. The specified value is
-used when \code{weights} is not \code{NULL}. Default is 41.}
+\item{nquad}{An integer specifying the number of Gaussian quadrature points
+generated from the normal distribution given in \code{norm.prior}. Used only
+when \code{weights = NULL}. Default is 41.}
 
-\item{weights}{An optional two-column data frame or matrix where the first
-column is the quadrature points (nodes) and the second column is the
-corresponding weights. This is typically used in quadrature-based IRT
-analysis.}
+\item{weights}{An optional two-column data frame or matrix of quadrature
+points (first column) and weights (second column) that defines the ability
+distribution. The weights should sum to 1, because they are not normalized.
+If \code{weights} is supplied, \code{norm.prior} and \code{nquad} are ignored. Such a data
+frame can be created with \code{\link[=gen.weight]{gen.weight()}}. Default is \code{NULL}.}
 }
 \value{
 A named list with the following two components:
 \itemize{
-\item \code{cov}: A named list of variance-covariance matrices for item parameter estimates.
-Each element corresponds to a single item and contains a square matrix whose
-dimensions match the number of estimated parameters for that item. For
-dichotomous items, this typically includes slopes and intercepts. For
-polytomous items, it includes category difficulty parameters (for PCM) or
-both slope and difficulty (or threshold) parameters (for GRM and GPCM).
-\item \code{se}: A named list of vectors containing the asymptotic standard errors (ASEs)
-of the item parameter estimates, computed as the square roots of the diagonal
-elements of each corresponding variance-covariance matrix in \code{cov}.
+\item \code{cov}: A named list of variance-covariance matrices, one per item. Each
+matrix contains only the estimated parameters of the item, and its row and
+column names are the parameter columns of \code{x}: \code{par.2} (difficulty) for the
+1PLM; \code{par.1} and \code{par.2} (slope and difficulty) for the 2PLM; \code{par.1} to
+\code{par.3} (slope, difficulty, and guessing) for the 3PLM; \code{par.1} to \code{par.K}
+(slope and K - 1 thresholds) for GRM and GPCM items with K score categories;
+and \code{par.2} to \code{par.K} (thresholds only) for PCM items specified in
+\code{pcm.loc}. Covariances between parameters of different items are not
+computed. If the information matrix of an item is singular, a warning is
+issued and the matrix is filled with \code{NA}.
+\item \code{se}: A named list of vectors containing the asymptotic standard errors
+(ASEs) of the item parameter estimates, computed as the square roots of the
+diagonal elements of each corresponding variance-covariance matrix in \code{cov}.
 }
 
 The names of the list elements in both \code{cov} and \code{se} correspond to the item
@@ -68,19 +78,71 @@ input \code{x}.
 }
 \description{
 This function computes the analytical asymptotic variance-covariance matrices
-of item parameter estimates for dichotomous and polytomous IRT models,
-without requiring examinee response data. Given a set of item parameter
-estimates and the corresponding sample sizes, the function derives the
-matrices using analytical formulas (e.g., Li & Lissitz, 2004; Thissen &
-Wainer, 1982). The square roots of the diagonal elements (variances) provide
-the asymptotic standard errors of the maximum likelihood estimates.
+of item parameter estimates for dichotomous and polytomous IRT models without
+examinee response data. For each item, the matrix is the inverse of the
+expected (Fisher) information of the item parameters, which is integrated
+over an assumed ability distribution and multiplied by the calibration sample
+size (Thissen & Wainer, 1982; Li & Lissitz, 2004). The square roots of the
+diagonal elements are the asymptotic standard errors of the maximum
+likelihood estimates.
 }
 \details{
-The standard errors obtained from this analytical approach are
-generally considered lower bounds of the true standard errors (Thissen &
-Wainer, 1982). Thus, they may serve as useful approximations for evaluating
-the precision of item parameter estimates when empirical standard errors are
-not reported in the literature or research reports.
+For each item, the asymptotic variance-covariance matrix is the inverse of
+the expected (Fisher) information matrix of the item parameters, which is
+integrated over the ability distribution with quadrature and multiplied by
+the sample size (Thissen & Wainer, 1982; Li & Lissitz, 2004). For an item
+with \eqn{K} score categories, the element of the information matrix for a
+pair of item parameters \eqn{\xi_s} and \eqn{\xi_t} is
+
+\deqn{I(\xi_s, \xi_t) = N \sum_{q=1}^{Q} A(X_q) \sum_{k=1}^{K}
+  \frac{1}{P_k(X_q)} \frac{\partial P_k(X_q)}{\partial \xi_s}
+  \frac{\partial P_k(X_q)}{\partial \xi_t},}{I(xi_s, xi_t) = N sum_q A(X_q)
+  sum_k [1 / P_k(X_q)] [d P_k(X_q) / d xi_s] [d P_k(X_q) / d xi_t],}
+
+where \eqn{N} is the sample size (\code{nstd}), \eqn{X_q} and \eqn{A(X_q)} are
+the \eqn{Q} quadrature points and weights that represent the ability
+distribution (\code{norm.prior} and \code{nquad}, or \code{weights}), and \eqn{P_k(X_q)} is
+the probability of a response in category \eqn{k} at \eqn{X_q}. This is the
+information of a categorical (multinomial) response. For a dichotomous item,
+it reduces to the familiar form in which each term is divided by
+\eqn{P(X_q) [1 - P(X_q)]} (Li & Lissitz, 2004, Equation A4).
+
+For polytomous items, the information above differs from Equation A8 of Li
+and Lissitz (2004). Their Equation A6 writes the likelihood of a response
+(and Equation A7 its logarithm) as
+\eqn{\prod_{k} P_k^{u_k} (1 - P_k)^{1 - u_k}}{prod_k
+P_k^u_k (1 - P_k)^(1 - u_k)}, where \eqn{u_k}
+is 1 for the observed category and 0 otherwise. The \eqn{K} category
+indicators are thus treated as independent Bernoulli variables, and
+Equation A8 accordingly divides each term by \eqn{P_k (1 - P_k)} instead of
+\eqn{P_k}. However, the indicators of one response sum to 1, so the response
+follows a multinomial distribution with likelihood
+\eqn{\prod_{k} P_k^{u_k}}{prod_k P_k^u_k},
+whose information divides each term by \eqn{P_k} only. Because
+\eqn{1 - P_k < 1}, Equation A8 overstates the information and understates the
+standard errors. For example, for an item with two categories, Equation A8
+gives exactly twice the information of their Equation A4 for dichotomous
+items. This function uses the multinomial information.
+
+The multinomial information was checked by a simulation that matches the
+setting of this function: abilities drawn from N(0, 1) and treated as known,
+maximum likelihood estimation, a sample size of 1,000, and 1,000
+replications for GRM and GPCM items with three to five categories. The
+standard errors from the multinomial information agreed with the standard
+deviations of the estimates across replications (ratios of 0.96 to 1.08),
+whereas those from Equation A8 were about 10 to 23 percent smaller (ratios
+of 0.77 to 0.90). For a dichotomous (2PLM) item, the two forms give the
+same results.
+
+The matrices are derived under the assumptions that the IRT model fits the
+data, that the item parameters are estimated by maximum likelihood, and that
+the ability distribution is known (Li & Lissitz, 2004). Because the
+abilities are treated as known, the uncertainty in the abilities is ignored,
+and prior distributions on the item parameters are not taken into account.
+The resulting standard errors are therefore generally considered lower bounds
+of the standard errors of an actual calibration (Thissen & Wainer, 1982).
+They may serve as approximations for evaluating the precision of item
+parameter estimates when empirical standard errors are not reported.
 
 If the item parameters provided in the \code{x} argument were calibrated using
 different sample sizes, a corresponding vector of sample sizes must be
@@ -91,11 +153,13 @@ set \code{nstd = c(500, 600, 1000, 2000, 700)}.
 
 Since the item metadata allows only \code{"GPCM"} to denote both the partial
 credit model (PCM) and the generalized partial credit model (GPCM), PCM items
-must be explicitly identified using the \code{pcm.loc} argument. This is necessary
-because the category difficulty parameters of PCM items require special
-handling when computing variance-covariance matrices. For instance, if you
-wish to compute the matrices for five polytomous items and the last two were
-calibrated using PCM, then specify \code{pcm.loc = c(4, 5)}.
+must be explicitly identified using the \code{pcm.loc} argument. For these items,
+the slope is not treated as an estimated parameter: it is held at the value
+in \code{x}, and only the threshold parameters enter the information matrix. For
+instance, if the last two of five polytomous items were calibrated using the
+PCM, specify \code{pcm.loc = c(4, 5)}. A GRM or GPCM item with two score
+categories is treated as a 2PLM item, and a PCM item with two score
+categories as a 1PLM item with a fixed slope.
 }
 \examples{
 # Example using a "-prm.txt" file exported from flexMIRT
@@ -109,12 +173,13 @@ covirt(x, D = 1, nstd = 2000, norm.prior = c(0, 1), nquad = 41)
 
 }
 \references{
-Li, Y., & Lissitz, R. (2004). Applications of the analytically
-derived asymptotic standard errors of item response theory item parameter
-estimates. \emph{Journal of Educational Measurement, 41}(2), 85-117.
+Li, Y. H., & Lissitz, R. W. (2004). Applications of the
+analytically derived asymptotic standard errors of item response theory
+item parameter estimates. \emph{Journal of Educational Measurement, 41}(2),
+85-117. \doi{10.1111/j.1745-3984.2004.tb01109.x}.
 
 Thissen, D., & Wainer, H. (1982). Some standard errors in item response
-theory. \emph{Psychometrika, 47}, 397-412.
+theory. \emph{Psychometrika, 47}(4), 397-412. \doi{10.1007/BF02293705}.
 }
 \seealso{
 \code{\link[=est_irt]{est_irt()}}, \code{\link[=simdat]{simdat()}}, \code{\link[=shape_df]{shape_df()}},

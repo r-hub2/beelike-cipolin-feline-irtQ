@@ -1,27 +1,29 @@
-# Negetive Loglikelihood of GPCM and GRM items
+# Negative log-likelihood (plus negative log priors) of a GRM or GPCM item
 # @description This function computes the negative loglikelihood of an item with the
 # polytomous IRT model
-# @param item_par A vector of item parameters. The first element is the item discrimination (or slope)
-# parameter. From the second elements, all all parameters are item threshold (or step) parameters.
-# @param r_i A matrix of the frequencies for each score categories
+# @param item_par A vector of item parameters. Unless fix.a = TRUE, the first element is the slope parameter and
+# the remaining elements are the threshold parameters; if fix.a = TRUE, all elements are threshold parameters and
+# the slope is a.val.
+# @param r_i A matrix of (expected) frequencies of the score categories, with one row per theta value and one
+# column per category
 # @param theta A vector of theta for an item.
-# @param pr.mod A vector of character strings specifying the polytomous model with which response data are simulated.
-# For each polytomous model, "GRM" for the graded response model or "GPCM" for the (generalized) partial credit model can be
-# specified.
-# @param D A scaling factor in IRT models to make the logistic function as close as possible to the normal
-# ogive function (if set to 1.7). Default is 1.
+# @param pr.mod A character string, "GRM" for the graded response model or "GPCM" for the (generalized) partial
+# credit model.
+# @param D A scaling constant. A value of 1.702 makes the logistic function approximate the normal ogive
+# function. Default is 1.
 #
-# @return A negative log-likelihood sum
-loglike_prm <- function(item_par, r_i, theta, pr.mod = c("GRM", "GPCM"), D = 1, nstd,
+# @return The negative log-likelihood summed over theta values, plus the negative log prior densities of the
+# parameters when priors are used
+loglike_prm <- function(item_par, r_i, theta, pr.mod = c("GRM", "GPCM"), D = 1,
                         fix.a = FALSE, a.val = 1,
-                        aprior = list(dist = "lnorm", params = c(1, 0.5)),
+                        aprior = list(dist = "lnorm", params = c(0, 0.5)),
                         bprior = list(dist = "norm", params = c(0.0, 1.0)),
                         use.aprior = FALSE, use.bprior = FALSE,
                         prob_cache = NULL) {
   # `prob_cache`, when non-NULL, is a list produced by make_prm_optim_fns()
   # carrying pre-computed probability objects for the current (item_par, theta):
   #   GRM  -> $P (clipped category probabilities)
-  #   GPCM -> $P (= numer / denom)
+  #   GPCM -> $P (= numer / denom, equal to the result of prm() up to rounding)
   # loglike_prm only needs $P, so the same cache structure works for both.
   ## -------------------------------------------------------------------------
   if (!fix.a) {
@@ -85,31 +87,32 @@ loglike_prm <- function(item_par, r_i, theta, pr.mod = c("GRM", "GPCM"), D = 1, 
   -llike
 }
 
-# Negetive Loglikelihood of dichotomous item
+# Negative log-likelihood (plus negative log priors) of dichotomous items
 # @description This function computes the negative loglikelihood of an item with the
 # dichotomous IRT model
 # @param item_par A vector of item parameters. The first element is the item discrimination (or slope)
 # parameter, the second element is the item difficulty parameter, and the third element is the item guessing
 # parameter. The third element is necessary only when the 3PLM is used.
-# @param f_i A vector of the frequencies for correct answer + incorrect answer
-# @param r_i A vector of the frequencies of correct answer
-# @param s_i A vector of the frequencies of incorrect answer
+# @param r_i A vector of the (expected) numbers of correct responses at each theta value
+# @param s_i A vector of the (expected) numbers of incorrect responses at each theta value
 # @param theta A vector of theta for an item.
-# @param D A scaling factor in IRT models to make the logistic function as close as possible to the normal
-# ogive function (if set to 1.7). Default is 1.
-# @param use.prior A logical value. If TRUE, a prior distribution specified in the argument \code{prior} is used when
-# estimating item parameters of the IRT 3PLM. Default is TRUE.
+# @param D A scaling constant. A value of 1.702 makes the logistic function approximate the normal ogive
+# function. Default is 1.
+# @param use.aprior,use.bprior,use.gprior Logical values indicating whether the priors in aprior, bprior, and
+# gprior are added to the log-likelihood of the slope, difficulty, and guessing parameters. The guessing prior is
+# used only when the guessing parameter is estimated (fix.g = FALSE).
 #
-# @return A negative log-likelihood sum
-loglike_drm <- function(item_par, f_i, r_i, s_i, theta, mod = c("1PLM", "2PLM", "3PLM"), D = 1,
-                        nstd, fix.a = FALSE, fix.g = FALSE, a.val = 1, g.val = .2, n.1PLM = NULL,
-                        aprior = list(dist = "lnorm", params = c(1, 0.5)),
+# @return The negative log-likelihood summed over theta values, plus the negative log prior densities of the
+# parameters when priors are used
+loglike_drm <- function(item_par, r_i, s_i, theta, mod = c("1PLM", "2PLM", "3PLM"), D = 1,
+                        fix.a = FALSE, fix.g = FALSE, a.val = 1, g.val = .2, n.1PLM = NULL,
+                        aprior = list(dist = "lnorm", params = c(0, 0.5)),
                         bprior = list(dist = "norm", params = c(0.0, 1.0)),
                         gprior = list(dist = "beta", params = c(5, 16)),
                         use.aprior = FALSE, use.bprior = FALSE, use.gprior = TRUE,
                         p_cache = NULL) {
   # `p_cache` (when non-NULL) is the drm() probability matrix for the
-  # branch picked below - supplied by make_drm_optim_fns() so the
+  # branch picked below, supplied by make_drm_optim_fns() so that the
   # objective / gradient / hessian share one P(theta) per nlminb point.
   # If NULL, each branch calls drm() directly.
   # compute log-likelihood
@@ -120,7 +123,7 @@ loglike_drm <- function(item_par, f_i, r_i, s_i, theta, mod = c("1PLM", "2PLM", 
     b <- item_par[-1]
 
     # compute the negative log-likelihood values for all 1PLM items
-    llike <- llike_drm(a = a, b = b, g = 0, f_i = f_i, r_i = r_i, s_i = s_i, theta = theta, D = D, p_cache = p_cache)
+    llike <- llike_drm(a = a, b = b, g = 0, r_i = r_i, s_i = s_i, theta = theta, D = D, p_cache = p_cache)
 
     # when the slope parameter prior is used
     if (use.aprior) {
@@ -146,7 +149,7 @@ loglike_drm <- function(item_par, f_i, r_i, s_i, theta, mod = c("1PLM", "2PLM", 
     # sum of log-likelihood
     llike <- llike_drm(
       a = a.val, b = item_par, g = 0,
-      f_i = f_i, r_i = r_i, s_i = s_i, theta = theta, D = D, p_cache = p_cache
+      r_i = r_i, s_i = s_i, theta = theta, D = D, p_cache = p_cache
     )
 
     # when the difficulty parameter prior is used
@@ -164,7 +167,7 @@ loglike_drm <- function(item_par, f_i, r_i, s_i, theta, mod = c("1PLM", "2PLM", 
     # sum of log-likelihood
     llike <- llike_drm(
       a = item_par[1], b = item_par[2], g = 0,
-      f_i = f_i, r_i = r_i, s_i = s_i, theta = theta, D = D, p_cache = p_cache
+      r_i = r_i, s_i = s_i, theta = theta, D = D, p_cache = p_cache
     )
 
     # when the slope parameter prior is used
@@ -191,7 +194,7 @@ loglike_drm <- function(item_par, f_i, r_i, s_i, theta, mod = c("1PLM", "2PLM", 
     # sum of log-likelihood
     llike <- llike_drm(
       a = item_par[1], b = item_par[2], g = item_par[3],
-      f_i = f_i, r_i = r_i, s_i = s_i, theta = theta, D = D, p_cache = p_cache
+      r_i = r_i, s_i = s_i, theta = theta, D = D, p_cache = p_cache
     )
 
     # when the slope parameter prior is used
@@ -227,7 +230,7 @@ loglike_drm <- function(item_par, f_i, r_i, s_i, theta, mod = c("1PLM", "2PLM", 
     # sum of log-likelihood
     llike <- llike_drm(
       a = item_par[1], b = item_par[2], g = g.val,
-      f_i = f_i, r_i = r_i, s_i = s_i, theta = theta, D = D, p_cache = p_cache
+      r_i = r_i, s_i = s_i, theta = theta, D = D, p_cache = p_cache
     )
 
     # when the slope parameter prior is used
@@ -254,7 +257,7 @@ loglike_drm <- function(item_par, f_i, r_i, s_i, theta, mod = c("1PLM", "2PLM", 
 }
 
 # compute a sum of the log-likelihood value for each dichotomous item
-llike_drm <- function(a, b, g, f_i, r_i, s_i, theta, D = 1, p_cache = NULL) {
+llike_drm <- function(a, b, g, r_i, s_i, theta, D = 1, p_cache = NULL) {
   # use the cached probability matrix when supplied; otherwise compute
   # drm() directly (the cache holds the drm() result for the same (a, b, g))
   p <- if (is.null(p_cache)) drm(theta, a = a, b = b, g = g, D = D) else p_cache

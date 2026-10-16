@@ -1,5 +1,7 @@
-# rescaling process by applying Woods's (2007) empirical histogram method
-scale_prior <- function(prior_freq, prior_dense, quadpt, scale.par = c(0, 1), Quadrature) {
+# This function rescales an empirical histogram on fixed quadrature points to a target mean and variance
+# (scale.par), following Woods (2007): the points are standardized and transformed, the frequencies are
+# interpolated back to the original points, extrapolated exponentially at both ends, and renormalized.
+scale_prior <- function(prior_freq, prior_dense, quadpt, scale.par = c(0, 1)) {
   # mean and sd of the updated prior distribution
   moments <- cal_moment(node = quadpt, weight = prior_dense)
   mu <- moments[1]
@@ -17,8 +19,11 @@ scale_prior <- function(prior_freq, prior_dense, quadpt, scale.par = c(0, 1), Qu
   # first point of the new quad points
   qstar_0 <- quadpt_star[1]
 
+  # number of quadrature points
+  n.q <- length(quadpt)
+
   # end point of the new quad points
-  qstar_Q <- quadpt_star[Quadrature[1]]
+  qstar_Q <- quadpt_star[n.q]
 
   # translate back the standardized prior distribution to the original quadrature points
   # (a) extrapolate the frequencies of the original quad points less than or equal to the first new quad point
@@ -32,7 +37,7 @@ scale_prior <- function(prior_freq, prior_dense, quadpt, scale.par = c(0, 1), Qu
   # (b) extrapolate the frequencies of the original quad points greater than or equal to the end new quad point
   quad_tmp3 <- quadpt[quadpt >= qstar_Q]
   if (length(quad_tmp3) > 0) {
-    freq_3 <- ((prior_freq[Quadrature[1]] / prior_freq[Quadrature[1] - 1])^((quad_tmp3 - qstar_Q) / delta)) * prior_freq[Quadrature[1]]
+    freq_3 <- ((prior_freq[n.q] / prior_freq[n.q - 1])^((quad_tmp3 - qstar_Q) / delta)) * prior_freq[n.q]
   } else {
     freq_3 <- NULL
   }
@@ -54,7 +59,7 @@ scale_prior <- function(prior_freq, prior_dense, quadpt, scale.par = c(0, 1), Qu
   # translated empirical histogram at the original quad points
   prior_freq2 <- c(freq_1, freq_2, freq_3)
 
-  # r-enormalize the empirical histogram
+  # renormalize the empirical histogram
   prior_dense2 <- prior_freq2 / sum(prior_freq2)
 
   # return the prior density

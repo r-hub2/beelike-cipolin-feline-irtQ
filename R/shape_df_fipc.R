@@ -1,4 +1,4 @@
-#' Combine fixed and new item metadata for fixed-item parameter calibration
+#' Combine Fixed and New Item Metadata for Fixed Item Parameter Calibration
 #' (FIPC)
 #'
 #' This function merges existing fixed-item metadata with automatically
@@ -9,33 +9,36 @@
 #' @param x A data.frame of metadata for items whose parameters remain fixed
 #'   (e.g., output from [irtQ::shape_df()]).
 #' @param fix.loc An integer vector specifying the row positions in the final
-#'   output where fixed items should be placed.
-#' @param item.id A character vector of IDs for new items whose parameters will
-#'   be estimated.If `NULL`, default IDs (e.g., "V1", "V2", ...) are assigned
-#'   automatically.
-#' @param cats An integer vector indicating the number of response categories
-#'   for each new item; order must match `item.id`.
-#' @param model A character vector of IRT model names for each new item. Valid
-#'   options for dichotomous items: "1PLM", "2PLM", "3PLM", "DRM"; for
-#'   polytomous items: "GRM", "GPCM".
+#'   output where the fixed items are placed, in the row order of `x`. This
+#'   argument must be specified.
+#' @param item.id A character vector of IDs for the new items whose parameters
+#'   are estimated. If `NULL`, default IDs (`"V1"`, `"V2"`, ...) are assigned.
+#' @param cats An integer vector giving the number of score categories of each
+#'   new item, in the order of `item.id`. A single value is recycled across all
+#'   new items.
+#' @param model A character vector of IRT model names for the new items:
+#'   `"1PLM"`, `"2PLM"`, `"3PLM"`, or `"DRM"` for dichotomous items, and
+#'   `"GRM"` or `"GPCM"` for polytomous items. A single value is recycled
+#'   across all new items.
 #'
-#' @details To use this function, first prepare a metadata frame `x` containing
-#'   only fixed items - either created by [irtQ::shape_df()] or imported from
-#'   external software (e.g., via [irtQ::bring.flexmirt()]), which must include
-#'   columns `id`, `cats`, `model`, and all relevant parameter columns (`par.1`,
-#'   `par.2`, etc.). The `fix.loc` argument should then specify the exact row
-#'   positions in the final test form where these fixed items should remain. The
-#'   length of `fix.loc` must match the number of rows in `x`, and the order of
-#'   positions in `fix.loc` determines where each fixed-item row is placed.
+#' @details First, prepare a metadata frame `x` that contains only the fixed
+#'   items, created by [irtQ::shape_df()] or imported from external software
+#'   (e.g., with [irtQ::bring.flexmirt()]). It must include the columns `id`,
+#'   `cats`, `model`, and the parameter columns (`par.1`, `par.2`, ...). Then
+#'   use `fix.loc` to give the row positions of these items in the final test
+#'   form. The length of `fix.loc` must equal the number of rows in `x`, and
+#'   the i-th element of `fix.loc` is the position of the i-th row of `x`.
 #'
-#'   Next, provide information for the new items whose parameters will be
-#'   estimated. Supply vectors for `item.id`, `cats`, and `model` matching the
-#'   number of new items (equal to total form length minus length of `fix.loc`).
-#'   If `item.id` is `NULL`, unique IDs are generated automatically.
+#'   Next, provide `item.id`, `cats`, and `model` for the new items, whose
+#'   number equals the total form length minus the length of `fix.loc`. A
+#'   single value of `cats` or `model` is used for all new items.
+#'   If `item.id` is `NULL`, default IDs (`"V1"`, `"V2"`, ...) are assigned.
 #'
 #'
-#' @return A data.frame containing combined metadata for all items (fixed and
-#'   new), ordered by test position.
+#' @return A data frame of item metadata for all items (fixed and new), ordered
+#'   by test position, with columns `id`, `cats`, `model`, and `par.1`,
+#'   `par.2`, .... New items receive default parameters as in [irtQ::shape_df()]
+#'   with `default.par = TRUE`. Fixed `"DRM"` items are relabeled `"3PLM"`.
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
@@ -85,15 +88,28 @@ shape_df_fipc <- function(x, fix.loc = NULL, item.id = NULL, cats, model) {
   # Determine the total number of items
   nitem <- nrow(x_all)
 
+  # Stop unless fix.loc gives one distinct valid position for every fixed item
+  if (is.null(fix.loc) || length(fix.loc) != nrow(x_fix) ||
+      anyDuplicated(fix.loc) > 0L || !all(fix.loc %in% seq_len(nitem))) {
+    stop(
+      "`fix.loc` must contain one distinct position in 1:", nitem,
+      " for each row of `x`.",
+      call. = FALSE
+    )
+  }
+
   # Identify row positions reserved for new items
   nfix.loc <- setdiff(seq_len(nitem), fix.loc)
 
   # Extract the original fixed-item rows
   x_fix2 <- x_all[seq_len(nrow(x_fix)), ]
 
+  # Extract the new-item rows aligned to every column of the merged frame
+  x_new2 <- x_all[nrow(x_fix) + seq_len(nrow(x_new)), ]
+
   # Place fixed items and new items at their specified positions
   x_all[fix.loc, ] <- x_fix2
-  x_all[nfix.loc, ] <- x_new
+  x_all[nfix.loc, ] <- x_new2
 
   # Return the combined and ordered metadata
   x_all

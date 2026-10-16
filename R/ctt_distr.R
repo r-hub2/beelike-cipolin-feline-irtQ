@@ -1,19 +1,18 @@
 #' Option/Category Response Distribution and Distractor Analysis
 #'
-#' Computes, for each item, the percentage of examinees choosing each
-#' response option (or, for already-scored polytomous data, each score
-#' category), together with each option's/category's point-biserial
-#' correlation with the total score. When an answer key is supplied, the
-#' function operates in "selected-response" mode - treating `data` as raw,
-#' unscored option responses (as consumed by [irtQ::score_resp()]) - and
-#' additionally reports omission/double-marking rates and flags distractors
-#' (incorrect options) whose correlation with the total score is positive, a
-#' common indicator of a miskeyed or poorly written item. When no key is
-#' supplied, the function operates in "scored-category" mode - treating
-#' `data` as an already-scored response matrix (0, 1, 2, ..., cats - 1) - and
-#' simply reports each score category's response proportion and
-#' category-total correlation, with no notion of a "correct" option to flag
-#' distractors against.
+#' Computes, for each item, the number and percentage of examinees choosing
+#' each response option (or, for already-scored data, each score category),
+#' together with each option's or category's point-biserial correlation with
+#' the total score. When an answer key is supplied, the function operates in
+#' "selected-response" mode: it treats `data` as raw, unscored option
+#' responses (as used by [irtQ::score_resp()]), also reports omission and
+#' double-marking rates, and flags distractors (incorrect options) whose
+#' correlation with the total score exceeds `crit.distractor` (0 by
+#' default), a common sign of a miskeyed or poorly written item. When no key
+#' is supplied, the function operates in "scored-category" mode: it treats
+#' `data` as an already-scored response matrix (0, 1, 2, ..., cats - 1) and
+#' reports each score category's response proportion and category-total
+#' correlation, with no correct option and therefore no flagging.
 #'
 #' @note Selected-response mode (`key` supplied) is restricted to
 #'   **dichotomous, single-key items only**, exactly like
@@ -34,20 +33,21 @@
 #' @inheritParams ctt_item
 #' @param data In selected-response mode (`key` supplied), a data frame or
 #'   matrix of raw item responses in the same format as the `data` argument
-#'   of [irtQ::score_resp()] (a selected option number, a missing-response
+#'   of [irtQ::score_resp()] (a selected option, a missing-response
 #'   indicator, or a comma-separated string such as `"1,5"` for a
 #'   double-marked response). In scored-category mode (`key = NULL`), a data
 #'   frame or matrix of already-scored item responses with scores 0 to
 #'   `cats[j] - 1` for each item j; an error is raised when a score is not a
-#'   whole number between 0 and `cats[j] - 1`. Either way, examinees are rows
-#'   and items are columns.
-#' @param key `NULL` (default) for scored-category mode, or - to use
-#'   selected-response mode - either a vector of correct options in item
-#'   order, or a data frame with columns `item` and `key`, exactly as
-#'   accepted by [irtQ::score_resp()]. As in [irtQ::score_resp()], each
-#'   item's option-coding scheme (numeric, Latin-letter, or general label
-#'   such as a Korean syllable label) is inferred independently from its own
-#'   key value; see **Details**.
+#'   whole number between 0 and `cats[j] - 1`, and a score within 1e-8 of a
+#'   whole number is treated as that whole number. Either way, examinees are
+#'   rows and items are columns.
+#' @param key `NULL` (default) for scored-category mode. For
+#'   selected-response mode, either a vector of correct options in item
+#'   order or a data frame with columns `item` and `key`, as accepted by
+#'   [irtQ::score_resp()]. As in [irtQ::score_resp()], each item's
+#'   option-coding scheme (numeric, Latin-letter, or general label such as a
+#'   Korean syllable label) is inferred independently from its own key
+#'   value; see **Details**.
 #' @param opt A vector giving the full set of possible response option
 #'   values in selected-response mode (e.g., `1:5` for a five-option item,
 #'   or `c("A", "B", "C", "D", "E")` for a letter-coded item), applied to
@@ -71,11 +71,15 @@
 #'   total score is computed internally: via [irtQ::score_resp()] in
 #'   selected-response mode, or as `rowSums(data)` in scored-category mode
 #'   (see **Details** for how `total` interacts with `missing`/listwise
-#'   deletion in scored-category mode).
+#'   deletion in scored-category mode). A supplied `total` must be numeric
+#'   with no missing values for the examinees analyzed, and it should include
+#'   the item scores, since `pb_corrected` subtracts each item's score from
+#'   it.
 #' @param missing A value indicating missing responses, analogous to the
 #'   `missing` argument in [irtQ::est_irt()] and [irtQ::score_resp()]. Its
 #'   effect differs by mode (see **Details**): in selected-response mode, a
-#'   cell equal to `missing` is recoded to `NA` and then treated as a blank
+#'   cell equal to `missing` after trimming surrounding spaces is recoded to
+#'   `NA` and then treated as a blank
 #'   (omitted) response, contributing to that item's omission rate, without
 #'   removing the examinee from the analysis. In scored-category mode, a
 #'   cell equal to `missing` is recoded to `NA` and the examinee's row is
@@ -87,12 +91,13 @@
 #' @details
 #' In selected-response mode, each item's option-coding scheme is inferred
 #' from its own `key` value, using exactly the same three-way rule as
-#' [irtQ::score_resp()]: a key value that parses as a number is compared
-#' numerically; a key value consisting of one or more Latin letters is
-#' compared as letters, case-insensitively, and a response must itself
-#' consist only of Latin letters to count as a single valid option; any
-#' other key value (e.g., a Korean syllable label, a Roman numeral written
-#' in a non-Latin numeral script, or a circled-number symbol) is treated as
+#' [irtQ::score_resp()]: a key value written with digits only (e.g., `4`,
+#' optionally with a decimal part) is compared numerically; a key value
+#' consisting of one or more Latin letters is compared as letters,
+#' case-insensitively, and a response must itself consist only of Latin
+#' letters to count as a single valid option; any other key value (e.g., a
+#' Korean syllable label, a Roman numeral written with non-Latin numeral
+#' characters, or a circled-number symbol) is treated as
 #' a general option label, under which any non-blank, non-double-marked
 #' response is accepted as a single valid option and compared to the key
 #' (and to `opt`) with a case-insensitive exact string match. This ensures
@@ -101,9 +106,11 @@
 #' item's frequency table) is a single vector shared across all items,
 #' `ctt_distr()` is intended for a test form that uses one consistent
 #' option-coding scheme throughout (e.g., every item numbered 1-5, or every
-#' item lettered A-E); mixing schemes across items within a single call is
-#' not well-supported, since the shared `opt` cannot represent two different
-#' option universes at once.
+#' item lettered A-E). Mixing schemes across items in a single call is not
+#' supported, since the shared `opt` cannot represent two different option
+#' sets at once; for example, mixing numeric-coded items with letter- or
+#' label-coded items stops with an error. Analyze such items in separate
+#' calls.
 #'
 #' The two modes handle missing responses differently because they represent
 #' different kinds of data. In selected-response mode, an omitted response is
@@ -115,41 +122,40 @@
 #' [ctt()]), where a missing cell instead means the
 #' item was not administered to, or not observed for, that examinee, so the
 #' examinee's row is excluded listwise for that analysis. When `total` is
-#' supplied together with scored-category mode's listwise deletion, `total`
-#' is assumed to align with the *original* rows of `data`; it is subset using
-#' the same completeness mask before use, so its length need only match the
-#' original `nrow(data)`.
+#' supplied in scored-category mode, it must align with the *original* rows
+#' of `data` (its length must equal the original `nrow(data)`); it is subset
+#' with the same completeness mask before use.
 #'
 #' Point-biserial correlations are computed as the Pearson correlation
 #' between a 0/1 indicator (whether the examinee chose that particular
-#' option, or scored in that particular category) and the total score. As
-#' with the item-level discrimination statistics computed by [ctt()], both
-#' the raw (uncorrected, item/option-included) and
-#' corrected (item-excluded) versions are always computed and returned as
-#' separate columns (`pb_raw`/`pb_corrected`); `correct` only selects which
-#' of the two feeds the `crit.distractor` flagging criterion in
-#' selected-response mode. A point-biserial correlation is undefined, and
-#' reported as `NA`, whenever an option/category was chosen by zero or all
-#' examinees (a constant indicator).
+#' option, or scored in that particular category) and a total score. As with
+#' the item-level discrimination statistics computed by [ctt()], two
+#' versions are always computed and returned as separate columns: `pb_raw`
+#' uses the total score, and `pb_corrected` uses the total score minus the
+#' item's own score. `correct` only selects which of the two feeds the
+#' `crit.distractor` flagging criterion in selected-response mode. A
+#' point-biserial correlation is undefined, and reported as `NA`, whenever
+#' an option or category was chosen by zero or all examinees (a constant
+#' indicator) or the total score is constant.
 #'
 #' @return A list with these elements:
 #' \item{distr}{A data frame in long format with one row per item x option
 #'   (selected-response mode) or item x category (scored-category mode),
 #'   containing `item`, `option` (the option number, option label, or score
 #'   category; numeric for a numeric-coded or scored-category test form,
-#'   character for a letter- or general-label-coded test form),
-#'   `is_key` (logical; whether this option is the item's correct answer, or
-#'   `NA` in scored-category mode), `freq` (the raw number of examinees
-#'   choosing this option/category), `pct` (the same count expressed as a
-#'   percentage of examinees), `pb_raw` (raw, uncorrected point-biserial
-#'   correlation with the total score), `pb_corrected` (corrected,
-#'   item-excluded point-biserial correlation with the total score), and
-#'   `flag` (a description of `crit.distractor` violations, based on
-#'   whichever of `pb_raw`/`pb_corrected` is selected by `correct`, in
-#'   selected-response mode, or `""` otherwise).}
+#'   character and upper-cased for a letter- or general-label-coded test
+#'   form), `is_key` (logical; whether this option is the item's correct
+#'   answer, or `NA` in scored-category mode), `freq` (the number of
+#'   examinees choosing this option or category), `pct` (`freq` as a
+#'   percentage of all examinees analyzed, rounded to two decimal places),
+#'   `pb_raw` and `pb_corrected` (raw and corrected point-biserial
+#'   correlations, rounded to three decimal places), and `flag` (in
+#'   selected-response mode, "distractor more attractive to high scorers"
+#'   for a distractor whose point-biserial correlation, chosen by `correct`,
+#'   exceeds `crit.distractor`; `""` otherwise).}
 #' \item{omit}{In selected-response mode, a data frame with one row per item
-#'   giving the blank/omission and double-marked response percentages
-#'   (`pct_blank`, `pct_double`). `NULL` in scored-category mode.}
+#'   and the columns `item`, `pct_blank`, and `pct_double` (the percentages
+#'   of blank and double-marked responses). `NULL` in scored-category mode.}
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
@@ -227,21 +233,32 @@ ctt_distr <- function(data, item.id = NULL, key = NULL, opt = NULL,
 
     # ---- Selected-response (raw option / distractor analysis) mode -------
 
+    # the distractor threshold must be a single number
+    if (!is.numeric(crit.distractor) || length(crit.distractor) != 1L ||
+        is.na(crit.distractor)) {
+      stop("`crit.distractor` must be a single number.", call. = FALSE)
+    }
+
     # convert every column to character up front, then recode a
     # user-specified missing sentinel to NA (mirrors score_resp()); blanks
     # remain in the sample here rather than triggering row deletion, since an
     # omission is itself a meaningful response category in this mode
     data[] <- lapply(data, as.character)
     if (!is.na(missing)) {
-      data[data == as.character(missing)] <- NA
+      # compare after trimming so that " 9" or "9 " also counts as missing
+      missing_chr <- trimws(as.character(missing))
+      data[] <- lapply(data, function(x) {
+        x[which(trimws(x) == missing_chr)] <- NA
+        x
+      })
     }
 
     # score the raw responses against the key to get the 0/1 item scores
     # needed both for the total score (if not supplied) and for the
     # "corrected" reference total used in each option's point-biserial.
-    # score_resp() also validates `key` here (errors on any blank/NA key
-    # value), so by the time execution reaches the re-derivation below,
-    # `key` is already known to be valid
+    # score_resp() also validates `key` (a blank, NA, or comma-containing
+    # value, or wrong item numbers in a key data frame, stops with an error),
+    # so the key it resolves can be reused below
     scored_out <- score_resp(data = data, key = key, missing = NA)
     scored <- scored_out$scored
 
@@ -254,26 +271,36 @@ ctt_distr <- function(data, item.id = NULL, key = NULL, opt = NULL,
       stop("length(total) must equal nrow(data).", call. = FALSE)
     }
 
-    # resolve the correct-option key into a trimmed character vector, aligned
-    # to item column order - mirrors irtQ::score_resp()'s own key resolution
-    # exactly, so both functions agree on what a given `key` means
-    if (is.data.frame(key)) {
-      # order by the numeric item number so character or factor item columns
-      # are matched by item number, as in score_resp()
-      item_order <- order(as.integer(as.character(key$item)))
-      key_vec <- trimws(as.character(key$key[item_order]))
-    } else {
-      key_vec <- trimws(as.character(key))
+    # correlations need a numeric total score for every examinee
+    if (!is.numeric(total) || anyNA(total)) {
+      stop("`total` must be numeric with no missing values.", call. = FALSE)
     }
+
+    # correlations need at least two examinees
+    if (nrow(data) < 2L) {
+      stop("At least two examinees are required.", call. = FALSE)
+    }
+
+    # take the key as a trimmed character vector in item column order, as
+    # resolved by score_resp(), so both functions read `key` alike
+    key_vec <- scored_out$resp_summary$key
 
     # classify each item's key value into the same three option-coding
     # schemes used by irtQ::score_resp(): numeric, Latin-letter
-    # (case-insensitive), or general label (any other non-blank token, e.g.
-    # Hangul syllables, Roman numerals in a non-Latin script, circled-number
-    # symbols). This per-item flag drives how that item's column in `data`,
-    # and the shared `opt` universe below, are compared further down
+    # (case-insensitive), or general label (any other non-blank token, e.g.,
+    # Hangul syllables, Roman numerals written with non-Latin numeral
+    # characters, circled-number symbols). This per-item flag drives how that
+    # item's column in `data`, and the shared `opt` universe below, are
+    # compared further down
     is_key_numeric <- grepl("^[0-9]+(\\.[0-9]+)?$", key_vec)
     is_key_latin <- grepl("^[A-Za-z]+$", key_vec)
+
+    # one shared `opt` cannot hold numeric and non-numeric options at once
+    if (any(is_key_numeric) && !all(is_key_numeric)) {
+      stop("In selected-response mode, `key` must be numeric for every item ",
+           "or for none of them, since `opt` is shared across items.",
+           call. = FALSE)
+    }
 
     # the full set of possible option values, applied to every item (see
     # @details for the single-shared-scheme assumption this implies). If the
@@ -283,8 +310,7 @@ ctt_distr <- function(data, item.id = NULL, key = NULL, opt = NULL,
     # infer it as the sorted set of all single (non-blank, non-double-marked)
     # response tokens observed anywhere in `data`, using each item's own
     # scheme (from `is_key_numeric`/`is_key_latin` above) to decide what
-    # counts as a single response - exactly mirroring how
-    # irtQ::score_resp() itself decides validity per item
+    # counts as a single response, as irtQ::score_resp() does per item
     if (is.null(opt)) {
       all_tokens <- character(0)
       for (j in seq_len(n_item)) {
@@ -307,15 +333,17 @@ ctt_distr <- function(data, item.id = NULL, key = NULL, opt = NULL,
       uniq_tokens <- unique(all_tokens)
       if (length(uniq_tokens) > 0L && all(is_key_numeric)) {
         # every item is numeric-coded: sort as numbers and keep `opt`
-        # numeric
-        opt <- sort(as.numeric(uniq_tokens))
+        # numeric; duplicates are removed after parsing, so "1" and "01" are
+        # one option
+        opt <- sort(unique(as.numeric(uniq_tokens)))
       } else {
-        # at least one item is letter- or general-label-coded: sort as
-        # character strings and keep `opt` character
+        # every item is letter- or general-label-coded, or no single response
+        # was observed: sort as character strings and keep `opt` character
         opt <- sort(uniq_tokens)
       }
     } else if (all(is_key_numeric)) {
-      opt <- as.numeric(opt)          # keep caller's values/order, coerce type
+      # keep caller's order, coerce type, and drop repeated values ("1", "01")
+      opt <- unique(as.numeric(opt))
     } else {
       opt <- toupper(as.character(opt))   # keep caller's order, canonicalize case
     }
@@ -437,8 +465,8 @@ ctt_distr <- function(data, item.id = NULL, key = NULL, opt = NULL,
     }
     data <- data[complete_rows, , drop = FALSE]
 
-    # stop when a score or a `cats` value is not valid
-    check_ctt_scores(data, cats, item_names)
+    # stop when a score or a `cats` value is not valid, and round the scores
+    data <- check_ctt_scores(data, cats, item_names)
 
     # resolve the total score: use the caller-supplied vector (subset to the
     # same complete rows, so it stays aligned with `data` after deletion) if
@@ -451,6 +479,11 @@ ctt_distr <- function(data, item.id = NULL, key = NULL, opt = NULL,
              call. = FALSE)
       }
       total <- total[complete_rows]
+    }
+
+    # correlations need a numeric total score for every examinee
+    if (!is.numeric(total) || anyNA(total)) {
+      stop("`total` must be numeric with no missing values.", call. = FALSE)
     }
 
     # infer the number of score categories per item, when not supplied

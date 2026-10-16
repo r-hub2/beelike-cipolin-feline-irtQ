@@ -10,7 +10,7 @@ bind.fill(List, type = c("rbind", "cbind"), fill = NA)
 \item{List}{A list containing numeric vectors of possibly different lengths.}
 
 \item{type}{A character string indicating the type of binding to perform.
-Options are \code{"rbind"} or \code{"cbind"}.}
+Options are \code{"rbind"} or \code{"cbind"}. Default is \code{"rbind"}.}
 
 \item{fill}{A value used to fill missing elements when aligning the vectors.
 For \code{type = "cbind"}, this fills missing rows in shorter columns; for \code{type = "rbind"}, this fills missing columns in shorter rows. Accepts any R
@@ -19,6 +19,7 @@ object (e.g., numeric, character, logical). Default is \code{NA}.}
 \value{
 A matrix formed by binding the elements of the list either row-wise
 or column-wise, with shorter vectors padded by the specified \code{fill} value.
+The matrix has no row or column names.
 }
 \description{
 This function creates a matrix using either row-wise (\code{rbind}) or column-wise

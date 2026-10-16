@@ -1,11 +1,15 @@
 #' Test-Level Reliability Summary (Cronbach's Alpha)
 #'
-#' Computes a test-level classical test theory (CTT) reliability summary -
-#' Cronbach's alpha (both the raw and standardized forms), the standard error
-#' of measurement (SEM), and the average item difficulty and discrimination -
-#' from scored item response data.
+#' Computes a test-level classical test theory (CTT) reliability summary
+#' from scored item response data: Cronbach's alpha (raw and standardized
+#' forms), the standard error of measurement (SEM), and the average item
+#' difficulty and discrimination.
 #'
 #' @inheritParams ctt_item
+#' @param correct Logical. Accepted for consistency with [ctt_item()] and
+#'   [ctt()]. Both the raw and corrected mean item-total correlations are
+#'   always reported and `ctt_alpha()` has no flagging step, so `correct`
+#'   does not change the result.
 #'
 #' @details
 #' Two forms of Cronbach's alpha are always computed and reported as separate
@@ -16,28 +20,33 @@
 #' variance)`, where k is the number of items. This formula is a general
 #' reliability coefficient that applies unchanged to dichotomous and
 #' polytomous item scores alike, and it reflects the reliability of the
-#' actual (unweighted) total score obtained by simply summing the item
-#' scores - the score most tests actually use for reporting and decisions.
+#' unweighted total score obtained by summing the item scores, which is the
+#' score most tests use for reporting and decisions.
 #' In everyday terms, raw alpha asks: "if every item kept its own natural
 #' scale and spread, how consistently do these items agree with each other?"
 #'
-#' Standardized alpha (`alpha_std`) instead first standardizes every item to
-#' the same scale (unit variance) before combining them, using the
-#' equivalent formula `alpha_std = (k * r_bar) / (1 + (k - 1) * r_bar)`,
-#' where `r_bar` is the average pairwise correlation among all items. In
-#' everyday terms, standardized alpha asks: "if every item counted equally
-#' regardless of how much it happens to vary in this particular sample, how
-#' consistently would these items agree with each other?" Because it removes
-#' the influence of any single item's variance, standardized alpha is most
-#' useful when items differ substantially in scale or format (e.g., a mix of
-#' dichotomous and polytomous items with very different score ranges); when
-#' all items share the same scale and format (as with a dichotomous
-#' selected-response test scored 0/1), raw and standardized alpha are
-#' typically close, and raw alpha remains the more directly interpretable of
-#' the two since it matches the reliability of the score actually used in
-#' practice. See Cronbach (1951) for the original derivation of coefficient
-#' alpha, and Osburn (2000) for a discussion contrasting the raw
-#' (covariance-based) and standardized (correlation-based) forms.
+#' Standardized alpha (`alpha_std`) is raw alpha computed after standardizing
+#' every item with nonzero variance to unit variance. When no item is constant,
+#' it equals `alpha_std = (k * r_bar) / (1 + (k - 1) * r_bar)`, where `r_bar`
+#' is the average pairwise correlation among the items. A constant item has no
+#' defined correlation and cannot be standardized, so it stays in the item
+#' count k with zero variance, as in raw alpha, and `r_bar` is the average
+#' correlation among the items that vary. When only one item varies,
+#' `alpha_std` is 0, as is raw alpha; it is `NA` when no item varies or the
+#' standardized total score is constant. In everyday terms, standardized alpha
+#' asks: "if every item counted equally regardless of how much it happens to
+#' vary in this particular sample, how consistently would these items agree
+#' with each other?" Because it removes the influence of any single item's
+#' variance, standardized alpha is most useful when items differ substantially
+#' in scale or format (e.g., a mix of dichotomous and polytomous items with
+#' very different score ranges); when all items share the same scale and format
+#' (as with a dichotomous selected-response test scored 0/1), raw and
+#' standardized alpha are typically close, and raw alpha remains the more
+#' directly interpretable of the two since it matches the reliability of the
+#' score actually used in practice. See Cronbach (1951) for the original
+#' derivation of coefficient alpha, and Osburn (2000) for a discussion
+#' contrasting the raw (covariance-based) and standardized (correlation-based)
+#' forms.
 #'
 #' The standard error of measurement (SEM) is computed as
 #' `SEM = SD(total score) * sqrt(1 - alpha)` (using raw alpha), following the
@@ -45,39 +54,41 @@
 #' precision.
 #'
 #' Average difficulty and average discrimination are the simple means of the
-#' per-item difficulty and discrimination values computed by [ctt_item()]
-#' (any `NA` per-item value, e.g. from a constant item, is excluded via
-#' `na.rm = TRUE`). As in [ctt_item()], both the raw (uncorrected) and
-#' corrected (item-excluded) item-total correlations are always averaged and
-#' reported as separate columns. `ctt_alpha()` itself has no flagging step,
-#' so `correct` has no further effect here beyond being passed through to
-#' [ctt_item()] for internal consistency.
+#' per-item values computed by [ctt_item()], ignoring `NA` values (e.g., the
+#' discrimination of a constant item). As in [ctt_item()], the raw and
+#' corrected item-total correlations are averaged separately and both are
+#' reported. `ctt_alpha()` has no flagging step, so `correct` does not
+#' change the result.
 #'
-#' Because `mean_difficulty`/`mean_discrimination_raw`/
-#' `mean_discrimination_corrected` are averaged with `na.rm = TRUE`, they
-#' inherit [ctt_item()]'s `cats`-auto-inference rule: when `cats` is not
-#' supplied, it is inferred as the observed maximum score plus one, with a
-#' minimum of two. An item that every examinee scores 0 on therefore enters
-#' the average with a difficulty of 0 and is flagged as "difficulty too low"
-#' by [ctt_item()]. For a polytomous item whose highest score category is not
-#' observed in the sample, however, `cats` is inferred too small and the
-#' difficulty is biased upward, so supply `cats` explicitly whenever the
-#' maximum possible score may not have been observed.
+#' Average difficulty depends on `cats`. When `cats` is not supplied, it is
+#' inferred for each item as the observed maximum score plus one, with a
+#' minimum of two, as in [ctt_item()]. An item that every examinee scores 0
+#' on therefore enters the average with a difficulty of 0. For a polytomous
+#' item whose highest score category is not observed in the sample, `cats`
+#' is inferred too small and the item's difficulty is biased upward, so
+#' supply `cats` explicitly whenever the maximum possible score may not have
+#' been observed.
 #'
-#' @return A one-row data frame containing:
+#' @return A one-row data frame with the following columns. Values other than
+#'   the counts are rounded to three decimal places.
 #' \item{n_examinee}{number of examinees included (after listwise deletion).}
 #' \item{n_item}{number of items.}
-#' \item{alpha}{Cronbach's alpha, raw (covariance-based) form.}
-#' \item{alpha_std}{Cronbach's alpha, standardized (correlation-based) form -
-#'   equivalent to computing raw alpha after first standardizing every item
-#'   to unit variance. See **Details** for when this differs meaningfully
-#'   from `alpha`.}
-#' \item{sem}{the standard error of measurement (based on raw alpha).}
+#' \item{alpha}{Cronbach's alpha, raw (covariance-based) form; `NA` when the
+#'   total score has zero variance.}
+#' \item{alpha_std}{Cronbach's alpha, standardized (correlation-based) form:
+#'   raw alpha computed after standardizing every item with nonzero variance
+#'   to unit variance, with a constant item kept in the item count as in
+#'   `alpha`; `NA` when it is undefined. It equals
+#'   `k * r_bar / (1 + (k - 1) * r_bar)` when no item is constant. See
+#'   **Details** for when it differs meaningfully from `alpha`.}
+#' \item{sem}{the standard error of measurement (based on raw alpha); `NA`
+#'   when `alpha` is `NA`.}
 #' \item{mean_difficulty}{average item difficulty.}
 #' \item{mean_discrimination_raw}{average raw (uncorrected) item-total
-#'   correlation across items.}
+#'   correlation across items with a defined value; `NA` when there is none.}
 #' \item{mean_discrimination_corrected}{average corrected (item-excluded)
-#'   item-total correlation across items.}
+#'   item-total correlation across items with a defined value; `NA` when
+#'   there is none.}
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
@@ -130,8 +141,8 @@ ctt_alpha <- function(data, item.id = NULL, cats = NULL, correct = FALSE,
     data <- data[complete_rows, , drop = FALSE]
   }
 
-  # stop when a score or a `cats` value is not valid
-  check_ctt_scores(data, cats, item.id)
+  # stop when a score or a `cats` value is not valid, and round the scores
+  data <- check_ctt_scores(data, cats, item.id)
   n_examinee <- nrow(data)
 
   # per-item variances and the total-score variance, used in the alpha
@@ -151,19 +162,34 @@ ctt_alpha <- function(data, item.id = NULL, cats = NULL, correct = FALSE,
   # standard error of measurement: SD(total score) * sqrt(1 - alpha)
   sem <- if (!is.na(alpha)) stats::sd(total) * sqrt(1 - alpha) else NA_real_
 
-  # standardized alpha: equivalent to raw alpha computed after standardizing
-  # every item to unit variance, via the average-inter-item-correlation form
-  # alpha_std = (k * r_bar) / (1 + (k - 1) * r_bar); r_bar is the mean of all
-  # off-diagonal (item, item) correlations. A constant item yields NA
-  # correlations with every other item, so na.rm = TRUE excludes those pairs;
-  # if every pairwise correlation is NA (e.g., all items constant), r_bar and
-  # therefore alpha_std are NaN, mirroring alpha's own NA-when-undefined
-  # behavior above.
-  # the zero-standard-deviation warning for a constant item is suppressed
-  # because its NA correlations are handled by na.rm = TRUE below
-  item_cor <- suppressWarnings(stats::cor(data))     # k x k item correlation matrix
-  r_bar <- mean(item_cor[upper.tri(item_cor)], na.rm = TRUE)  # mean off-diagonal r
-  alpha_std <- (n_item * r_bar) / (1 + (n_item - 1) * r_bar)
+  # standardized alpha: raw alpha computed after standardizing every item
+  # with nonzero variance to unit variance; a constant item stays in the item
+  # count with zero variance, as in raw alpha above
+  # flag the items with nonzero variance, since only these can be standardized
+  vary <- item_var > 0
+  k_vary <- sum(vary)    # number of items that vary
+
+  # mean off-diagonal correlation among the items that vary; NA when no item
+  # varies, and 0 (unused) when one item varies, whose standardized total
+  # score has variance 1 and gives a standardized alpha of 0
+  r_bar <- NA_real_
+  if (k_vary == 1L) {
+    r_bar <- 0
+  } else if (k_vary >= 2L) {
+    item_cor <- stats::cor(data[vary])
+    r_bar <- mean(item_cor[upper.tri(item_cor)])
+  }
+
+  # denominator of the standardized form; zero when the standardized total
+  # score is constant
+  denom_std <- 1 + (k_vary - 1) * r_bar
+
+  # standardized alpha, or NA when it is undefined
+  alpha_std <- if (!is.na(r_bar) && denom_std > sqrt(.Machine$double.eps)) {
+    (n_item / (n_item - 1)) * ((k_vary - 1) * r_bar) / denom_std
+  } else {
+    NA_real_
+  }
 
   # average item difficulty/discrimination, obtained by calling ctt_item()
   # on the same (already missing-recoded and listwise-deleted) data, so the
@@ -171,10 +197,12 @@ ctt_alpha <- function(data, item.id = NULL, cats = NULL, correct = FALSE,
   # is left at its default (NA) here since recoding already happened above
   item_stats <- ctt_item(data = data, item.id = item.id, cats = cats,
                           correct = correct, missing = NA, flag = FALSE)$item
-  mean_difficulty <- mean(item_stats$difficulty, na.rm = TRUE)
-  mean_discrimination_raw <- mean(item_stats$discrimination_raw, na.rm = TRUE)
-  mean_discrimination_corrected <- mean(item_stats$discrimination_corrected,
-                                        na.rm = TRUE)
+
+  # average of the defined values, or NA when none is defined
+  mean_or_na <- function(x) if (all(is.na(x))) NA_real_ else mean(x, na.rm = TRUE)
+  mean_difficulty <- mean_or_na(item_stats$difficulty)
+  mean_discrimination_raw <- mean_or_na(item_stats$discrimination_raw)
+  mean_discrimination_corrected <- mean_or_na(item_stats$discrimination_corrected)
 
   # assemble the one-row test-level summary, rounded for readable reporting
   data.frame(

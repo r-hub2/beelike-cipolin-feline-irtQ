@@ -4,7 +4,7 @@
 #' theta values. It can also display the conditional standard error of
 #' estimation (CSEE) at the test level.
 #'
-#' @param x x An object of class `info` obtained from [irtQ::info()].
+#' @param x An object of class `info` obtained from [irtQ::info()].
 #' @param item.loc A numeric vector indicating which item information functions to plot,
 #'   specified by item position (e.g., 1 for the first item). If `NULL` (default),
 #'   the test information function for the entire test form is plotted.
@@ -16,8 +16,9 @@
 #'   available at the test level, not for individual items. If `FALSE`
 #'   (default), item or test information functions are plotted.
 #' @param xlab.text,ylab.text Character strings specifying the labels for
-#'   the x and y axes, respectively.
+#'   the x and y axes, respectively. If missing, default labels are used.
 #' @param main.text Character string specifying the overall title of the plot.
+#'   If missing, a default title is used.
 #' @param lab.size Numeric value specifying the font size of axis titles.
 #'   Default is 15.
 #' @param main.size Numeric value specifying the font size of the plot title.
@@ -25,30 +26,32 @@
 #' @param axis.size Numeric value specifying the font size of axis tick labels.
 #'   Default is 15.
 #' @param line.color A character string specifying the color of the plot lines.
-#'   See <http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/> for available
-#'   color names.
+#'   Default is `"#F8766D"`. Not used when curves are overlaid
+#'   (`overlap = TRUE` with `item.loc` specified), where colors are assigned
+#'   automatically. See <http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/>
+#'   for available color names.
 #' @param line.size Numeric value specifying the thickness of plot lines.
 #'   Default is 1.
 #' @param layout.col Integer. Number of columns to use when faceting multiple
 #'   item information functions. Used only when `overlap = FALSE`. Default is 4.
-#' @param strip.size Numeric value specifying the font size of facet labels
-#'   when multiple items are displayed.
+#' @param strip.size Numeric value specifying the font size of the panel
+#'   (facet) labels. Used only when `overlap = FALSE`. Default is 12.
 #' @param ... Additional arguments passed to [ggplot2::geom_line()] from
 #'   the \pkg{ggplot2} package.
 #'
 #' @details All of the plots are drawn using the \pkg{ggplot2} package. The
 #'   object of class `info` can be obtained from the function [irtQ::info()].
 #'
-#' @return This method function displays the item or test information function
-#'   plot. When `csee = TRUE`, the CSEE is returned at the test level.
+#' @return A \pkg{ggplot2} object of the item or test information functions,
+#'   or of the test-level CSEE when `csee = TRUE`.
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
 #' @seealso [irtQ::info()]
 #'
 #' @examples
-#' 
-#' \dontrun{
+#'
+#' \donttest{
 #' ## Example using a "-prm.txt" file exported from flexMIRT
 #'
 #' # Import the "-prm.txt" output file from flexMIRT
@@ -101,7 +104,7 @@ plot.info <- function(x,
                       ...) {
 
   if (!csee) {
-    # 1. plot test infomation
+    # 1. plot the test information
     if (is.null(item.loc)) {
       # data manipulation for plotting
       if (is.null(x$tif)) {
@@ -134,7 +137,8 @@ plot.info <- function(x,
     if (!is.null(item.loc)) {
       # data manipulation for plotting
       df_info <-
-        data.frame(t(x$iif[item.loc, , drop = FALSE]), theta = x$theta) %>%
+        # keep item IDs as given instead of converting them to syntactic names
+        data.frame(t(x$iif[item.loc, , drop = FALSE]), theta = x$theta, check.names = FALSE) %>%
         reshape2::melt(variable.name = "item", id.vars = "theta", value.name = "info")
 
       # plot
@@ -179,7 +183,7 @@ plot.info <- function(x,
       }
     }
   } else {
-    # Plot only test level csee infomation
+    # plot the test-level CSEE
     # data manipulation for plotting
     df_csee <- data.frame(theta = x$theta, csee = 1 / sqrt(x$tif))
 

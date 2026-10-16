@@ -16,12 +16,15 @@ shape_df(
 \arguments{
 \item{par.drm}{A list containing three numeric vectors for dichotomous item
 parameters: item discrimination (\code{a}), item difficulty (\code{b}), and guessing
-parameters (\code{g}).}
+parameters (\code{g}), each with one value per item with \code{cats = 2}. A single
+value of \code{g} is used for every dichotomous item. If \code{g} is omitted or
+\code{NULL}, the guessing parameters are set to 0.}
 
 \item{par.prm}{A list containing polytomous item parameters. The list must
-include a numeric vector \code{a} for item discrimination (slope) parameters,
-and a list \code{d} of numeric vectors specifying difficulty (or threshold)
-parameters for each item. See the \strong{Details} section for more information.}
+include a numeric vector \code{a} of slope parameters and a list \code{d} of numeric
+vectors of threshold parameters, with one slope and one vector of
+\code{cats - 1} thresholds per item with \code{cats > 2}. See the \strong{Details} section
+for more information.}
 
 \item{item.id}{A character vector of item IDs. If \code{NULL}, default IDs (e.g.,
 "V1", "V2", ...) are assigned automatically.}
@@ -44,20 +47,21 @@ parameter is set to 1, all difficulty (or threshold) parameters are set to
 The default is \code{FALSE}.}
 }
 \value{
-A data frame containing item metadata, including item IDs, number of
-score categories, IRT model types, and associated item parameters. This
-data frame can be used as input for other functions in the \pkg{irtQ}
-package, such as \code{\link[=est_irt]{est_irt()}} or \code{\link[=simdat]{simdat()}}.
+A data frame of item metadata with columns \code{id}, \code{cats}, \code{model},
+and \code{par.1}, \code{par.2}, ..., one row per item. The number of parameter
+columns is the larger of 3 and the maximum of \code{cats}; unused cells are
+\code{NA}. This data frame can be used as input for other functions in the
+\pkg{irtQ} package, such as \code{\link[=est_irt]{est_irt()}} or \code{\link[=simdat]{simdat()}}.
 }
 \description{
-This function creates a data frame of item metadata - including item
-parameters, the number of score categories, and IRT model specifications - to
-be used in various IRT-related analyses within the \pkg{irtQ} package.
+This function creates a data frame of item metadata (item parameters,
+numbers of score categories, and IRT models) for use in IRT analyses with
+the \pkg{irtQ} package.
 }
 \details{
 For any item where \code{"1PLM"} or \code{"2PLM"} is specified in \code{model}, the
-guessing parameter will be set to \code{NA}. If \code{model} is a vector of length 1,
-the specified model will be replicated across all items.
+guessing parameter is set to \code{NA}. If \code{cats} or \code{model} has length 1, it is
+recycled across all items.
 
 As in the \code{\link[=simdat]{simdat()}} function, when constructing a mixed-format test
 form, it is important to specify the \code{cats} argument to reflect the correct
@@ -76,17 +80,16 @@ internal structure and ordering of elements must be followed.
 \item \code{par.prm} should be a list with two components:
 \itemize{
 \item \code{a}: a numeric vector of slope parameters for polytomous items
-\item \code{d}: a list of numeric vectors specifying threshold (or step) parameters
+\item \code{d}: a list of numeric vectors specifying the threshold parameters
 for each polytomous item
 }
 }
 
-For items following the (generalized) partial credit model (\code{"GPCM"}), the
-threshold (or step) parameters are computed as the overall item difficulty
-(location) minus the category-specific thresholds. Therefore, for an item
-with \code{m} score categories, \code{m - 1} step parameters must be provided, since
-the first category threshold is fixed and does not contribute to category
-probabilities.
+For GPCM items, the threshold parameters are \eqn{b_v = \beta - \tau_v},
+the overall item location minus the threshold of each score category. An
+item with \emph{K} score categories requires \emph{K - 1} threshold parameters,
+because the term for the lowest score category is fixed at 0 and is not
+supplied. For GRM items, the thresholds must be in increasing order.
 }
 \examples{
 ## A mixed-format test form
@@ -102,7 +105,7 @@ par.drm <- list(
 par.prm <- list(
   a = c(1.4, 0.6),
   d = list(
-    c(0.0, -1.9, 1.2),
+    c(-1.9, 0.0, 1.2),
     c(0.4, -1.1, 1.5, 0.2)
   )
 )
@@ -116,7 +119,7 @@ model <- c("DRM", "GRM", "DRM", "DRM", "GPCM", "DRM", "DRM")
 # Generate an item metadata set using the specified parameters
 shape_df(par.drm = par.drm, par.prm = par.prm, cats = cats, model = model)
 
-## An empty item metadata frame with five dichotomous items and two polytomous items
+## An item metadata frame with default parameters for five dichotomous and two polytomous items
 # Create a numeric vector indicating the number of score categories for each item
 cats <- c(2, 4, 3, 2, 5, 2, 2)
 

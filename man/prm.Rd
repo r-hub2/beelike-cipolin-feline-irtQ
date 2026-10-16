@@ -9,17 +9,18 @@ prm(theta, a, d, D = 1, pr.model = c("GRM", "GPCM"))
 \arguments{
 \item{theta}{A numeric vector of ability values (latent traits).}
 
-\item{a}{A numeric vector of item discrimination (slope) parameters.}
+\item{a}{A numeric value of the item discrimination (slope) parameter.}
 
-\item{d}{A numeric vector of item difficulty (or threshold) parameters.}
+\item{d}{A numeric vector of the threshold parameters of the item. For the
+GRM, the thresholds must be in increasing order.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 
-\item{pr.model}{A character string specifying the polytomous IRT model.
-Available options are \code{"GRM"} for the graded response model and \code{"GPCM"}
-for the (generalized) partial credit model.}
+\item{pr.model}{A character string specifying the polytomous IRT model:
+\code{"GRM"} for the graded response model or \code{"GPCM"} for the (generalized)
+partial credit model. Default is \code{"GRM"}.}
 }
 \value{
 A matrix of category response probabilities, where each row
@@ -35,13 +36,18 @@ for an item, given a set of theta values, using the graded response model
 When computing category probabilities using the partial credit model
 (PCM), set \code{a = 1}.
 
-For \code{pr.model = "GPCM"}, the vector \code{d} should contain threshold parameters
-that define the boundaries between adjacent score categories. In the
-\pkg{irtQ} package, these thresholds are expressed as the item location
-(overall difficulty) minus the step parameters for each category. If an item
-has \emph{K} score categories, \emph{K - 1} threshold parameters must be provided; the
-first is assumed to be 0. For example, for a GPCM item with five categories,
-provide four threshold parameters.
+For \code{pr.model = "GPCM"}, \code{d} contains the threshold parameters
+\eqn{b_v = \beta - \tau_v}, that is, the overall item location minus the
+threshold of each score category. An item with \emph{K} score categories requires
+\emph{K - 1} threshold parameters. The term for the lowest score category is
+fixed at 0 and is not supplied. For example, a GPCM item with five
+categories requires four threshold parameters.
+
+The GRM probabilities are bounded to the range from 1e-10 to 1 - 1e-10,
+whereas the GPCM probabilities are bounded below only by the smallest
+positive normalized double value (about 2.2e-308). The category
+probabilities in \code{\link[=traceline]{traceline()}} and \code{\link[=info]{info()}} are bounded below by
+1e-10 for both models.
 
 For more details on the parameterization of the (generalized) partial credit
 model, refer to the \emph{IRT Models} section in the \link{irtQ-package} documentation.

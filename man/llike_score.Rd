@@ -22,60 +22,68 @@ of categories, IRT model types, etc.). See \code{\link[=est_irt]{est_irt()}} or
 \code{\link[=simdat]{simdat()}} for more details about the item metadata. This data frame
 can be easily created using the \code{\link[=shape_df]{shape_df()}} function.}
 
-\item{data}{A matrix of examinees' item responses corresponding to the items
-specified in the \code{x} argument. Rows represent examinees and columns
-represent items.}
+\item{data}{A matrix of examinees' item responses, with rows for examinees
+and columns for items in the same order as the items in \code{x}. Responses
+to an item with K score categories must be integers from 0 to K - 1.
+Missing responses are coded as \code{NA} or, in functions that have a
+\code{missing} argument, as the value given in \code{missing}.}
 
 \item{theta}{A numeric vector of ability values at which to evaluate the
 log-likelihood function.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 
 \item{method}{A character string specifying the estimation method. Available
-options include:
+options are:
 \itemize{
-\item \code{"ML"}: Maximum Likelihood Estimation
-\item \code{"MLF"}: Maximum Likelihood Estimation with Fences
-\item \code{"MAP"}: Maximum A Posteriori Estimation
-Default is \code{"ML"}.
-}}
+\item \code{"ML"}: Maximum likelihood estimation
+\item \code{"MLF"}: Maximum likelihood estimation with fences
+\item \code{"MAP"}: Maximum a posteriori estimation
+}
+
+Default is \code{"ML"}.}
 
 \item{norm.prior}{A numeric vector of length two specifying the mean and
-standard deviation of the normal prior distribution (used only when \code{method = "MAP"}). Default is \code{c(0, 1)}. Ignored for \code{"ML"} and \code{"MLF"}.}
+standard deviation of the normal prior distribution. Used only when
+\code{method = "MAP"}. Default is \code{c(0, 1)}.}
 
-\item{fence.a}{A numeric value specifying the item slope parameter (i.e.,
-\emph{a}-parameter) for the two imaginary items used in MLF. See \strong{Details} below.
-Default is 3.0.}
+\item{fence.a}{A numeric value specifying the slope (\emph{a}) parameter of the
+two fence items used in MLF. See \strong{Details} below. Default is 3.0.}
 
-\item{fence.b}{A numeric vector of length two specifying the lower and upper
-bounds of the item difficulty parameters (i.e., \emph{b}-parameters) for the two
-imaginary items in MLF. If \code{fence.b = NULL}, the values specified in the
-\code{range} argument are used instead. Default is NULL.}
+\item{fence.b}{A numeric vector of length two specifying the difficulty (\emph{b})
+parameters of the lower and upper fence items. If \code{NULL}, \code{c(-5, 5)} is
+used. Used only when \code{method = "MLF"}. Default is \code{NULL}.}
 
 \item{missing}{A value indicating missing responses in the data set. Default
 is \code{NA}.}
 }
 \value{
-A data frame of log-likelihood values.
+A data frame of log-likelihood values (log-posterior values for
+\code{method = "MAP"}).
 \itemize{
-\item Each \strong{row} corresponds to an ability value (\code{theta}).
-\item Each \strong{column} corresponds to an examinee's response pattern.
+\item Each \strong{row} corresponds to a value of \code{theta}.
+\item Each \strong{column} corresponds to an examinee and is named \code{Resp.1},
+\code{Resp.2}, and so on. Examinees without any observed response have \code{NA} in
+their column.
 }
 }
 \description{
 This function computes the log-likelihood values for a set of ability
-parameters, given item parameters and response data
+values, given item parameters and response data.
 }
 \details{
-This function evaluates the log-likelihood of a given ability
-(\code{theta}) for one or more examinees, based on item parameters (\code{x}) and item
-response data (\code{data}).
+This function evaluates the log-likelihood at each value of
+\code{theta} for one or more examinees, based on item parameters (\code{x}) and item
+response data (\code{data}). For \code{method = "MAP"}, the log density of the normal
+prior is added, so the values are log-posterior values.
 
-If \code{method = "MLF"} is selected, the function appends two virtual "fence"
-items to the item pool with fixed parameters. These artificial items help
-avoid unstable likelihood functions near the boundaries of the ability scale.
+If \code{method = "MLF"}, two fence items with slope \code{fence.a} and difficulties
+\code{fence.b} are appended, with the lower fence answered correctly and the
+upper fence answered incorrectly. The fences give the likelihood a finite
+maximum for all-correct and all-incorrect patterns. See \code{\link[=est_score]{est_score()}}
+for details.
 
 For example, to compute the log-likelihood curves of two examinees' responses
 to the same test items, supply a 2-row matrix to \code{data} and a vector of
@@ -98,7 +106,7 @@ data <- simdat(x = x, theta = score, D = 1)
 # Specify ability values for log-likelihood evaluation
 theta <- seq(-3, 3, 0.5)
 
-# Compute log-likelihood values (using MLE)
+# Compute log-likelihood values (ML)
 llike_score(x = x, data = data, theta = theta, D = 1, method = "ML")
 
 }

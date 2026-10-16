@@ -1,7 +1,7 @@
 # Shared fixture: import 55-item flexMIRT parameter file used in README examples
 prm_file  <- system.file("extdata", "flexmirt_sample-prm.txt", package = "irtQ")
 x_true    <- bring.flexmirt(file = prm_file, "par")$Group1$full_df   # 55 items
-x_ref     <- x_true[1:40, ]   # first 40 items (38 × 3PLM + 2 × GRM)
+x_ref     <- x_true[1:40, ]   # first 40 items (38 x 3PLM + 2 x GRM)
 
 # Common EM settings kept small for test speed
 EM_args <- list(
@@ -13,7 +13,7 @@ EM_args <- list(
   verbose    = FALSE
 )
 
-# ── helper: generate response data ────────────────────────────────────────────
+# ---- helper: generate response data --------------------------------------------
 gen_data <- function(x, n = 500, seed = 1, mean = 0, sd = 1) {
   set.seed(seed)
   theta <- rnorm(n, mean = mean, sd = sd)
@@ -21,7 +21,7 @@ gen_data <- function(x, n = 500, seed = 1, mean = 0, sd = 1) {
 }
 
 
-# ── 1. Dichotomous-only ───────────────────────────────────────────────────────
+# ---- 1. Dichotomous-only -------------------------------------------------------
 
 test_that("est_irt() converges for 1PLM (fix.a.1pl = TRUE)", {
   x_1pl <- x_ref[1:10, ]
@@ -99,7 +99,7 @@ test_that("est_irt() 2PLM on LSAT6 stops only when the largest absolute change i
 })
 
 
-# ── 2. Polytomous-only ────────────────────────────────────────────────────────
+# ---- 2. Polytomous-only --------------------------------------------------------
 
 test_that("est_irt() converges for GRM", {
   x_grm <- x_ref[39:40, ]   # two 5-category GRM items
@@ -132,7 +132,7 @@ test_that("est_irt() converges for GPCM", {
 })
 
 
-# ── 3. Mixed-format ───────────────────────────────────────────────────────────
+# ---- 3. Mixed-format -----------------------------------------------------------
 
 test_that("est_irt() converges for mixed-format (3PLM + GRM)", {
   data <- gen_data(x_ref, n = 800)
@@ -148,7 +148,7 @@ test_that("est_irt() converges for mixed-format (3PLM + GRM)", {
 })
 
 
-# ── 4. EmpHist TRUE / FALSE ───────────────────────────────────────────────────
+# ---- 4. EmpHist TRUE / FALSE ---------------------------------------------------
 
 test_that("est_irt() EmpHist=TRUE produces non-uniform weights", {
   data <- gen_data(x_ref[1:10, ], n = 500)
@@ -170,7 +170,7 @@ test_that("est_irt() EmpHist=FALSE keeps normal prior weights", {
 })
 
 
-# ── 5. FIPC ───────────────────────────────────────────────────────────────────
+# ---- 5. FIPC -------------------------------------------------------------------
 
 test_that("est_irt() FIPC (MEM) estimates pretest items on fixed-item scale", {
   set.seed(21)
@@ -260,7 +260,7 @@ test_that("est_irt() FIPC (OEM) with all items fixed does not report convergence
 })
 
 
-# ── 6. Parameter recovery ─────────────────────────────────────────────────────
+# ---- 6. Parameter recovery -----------------------------------------------------
 
 test_that("est_irt() recovers 2PLM difficulty parameters within tolerance", {
   true_b <- c(-1.5, -0.5, 0.0, 0.5, 1.5)
@@ -281,7 +281,7 @@ test_that("est_irt() recovers 2PLM difficulty parameters within tolerance", {
 })
 
 
-# ── 7. Output structure ───────────────────────────────────────────────────────
+# ---- 7. Output structure -------------------------------------------------------
 
 test_that("est_irt() output contains expected slots", {
   data <- gen_data(x_ref[1:5, ], n = 300)
@@ -305,4 +305,17 @@ test_that("getirt() returns the documented posterior.dist and scale.D for est_ir
   expect_identical(getirt(fit, what = "scale.D"), 1)
   expect_true(is.matrix(getirt(fit, what = "posterior.dist")))
   expect_true(is.numeric(getirt(fit, what = "scale.D")))
+})
+
+test_that("getirt() extracts npar.detail from est_irt objects", {
+  fit <- est_irt(
+    data = LSAT6, D = 1, model = "2PLM", cats = 2,
+    Etol = 1e-3, se = FALSE, verbose = FALSE
+  )
+  # the numbers of free parameters by type are returned as stored
+  expect_identical(getirt(fit, what = "npar.detail"), fit$npar.detail)
+  expect_equal(sum(getirt(fit, what = "npar.detail")), fit$npar.est)
+  # an object without the element returns NULL
+  fit$npar.detail <- NULL
+  expect_null(getirt(fit, what = "npar.detail"))
 })

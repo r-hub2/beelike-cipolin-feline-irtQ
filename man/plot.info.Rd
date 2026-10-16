@@ -23,7 +23,7 @@
 )
 }
 \arguments{
-\item{x}{x An object of class \code{info} obtained from \code{\link[=info]{info()}}.}
+\item{x}{An object of class \code{info} obtained from \code{\link[=info]{info()}}.}
 
 \item{item.loc}{A numeric vector indicating which item information functions to plot,
 specified by item position (e.g., 1 for the first item). If \code{NULL} (default),
@@ -39,9 +39,10 @@ available at the test level, not for individual items. If \code{FALSE}
 (default), item or test information functions are plotted.}
 
 \item{xlab.text, ylab.text}{Character strings specifying the labels for
-the x and y axes, respectively.}
+the x and y axes, respectively. If missing, default labels are used.}
 
-\item{main.text}{Character string specifying the overall title of the plot.}
+\item{main.text}{Character string specifying the overall title of the plot.
+If missing, a default title is used.}
 
 \item{lab.size}{Numeric value specifying the font size of axis titles.
 Default is 15.}
@@ -53,8 +54,10 @@ Default is 15.}
 Default is 15.}
 
 \item{line.color}{A character string specifying the color of the plot lines.
-See \url{http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/} for available
-color names.}
+Default is \code{"#F8766D"}. Not used when curves are overlaid
+(\code{overlap = TRUE} with \code{item.loc} specified), where colors are assigned
+automatically. See \url{http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/}
+for available color names.}
 
 \item{line.size}{Numeric value specifying the thickness of plot lines.
 Default is 1.}
@@ -62,15 +65,15 @@ Default is 1.}
 \item{layout.col}{Integer. Number of columns to use when faceting multiple
 item information functions. Used only when \code{overlap = FALSE}. Default is 4.}
 
-\item{strip.size}{Numeric value specifying the font size of facet labels
-when multiple items are displayed.}
+\item{strip.size}{Numeric value specifying the font size of the panel
+(facet) labels. Used only when \code{overlap = FALSE}. Default is 12.}
 
 \item{...}{Additional arguments passed to \code{\link[ggplot2:geom_line]{ggplot2::geom_line()}} from
 the \pkg{ggplot2} package.}
 }
 \value{
-This method function displays the item or test information function
-plot. When \code{csee = TRUE}, the CSEE is returned at the test level.
+A \pkg{ggplot2} object of the item or test information functions,
+or of the test-level CSEE when \code{csee = TRUE}.
 }
 \description{
 This method plots item or test information functions for a specified set of
@@ -83,7 +86,7 @@ object of class \code{info} can be obtained from the function \code{\link[=info]
 }
 \examples{
 
-\dontrun{
+\donttest{
 ## Example using a "-prm.txt" file exported from flexMIRT
 
 # Import the "-prm.txt" output file from flexMIRT

@@ -24,8 +24,7 @@ A list with the following components:
 \itemize{
 \item \code{root}: The estimated root of the function.
 \item \code{iter}: The number of iterations performed.
-\item \code{accuracy}: The final absolute difference between the last two interval
-points with opposite signs.
+\item \code{delta}: The width of the final search interval.
 }
 }
 \description{
@@ -35,11 +34,13 @@ in the \pkg{cmna} R package (Howard, 2017), designed to find a root of the funct
 \pkg{cmna}, this version allows additional arguments to be passed to \code{.fun}.
 }
 \details{
-The bisection method is a well-known root-finding numerical algorithm
-that applies to any continuous function, provided that the function values at the lower (\code{lb})
-and upper (\code{ub}) bounds have opposite signs. The method repeatedly bisects the interval until
-the absolute difference between successive estimates is smaller than the error tolerance
-(\code{tol}) or the maximum number of iterations (\code{max.it}) is reached.
+The bisection method is a root-finding algorithm for a continuous
+function whose values at the lower (\code{lb}) and upper (\code{ub}) bounds have
+opposite signs. The method repeatedly halves the interval until its width
+is no greater than \code{tol} or the maximum number of iterations (\code{max.it}) is
+reached, and returns the midpoint of the final interval. A warning is issued
+when the function values at the bounds do not have opposite signs or when
+\code{max.it} is reached before the interval is no wider than \code{tol}.
 }
 \examples{
 ## Example: Find the theta value corresponding to a given probability

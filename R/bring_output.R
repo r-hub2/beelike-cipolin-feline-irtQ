@@ -1,25 +1,35 @@
 #' Import Item and Ability Parameters from IRT Software
 #'
-#' @description These functions import item and/or ability parameters from
-#'   BILOG-MG 3, PARSCALE 4, flexMIRT, and the \pkg{mirt} R package.
+#' @description These functions import item and/or ability parameter estimates
+#'   from the output files of BILOG-MG 3, PARSCALE 4, and flexMIRT.
+#'   `bring.mirt()` imports the item parameters, together with the latent mean
+#'   and variance, of a model fitted with the \pkg{mirt} R package.
 #'
-#' @param file A file name (including the full path) containing the item or
-#'   ability parameter estimates.
-#' @param type A character string indicating the type of output file. Available
-#'   options are `"par"` for item parameter files and `"sco"` for ability
-#'   parameter files.
-#' @param rePar Logical. If `TRUE`, and when a dichotomous IRT model
-#'   (e.g., 3PLM) or the graded response model (GRM) is fit, the item intercept and
-#'   the logit of the guessing parameter are reparameterized into the item
-#'   difficulty and guessing parameters, respectively. Default is `TRUE`.
-#' @param rePar.gpc Logical. If `TRUE`, and when the generalized partial
-#'   credit model (GPCM) is fit, the nominal model parameters in the flexMIRT
-#'   output are reparameterized into GPCM slope and difficulty parameters.
-#'   Default is `TRUE`.
-#' @param n.factor A numeric value indicating the number of latent traits (factors)
-#'   estimated. This argument must be specified when `type = "sco"`. Default is 1.
-#' @param x An object returned by [mirt::mirt()]. The \pkg{mirt} package, listed
-#'   in Suggests, must be installed to use bring.mirt().
+#' @param file The path to the output file that contains the item or ability
+#'   parameter estimates.
+#' @param type A character string giving the type of output file: `"par"` for
+#'   an item parameter file or `"sco"` for an ability (score) file. The case is
+#'   ignored. Default is `"par"`. Not used by `bring.mirt()`.
+#' @param rePar Logical. Used only by `bring.flexmirt()` with `type = "par"`.
+#'   If `TRUE` (default), the intercepts of dichotomous and graded response
+#'   model (GRM) items are converted to difficulty (threshold) parameters and
+#'   the logits of the guessing parameters to guessing parameters, so that
+#'   `full_df` follows the \pkg{irtQ} item metadata format. This requires a
+#'   unidimensional model. If `FALSE`, the slope-intercept values in the file
+#'   are kept, and `full_df` cannot then be used directly by other
+#'   \pkg{irtQ} functions.
+#' @param rePar.gpc Logical. Used only by `bring.flexmirt()` with
+#'   `type = "par"`. If `TRUE` (default), the nominal model parameters of
+#'   generalized partial credit model (GPCM) items are converted to a slope
+#'   and step parameters. The function stops when the file contains a nominal
+#'   model item or a multidimensional GPCM item; use `rePar.gpc = FALSE` to
+#'   read such a file, in which case the scoring function and intercept values
+#'   are kept and nominal items get the model name `"NOMM"`.
+#' @param n.factor An integer giving the number of latent traits (factors).
+#'   Used only by `bring.flexmirt()` with `type = "sco"`. Default is 1.
+#' @param x A fitted model object returned by [mirt::mirt()] for a single
+#'   group and a unidimensional model. The \pkg{mirt} package, listed in
+#'   Suggests, must be installed to use `bring.mirt()`.
 #'
 #' @details The [irtQ::bring.flexmirt()] function was developed by modifying
 #'   the `read.flexmirt()` function (Pritikin & Falk, 2020). Similarly,
@@ -27,51 +37,90 @@
 #'   versions of the `read.bilog()` and `read.parscale()` functions
 #'   (Weeks, 2010), respectively.
 #'
-#'   The supported file extensions for item and ability parameter files are:
-#'   ".par" and ".sco" for BILOG-MG and PARSCALE, and "-prm.txt" and "-sco.txt"
-#'   for flexMIRT. For \pkg{mirt}, the user provides the object name directly.
+#'   The functions read the layout of the file, not its name. The usual files
+#'   are the ".PAR" and ".SCO" files of BILOG-MG and PARSCALE and the
+#'   "-prm.txt" and "-sco.txt" files of flexMIRT; other flexMIRT output files
+#'   (e.g., "-irt.txt") cannot be read. For \pkg{mirt}, the fitted model
+#'   object is passed directly.
 #'
-#'   Although [irtQ::bring.flexmirt()] can extract multidimensional item and
-#'   ability parameter estimates, the \pkg{irtQ} package is designed exclusively
-#'   for unidimensional IRT applications.
+#'   [irtQ::bring.flexmirt()] can also read the files of a multidimensional
+#'   model: item parameter files with `rePar = FALSE` (and
+#'   `rePar.gpc = FALSE` when GPCM items are present), and ability files with
+#'   `n.factor` set to the number of factors. The other functions of
+#'   \pkg{irtQ} work only with unidimensional models.
 #'
-#'   For polytomous items, both [irtQ::bring.flexmirt()] and
-#'   [irtQ::bring.mirt()] can import item parameters for the graded response
-#'   model (GRM) and the generalized partial credit model (GPCM).
+#'   For polytomous items, [irtQ::bring.flexmirt()],
+#'   [irtQ::bring.parscale()], and [irtQ::bring.mirt()] import the parameters
+#'   of the graded response model (GRM) and the generalized partial credit
+#'   model (GPCM); a polytomous \pkg{mirt} item of type `"Rasch"` is imported
+#'   as a GPCM item with a slope of 1. [irtQ::bring.bilog()] reads
+#'   dichotomous items only. [irtQ::bring.parscale()] does not support the
+#'   model codes 2, 4, 6, and 8 of PARSCALE for polytomous items and stops
+#'   with an error when the file has them.
 #'
-#' @return These functions return a list containing several components. For
-#'   flexMIRT output files, results from multiple-group analyses can be handled;
-#'   in such cases, each list element corresponds to the estimation results for
-#'   a separate group.
+#'   [irtQ::bring.mirt()] accepts the item types `"Rasch"`, `"2PL"`, and
+#'   `"3PL"` for dichotomous items and `"Rasch"`, `"graded"`, `"gpcm"`, and
+#'   `"gpcmIRT"` for polytomous items. A two-category item of a mixed-format
+#'   test may also be fitted with `"graded"`, `"gpcm"`, or `"gpcmIRT"`. A
+#'   model fitted to multiple groups is not supported, and the function stops
+#'   with an error; extract one group first with `mirt::extract.group()`.
 #'
-#' @note For item parameter files from any IRT software, only the internal object
-#'   `"full_df"` in the returned list is required for various functions in
-#'   the \pkg{irtQ} package. This object is a data frame containing item metadata
-#'   (e.g., item parameters, number of categories, IRT model types).
-#'   See [irtQ::info()] or [irtQ::simdat()] for more details on item metadata.
+#'   In `full_df`, [irtQ::bring.flexmirt()] labels dichotomous items `"3PLM"`
+#'   or `"2PLM"`, while [irtQ::bring.bilog()], [irtQ::bring.parscale()], and
+#'   [irtQ::bring.mirt()] label them `"DRM"`, with a guessing parameter of 0
+#'   for items without guessing. For [irtQ::bring.mirt()], this includes
+#'   two-category items fitted with the `"graded"`, `"gpcm"`, or `"gpcmIRT"`
+#'   model. Change the model column if another model is wanted in
+#'   [irtQ::est_irt()], which fits `"DRM"` items as 3PLM items. The parameters
+#'   are kept on the scale of the program, and the files do not record the
+#'   scaling constant; pass the value of `D` used in the calibration (e.g., 1
+#'   for flexMIRT and \pkg{mirt}) to the other \pkg{irtQ} functions.
 #'
-#'   In addition, when item parameters are estimated using the partial credit
-#'   model (PCM) or the generalized partial credit model (GPCM), item step
-#'   parameters are included in the `"full_df"` object. These step parameters
-#'   are calculated by subtracting the category threshold parameters from the
-#'   overall item difficulty (or location) parameter.
-#'   See the **IRT Models** section in [irtQ::irtQ-package] for further
-#'   details on the parameterization of the GPCM.
+#' @return
+#'   - `bring.flexmirt()`: a named list with one element per group (`Group1`,
+#'     `Group2`, ...). With `type = "par"`, each element is a list with `id`,
+#'     `factor` (number of dimensions), `cats`, `model`, `par` (a matrix of
+#'     item parameters), `full_df` (the item metadata), `mean` and `cov` (the
+#'     latent mean vector and covariance matrix), and `emphist` (a data frame
+#'     with `theta` and `weight`, or `NULL` when no empirical histogram was
+#'     estimated). With `type = "sco"`, each element is a list with `theta`
+#'     and `se`, plus `iter` (the number of iterations) or `imputation` (the
+#'     imputation number) when the file contains that column. `se` is `NULL`
+#'     for multidimensional models and for imputed values.
+#'   - `bring.bilog()`: with `type = "par"`, a list with `par` and `full_df`;
+#'     with `type = "sco"`, a list with one element per group code in the
+#'     file, each a list with `theta`, `se`, and `full_df` (a data frame with
+#'     `group`, `id`, `nitem`, `ncorrect`, `p`, `theta`, and `se`).
+#'   - `bring.parscale()`: with `type = "par"`, a list with `id`, `factor`,
+#'     `cats`, `model`, `par_parscale` (the parameters and standard errors as
+#'     reported by PARSCALE), `par`, and `full_df`; with `type = "sco"`, a
+#'     data frame with `id`, `theta`, and `se` (a value of 999 becomes `NA`).
+#'   - `bring.mirt()`: a list with `id`, `factor`, `cats`, `model` (a list
+#'     with the \pkg{mirt} item types, `old`, and the \pkg{irtQ} model names,
+#'     `new`), `emphist` (a matrix of quadrature points and weights),
+#'     `par_mirt` (the \pkg{mirt} parameters), `par`, `full_df`, and `ability`
+#'     (the latent mean and variance).
 #'
-#' @section Sample Output Files of IRT software:
+#' @note For an item parameter file, the element `full_df` of the result is
+#'   the item metadata (item IDs, numbers of score categories, model names,
+#'   and item parameters) used by the other functions of \pkg{irtQ}. See
+#'   [irtQ::info()] or [irtQ::simdat()] for the metadata format.
 #'
-#'   To illustrate how to import item parameter estimate files from PARSCALE 4
-#'   and flexMIRT using [irtQ::bring.parscale()] and [irtQ::bring.flexmirt()],
-#'   two example output files are included in this package.
+#'   For GPCM items, `full_df` contains the step parameters
+#'   \eqn{b_v = \beta - \tau_v}, computed from the overall location
+#'   \eqn{\beta} and the category parameters \eqn{\tau_v} reported by the
+#'   program (PARSCALE) or from the nominal model intercepts (flexMIRT). See
+#'   the **IRT Models** section in [irtQ::irtQ-package] for the
+#'   parameterization of the GPCM.
 #'
-#'   One file is from PARSCALE 4 with a ".PAR" extension (i.e., "parscale_sample.PAR"),
-#'   and the other is from flexMIRT with a "-prm.txt" extension
-#'   (i.e., "flexmirt_sample-prm.txt").
+#' @section Sample Output Files:
 #'
-#'   Both files contain item parameter estimates from a mixed-format test with 55 items:
-#'   fifty dichotomous items following the 3PL model and five polytomous items
-#'   with five response categories modeled using the graded response model (GRM).
-#'   The examples below demonstrate how to import these output files.
+#'   Two sample item parameter files are included in the package: the
+#'   PARSCALE 4 file "parscale_sample.PAR" and the flexMIRT file
+#'   "flexmirt_sample-prm.txt". Both contain the estimates for the same
+#'   mixed-format test of 55 items: 50 dichotomous items fit with the 3PL
+#'   model and five items with five score categories fit with the GRM (items
+#'   39, 40, and 53 to 55). The examples below import these files.
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
@@ -83,7 +132,7 @@
 #'
 #'   Chalmers, R. P. (2012). mirt: A multidimensional item response theory
 #'   package for the R environment. *Journal of Statistical Software, 48*(6),
-#'   1-29.
+#'   1-29. \doi{10.18637/jss.v048.i06}
 #'
 #'   Muraki, E., & Bock, R. D. (2003). PARSCALE 4: IRT item analysis and test
 #'   scoring for rating scale data (Computer software). Chicago, IL: Scientific
@@ -109,7 +158,8 @@
 #' @examples
 #' ## Example 1
 #' # Import the "-prm.txt" output file from flexMIRT
-#' flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt", package = "irtQ")
+#' flex_sam <- system.file("extdata", "flexmirt_sample-prm.txt",
+#'                         package = "irtQ")
 #'
 #' # Read item parameters and convert them to item metadata
 #' bring.flexmirt(file = flex_sam, "par")$Group1$full_df
@@ -125,7 +175,8 @@
 #' # Import the item parameters of a model fitted with the mirt package
 #' \donttest{
 #' if (requireNamespace("mirt", quietly = TRUE)) {
-#'   fit <- mirt::mirt(as.data.frame(LSAT6), 1, itemtype = "2PL", verbose = FALSE)
+#'   fit <- mirt::mirt(as.data.frame(LSAT6), 1, itemtype = "2PL",
+#'                     verbose = FALSE)
 #'   bring.mirt(fit)$full_df
 #' }
 #' }
@@ -138,7 +189,8 @@ bring.flexmirt <- function(file,
                            n.factor = 1) {
 
 
-  if (length(type) == 0L) stop("Specify one of file types: 'par' or 'sco'", call. = FALSE)
+  # match the file type, which is "par" when omitted (the case is ignored)
+  type <- match.arg(tolower(type), c("par", "sco"))
 
   type <- toupper(type)
 
@@ -163,9 +215,6 @@ bring.flexPrm <- function(file, rePar = TRUE, rePar.gpc = TRUE) {
   ncol <- max(utils::count.fields(file, sep = "\t"))
   prm <- utils::read.delim(file, header = FALSE, col.names = 1:ncol)
 
-  # find out how many rows
-  nlines <- nrow(prm)
-
   # determine the number of groups
   ng <- length(unique(prm[, 3]))
 
@@ -174,7 +223,6 @@ bring.flexPrm <- function(file, rePar = TRUE, rePar.gpc = TRUE) {
     index <- (prm[, 3] == g)
     thisGroup <- prm[index, ]
 
-    g.name <- "?"
     g.dist <- list()
     g.label <- list()
     g.category <- list()
@@ -238,8 +286,7 @@ bring.flexPrm <- function(file, rePar = TRUE, rePar.gpc = TRUE) {
           a <- thisGroup[i, offset:(offset + dims - 1)]
           offset <- offset + dims
 
-          # intercept
-          Lmat <- thisGroup[i, offset]
+          # intercept (skip the type of the intercept matrix)
           offset <- offset + 1
           gam <- rep(0, catg - 1)
           for (k in 1:(catg - 1)) {
@@ -368,7 +415,6 @@ bring.flexSco <- function(file, n.factor = 1) {
         ng <- length(unique(sco[, 2]))
         for (g in 1:ng) {
           index <- (sco[, 2] == g)
-          thisGroup <- sco[index, ]
 
           g.imputation <- sco[index, 1]
           g.ability <- sco[index, 4]
@@ -382,7 +428,6 @@ bring.flexSco <- function(file, n.factor = 1) {
         ng <- length(unique(sco[, 1]))
         for (g in 1:ng) {
           index <- (sco[, 1] == g)
-          thisGroup <- sco[index, ]
 
           g.ability <- sco[index, 3]
           g.se <- sco[index, 4]
@@ -398,7 +443,6 @@ bring.flexSco <- function(file, n.factor = 1) {
       ng <- length(unique(sco[, 1]))
       for (g in 1:ng) {
         index <- (sco[, 1] == g)
-        thisGroup <- sco[index, ]
 
         g.iter <- sco[index, 3]
         g.ability <- sco[index, 4]
@@ -417,7 +461,6 @@ bring.flexSco <- function(file, n.factor = 1) {
       ng <- length(unique(sco[, 2]))
       for (g in 1:ng) {
         index <- (sco[, 2] == g)
-        thisGroup <- sco[index, ]
 
         g.imputation <- sco[index, 1]
         g.ability <- sco[index, 4:(4 + (n.factor - 1))]
@@ -431,7 +474,6 @@ bring.flexSco <- function(file, n.factor = 1) {
       ng <- length(unique(sco[, 1]))
       for (g in 1:ng) {
         index <- (sco[, 1] == g)
-        thisGroup <- sco[index, ]
 
         g.ability <- sco[index, 3:(3 + (n.factor - 1))]
         g.se <- NULL # will be updated
@@ -454,14 +496,16 @@ bring.flexSco <- function(file, n.factor = 1) {
 #' @export
 bring.bilog <- function(file, type = c("par", "sco")) {
 
-  if (length(type) == 0L) stop("Specify one of file types: 'par' or 'sco'.", call. = FALSE)
+  # match the file type, which is "par" when omitted (the case is ignored)
+  type <- match.arg(tolower(type), c("par", "sco"))
 
   type <- toupper(type)
 
   # When "par" file is inserted
   if (type == "PAR") {
     df <- utils::read.fwf(file, widths = c(8, 8, rep(10, 10)), skip = 4)
-    df[, 1] <- trimws(as.character(df[, 1]), )
+    # item IDs without the padding spaces
+    df[, 1] <- trimws(as.character(df[, 1]))
     prm <- df[c(1, 5, 7, 11)]
     prm.df <- data.frame(
       id = prm[, 1], cats = rep(2, nrow(prm)), model = "DRM",
@@ -519,7 +563,8 @@ bring.bilog <- function(file, type = c("par", "sco")) {
 #' @export
 bring.parscale <- function(file, type = c("par", "sco")) {
 
-  if (length(type) == 0L) stop("Specify one of file types: 'par' or 'sco.", call. = FALSE)
+  # match the file type, which is "par" when omitted (the case is ignored)
+  type <- match.arg(tolower(type), c("par", "sco"))
 
   type <- toupper(type)
 
@@ -642,10 +687,9 @@ bring.parscale <- function(file, type = c("par", "sco")) {
     ##   For polytomous items, reformulate the parameters to
     ##   exclude the location parameter (if applicable)
     if (max(cat) > 2) {
+      # stop for the model codes whose location parameter is not handled
       if (nums[3] %in% c(2, 4, 6, 8)) {
-        pars[cat > 2, 6] <- mean(pars[cat > 2, seq(10, ncol(pars), 2)], na.rm = TRUE)
-        pars[cat > 2, 7] <- NA
-        pars[cat > 2, seq(10, ncol(pars), 2)] <- pars[cat > 2, 6] - pars[cat > 2, seq(10, ncol(pars), 2)]
+        stop("Model codes 2, 4, 6, and 8 of PARSCALE are not supported for polytomous items.", call. = FALSE)
       }
       if (nums[3] %in% c(1, 3, 5, 7)) {
         pars[cat > 2, seq(10, ncol(pars), 2)] <- pars[cat > 2, 6] - pars[cat > 2, seq(10, ncol(pars), 2)]
@@ -708,44 +752,6 @@ bring.parscale <- function(file, type = c("par", "sco")) {
 
 
 ######################################################################################################################################
-# "bring.parscale.ph2" function
-# This function is to read the information of posterior distribution and the mean and sd of population dist'n.
-bring.parscale.ph2 <- function(file) {
-
-  phase2 <- readLines(file)
-
-  # find the lines containing posterior information
-  pts_nums <- grep("POINT", phase2, value = FALSE)
-  wts_nums <- pts_nums + 1
-
-  # select points of posterior distribution
-  pts_str <- do.call("c", strsplit(phase2[pts_nums], "\\s+"))
-  pts_str <- suppressWarnings(as.numeric(pts_str))
-
-  # select weights of posterior distribution
-  wts_str <- do.call("c", strsplit(phase2[wts_nums], "\\s+"))
-
-  # create a data frame for posterior information
-  posterior <- data.frame(POINT = pts_str, WEIGHT = wts_str, stringsAsFactors = FALSE)
-  posterior <- posterior[!is.na(posterior$POINT), ]
-  num.wts <- suppressWarnings(as.numeric(posterior$WEIGHT))
-  if (any(is.na(num.wts))) num.wts[is.na(num.wts)] <- 0
-  posterior$WEIGHT <- num.wts
-
-  # find a mean and a sd of population distribution
-  num <- grep("TOTAL WEIGHT", phase2, value = FALSE)
-  mu_str <- phase2[num + 1]
-  sigma_str <- phase2[num + 2]
-  mu <- as.numeric(gsub(" MEAN        :", "", mu_str))
-  sigma <- as.numeric(gsub(" S.D.        :", "", sigma_str))
-  stat.pop <- c(MEAN = mu, SD = sigma)
-
-  rr <- list(POSTERIOR = posterior, STAT.POPULATION = stat.pop)
-  rr
-}
-
-
-######################################################################################################################################
 # "bring.mirt" function
 # This function is to read parameter estimates of an object obtained from MIRT
 
@@ -758,7 +764,16 @@ bring.mirt <- function(x) {
     stop("Package 'mirt' is required for bring.mirt(). Please install it.", call. = FALSE)
   }
 
-  # read paramter estimates from an object of mirt
+  # stop when the object is a model of multiple groups
+  if (inherits(x, "MultipleGroupClass")) {
+    stop(
+      "bring.mirt() does not support multiple-group mirt objects; ",
+      "extract one group with mirt::extract.group() first.",
+      call. = FALSE
+    )
+  }
+
+  # read parameter estimates from an object of mirt
   prm_all <- mirt::coef(x, simplify = TRUE, IRTpars = TRUE)
   cats <- x@Data$K
   any_py <- any(cats > 2)
@@ -774,7 +789,6 @@ bring.mirt <- function(x) {
   MODEL[MODEL == "graded"] <- "GRM"
   MODEL[MODEL == "2PL" | MODEL == "3PL"] <- "DRM"
   MODEL[MODEL == "Rasch" & cats == 2L] <- "DRM"
-  CATEGORY <- cats
   FACTOR <- mirt::extract.mirt(x, what = "nfact")
   ID <- mirt::extract.mirt(x, what = "itemnames")
   nitem <- mirt::extract.mirt(x, what = "nitems")
@@ -787,8 +801,6 @@ bring.mirt <- function(x) {
   if (!any_py) {
     # check models for dichotomous data
     if (!all(mods %in% c("Rasch", "2PL", "3PL"))) stop("For dichotomous data, only Rasch, 2PL, 3PL models are available", call. = FALSE)
-    prm_item <- prm_all$items
-    prm_item <- prm_item[, which(colnames(prm_item) != "u")]
   }
 
   if (any_py) {
@@ -797,65 +809,50 @@ bring.mirt <- function(x) {
     # check models for polytomous data
     if (!all(mods_py %in% c("Rasch", "graded", "gpcm", "gpcmIRT"))) stop("For polytomous data, only Rasch, graded, gpcm, gpcmIRT models are available", call. = FALSE)
 
-    # when a single polytimous model is used
-    if (length(unique(mods_py)) == 1) {
-      prm_item <- prm_all$items
-
-      # when a graded or gpcm model is used
-      if (unique(mods_py) != "gpcmIRT") {
-        prm_item <- prm_item[, which(colnames(prm_item) != "u")]
-        if (any(cats == 2L)) {
-          prm_item[cats > 2, 2:(ncol(prm_item) - 2)] <- prm_item[cats > 2, 4:ncol(prm_item)]
-        }
-        prm_item <- prm_item[, 1:max(cats)]
-
-        # when a gpcmIRT model is used
-      } else {
-        prm_item <- prm_item[, which(!colnames(prm_item) %in% c("u", "c"))]
-        if (any(cats == 2L)) {
-          prm_item[cats > 2, 1:(ncol(prm_item) - 3)] <- prm_item[cats > 2, 4:ncol(prm_item)]
-        }
-        prm_item <- prm_item[, 1:max(cats)]
-      }
+    # check models for the two-category items of mixed-format data
+    if (!all(mods[cats == 2L] %in% c("Rasch", "2PL", "3PL", "graded", "gpcm", "gpcmIRT"))) {
+      stop("For dichotomous items, only Rasch, 2PL, 3PL, graded, gpcm, gpcmIRT models are available", call. = FALSE)
     }
+  }
 
-    # when two different polytimous models are used
-    if (length(unique(mods_py)) > 1) {
-      prm_item <- prm_all$items
+  # the coefficient matrix, whose columns follow the order of the first item of each model
+  prm_coef <- prm_all$items
 
-      # when one of the models is gpcmIRT model
-      if (any(mods_py %in% "gpcmIRT")) {
-        prm_item <- prm_item[, which(!colnames(prm_item) %in% c("u", "c"))]
+  # names of the threshold columns sorted by their numbers
+  b_cols <- grep("^b[0-9]+$", colnames(prm_coef), value = TRUE)
+  b_cols <- b_cols[order(as.numeric(sub("^b", "", b_cols)))]
 
-        # when there are dichotomous models
-        if (any(cats == 2L)) {
-          if (all(mods_py %in% "gpcmIRT")) {
-            # when all polytomous models are gpcmIRT models
-            prm_item[cats > 2 & mods == "gpcmIRT", 1:length(4:ncol(prm_item))] <- prm_item[cats > 2 & mods == "gpcmIRT", 4:ncol(prm_item)]
-          } else {
-            # when gpcmIRT models are used with other polytomous models
-            prm_item[cats > 2 & mods == "gpcmIRT", 1] <- prm_item[cats > 2 & mods == "gpcmIRT", ncol(prm_item)]
-            prm_item <- prm_item[, -ncol(prm_item)]
-            prm_item[cats > 2, 2:(ncol(prm_item) - 2)] <- prm_item[cats > 2, 4:ncol(prm_item)]
-          }
-        } else {
-          # when there is no dichotomous model
-          prm_item[cats > 2 & mods == "gpcmIRT", 1] <- prm_item[cats > 2 & mods == "gpcmIRT", ncol(prm_item)]
-        }
-
-        prm_item <- prm_item[, 1:max(cats)]
+  # a matrix of item parameters, filled item by item with the column names
+  prm_item <- matrix(NA_real_,
+    nrow = nitem, ncol = ifelse(any_py, max(cats), 3L),
+    dimnames = list(rownames(prm_coef), NULL)
+  )
+  for (i in seq_len(nitem)) {
+    if (mods[i] %in% c("Rasch", "2PL", "3PL") && cats[i] == 2L) {
+      # slope, difficulty, and guessing parameters of a dichotomous item
+      prm_item[i, 1:3] <- prm_coef[i, c("a", "b", "g")]
+    } else {
+      if (mods[i] == "gpcmIRT") {
+        # the intercept c of the gpcmIRT model is moved into the thresholds (b_v - c / a)
+        slope <- prm_coef[i, "a1"]
+        thr <- prm_coef[i, b_cols[seq_len(cats[i] - 1)]] - prm_coef[i, "c"] / slope
+      } else {
+        # slope and thresholds of a graded or partial credit item
+        slope <- prm_coef[i, "a"]
+        thr <- prm_coef[i, b_cols[seq_len(cats[i] - 1)]]
       }
-
-      # when there is no gpcmIRT model
-      if (all(mods_py %in% c("graded", "gpcm", "Rasch"))) {
-        prm_item <- prm_item[, which(colnames(prm_item) != "u")]
-        if (any(cats == 2L)) {
-          prm_item[cats > 2, 2:(ncol(prm_item) - 2)] <- prm_item[cats > 2, 4:ncol(prm_item)]
-        }
-        prm_item <- prm_item[, 1:max(cats)]
+      if (cats[i] == 2L) {
+        # a two-category item fitted with a polytomous model is a dichotomous item without guessing
+        prm_item[i, 1:3] <- c(slope, thr, 0)
+      } else {
+        # slope and thresholds of a polytomous item
+        prm_item[i, seq_len(cats[i])] <- c(slope, thr)
       }
     }
   }
+
+  # a two-category item is a dichotomous item in irtQ
+  MODEL[cats == 2L] <- "DRM"
 
   # give colnames for a prm matrix
   colnames(prm_item) <- paste0("par.", 1:ncol(prm_item))

@@ -56,26 +56,36 @@ calibration. See \code{\link[=est_irt]{est_irt()}} or \code{\link[=simdat]{simda
 details about the item metadata.
 
 When \code{use.startval = TRUE}, the item parameters specified in the metadata
-will be used as starting values for parameter estimation. If \code{x = NULL},
-both \code{model} and \code{cats} arguments must be specified. Note that when
-\code{fipc = TRUE} to implement MG-FIPC, the \code{x} argument must be specified
-and cannot be NULL. Default is \code{NULL}.}
+will be used as starting values for parameter estimation; otherwise they
+are ignored, except for the fixed items in MG-FIPC, whose parameters are
+held at the values in \code{x}. A common item must have the same model and
+number of score categories in every group that includes it. If
+\code{x = NULL}, the \code{model}, \code{cats}, and \code{item.id} arguments are used. Note
+that when \code{fipc = TRUE} to implement MG-FIPC, the \code{x} argument must be
+specified and cannot be NULL. Default is \code{NULL}.}
 
-\item{data}{A list containing item response matrices for all groups to be
+\item{data}{A list containing the item response data of all groups to be
 analyzed. For example, if five groups are analyzed, the list should include
-five elements, each representing the response data matrix for one group.
-The elements in the list must be ordered to match the group names specified
-in the \code{group.name} argument. Each matrix contains examinees' item responses
-corresponding to the item metadata for that group. In each matrix, rows
-represent examinees and columns represent items.}
+five elements, each representing the response data of one group. The
+elements in the list must be ordered to match the group names specified
+in the \code{group.name} argument. Each element is a matrix or data frame whose
+rows represent the examinees of the group and whose columns represent the
+items of the group's form, in the same order as in the group's item
+metadata. Responses to an item with K score categories must be integers
+from 0 to K - 1, and missing responses are coded as \code{NA} or as the value
+given in \code{missing}. Items are matched across groups by their IDs, and the
+items that are not in a group's form are treated as missing for the
+examinees of that group.}
 
-\item{group.name}{A character vector indicating the names of the groups.
-For example, if five groups are analyzed, use
-\code{group.name = c("G1", "G2", "G3", "G4", "G5")}. Group names can be any
-valid character strings.}
+\item{group.name}{A character vector indicating the names of the groups, in
+the order of the elements of \code{data}. For example, if five groups are
+analyzed, use \code{group.name = c("G1", "G2", "G3", "G4", "G5")}. Group names
+can be any valid character strings and label the group-level elements of
+the returned object. If \code{NULL}, the names \code{"g1"}, \code{"g2"}, and so on are
+used. Default is \code{NULL}.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 
 \item{model}{A list containing character vectors specifying the IRT models
@@ -91,10 +101,10 @@ Available IRT models include:
 }
 
 Here, \code{"GRM"} denotes the graded response model and \code{"GPCM"} the
-(generalized) partial credit model. Note that \code{"DRM"} serves as a general
-label covering all three dichotomous IRT models.If a single model name is
-provided in any element of the list, it will be recycled across all items
-within that group.
+(generalized) partial credit model. Note that \code{"DRM"} is a general label
+for dichotomous items; items labeled \code{"DRM"} are fitted with the 3PLM, and
+a warning is issued. If a single model name is provided in any element of
+the list, it will be recycled across all items within that group.
 
 This argument is used only when \code{x = NULL} and \code{fipc = FALSE}. Default
 is \code{NULL}.}
@@ -116,25 +126,37 @@ is \code{NULL}.}
 
 \item{item.id}{A list containing character vectors of item IDs for each group
 to be analyzed. For example, if five groups are analyzed, the list should
-contain five character vectors corresponding to the five groups. The elements
-in the list must be ordered consistently with the group names specified in
-the \code{group.name} argument.
+contain five character vectors corresponding to the five groups. The
+elements in the list must be ordered consistently with the group names
+specified in the \code{group.name} argument.
 
-When \code{fipc = TRUE} and item IDs are provided via the \code{item.id} argument,
-the item IDs in the \code{x} argument will be overridden. Default is \code{NULL}.}
+Items with the same ID in different groups are treated as common items. A
+provided \code{item.id} replaces any IDs in \code{x}, with or without FIPC, and each
+element must have one value per item of its group. With \code{fipc = TRUE},
+\code{fix.id} then refers to the new IDs. It is required when \code{x = NULL}.
+Default is \code{NULL}.}
 
-\item{free.group}{A numeric or character vector indicating the groups for which
-the scales (i.e., mean and standard deviation) of the latent ability distributions
-are freely estimated. The scales of the remaining groups (those not specified in this
-argument) are fixed using the values provided in the \code{group.mean} and \code{group.var}
-arguments, or from the \code{weights} argument.
+\item{free.group}{A numeric or character vector of the positions or names of
+the groups whose latent ability distributions are freely estimated: their
+means and variances, or their empirical histograms when \code{EmpHist = TRUE}.
+The distributions of the remaining groups (reference groups, those not
+specified in this argument) are fixed using the values provided in the
+\code{group.mean} and \code{group.var} arguments, or from the \code{weights} argument.
+Each group in \code{free.group} must share common items with another group or,
+with FIPC, include fixed items.
 
-For example, suppose that five groups are analyzed with group names "G1", "G2",
-"G3", "G4", and "G5". To freely estimate the scales for groups 2 through 5, set
-\code{free.group = c(2, 3, 4, 5)} or \code{free.group = c("G2", "G3", "G4", "G5")}.
-In this case, the first group ("G1") will have a fixed scale
-(e.g., a mean of 0 and variance of 1 when \code{group.mean = 0}, \code{group.var = 1},
-and \code{weights = NULL}).}
+For example, suppose that five groups are analyzed with group names "G1",
+"G2", "G3", "G4", and "G5". To freely estimate the distributions of groups
+2 through 5, set \code{free.group = c(2, 3, 4, 5)} or
+\code{free.group = c("G2", "G3", "G4", "G5")}. In this case, the first group
+("G1") will have a fixed distribution (e.g., a mean of 0 and variance of 1
+when \code{group.mean = 0}, \code{group.var = 1}, and \code{weights = NULL}).
+
+Without FIPC, at least one group must be a reference group to identify the
+scale; if \code{free.group = NULL}, all groups are reference groups. With FIPC,
+\code{free.group} must be supplied, and it usually includes all groups so that
+every distribution is estimated on the scale of the fixed items (see
+Details). Default is \code{NULL}.}
 
 \item{fix.a.1pl}{Logical. If \code{TRUE}, the slope parameters of all 1PLM items
 are fixed to \code{a.val.1pl}; otherwise, they are constrained to be equal and
@@ -145,8 +167,8 @@ slopes fixed to \code{a.val.gpcm}; otherwise, each item's slope is estimated.
 Default is \code{FALSE}.}
 
 \item{fix.g}{Logical. If \code{TRUE}, all 3PLM guessing parameters are fixed to
-\code{g.val}; otherwise, each guessing parameter is estimated. Default is
-\code{FALSE}.}
+\code{g.val}; otherwise, each guessing parameter is estimated. The prior in
+\code{gprior} is then not used. Default is \code{FALSE}.}
 
 \item{a.val.1pl}{Numeric. Value to which the slope parameters of 1PLM items
 are fixed when \code{fix.a.1pl = TRUE}. Default is 1.}
@@ -165,13 +187,18 @@ item discrimination (slope) parameters during calibration. Default is
 item difficulty (or threshold) parameters during calibration. Default is
 \code{FALSE}.}
 
-\item{use.gprior}{Logical. If \code{TRUE}, applies a prior distribution to all
-3PLM guessing parameters during calibration. Default is \code{TRUE}.}
+\item{use.gprior}{Logical. If \code{TRUE}, applies the prior distribution in
+\code{gprior} to the guessing parameters of 3PLM items when they are estimated;
+the prior is not used when \code{fix.g = TRUE}. Default is \code{TRUE}.}
 
 \item{aprior, bprior, gprior}{A list specifying the prior distribution for all
-item discrimination (slope), difficulty (or threshold), guessing
-parameters. Three distributions are supported: Beta, Log-normal, and
-Normal. The list must have two elements:
+item discrimination (slope), difficulty (or threshold), and guessing
+parameters. The slope prior is placed on \code{D} times the slope, that is,
+the density in \code{aprior} is evaluated at \code{D * a}; with \code{D = 1} (the
+default), this is the slope itself. The priors also enter the information
+matrix from which the standard errors are computed. Three distributions
+are supported: Beta, Log-normal, and Normal. The list must have two
+elements:
 \itemize{
 \item \code{dist}: A character string, one of \code{"beta"}, \code{"lnorm"}, or \code{"norm"}.
 \item \code{params}: A numeric vector of length two giving the distribution's
@@ -188,123 +215,164 @@ Defaults are:
 
 for discrimination, difficulty, and guessing parameters, respectively.}
 
-\item{missing}{A value indicating missing responses in the data set. Default
-is \code{NA}.}
+\item{missing}{A value indicating missing responses in the data set, in
+addition to \code{NA}, which is always treated as missing. Missing responses are
+omitted from the likelihood, which assumes that they are missing at random.
+Default is \code{NA}.}
 
 \item{Quadrature}{A numeric vector of length two:
 \itemize{
 \item first element: number of quadrature points
 \item second element: symmetric bound (absolute value) for those points
+}
+
 For example, \code{c(49, 6)} specifies 49 evenly spaced points from -6 to 6.
-These points are used in the E-step of the EM algorithm. Default is \code{c(49, 6)}.
-}}
+The points are used to approximate the integral over the latent ability
+distribution in the E-step of the EM algorithm. \code{Quadrature} is ignored
+when \code{weights} is supplied. Default is \code{c(49, 6)}.}
 
 \item{weights}{A two-column matrix or data frame containing the quadrature
 points (in the first column) and the corresponding weights (in the second
-column) for the latent ability prior distribution. If not \code{NULL}, the
-latent ability distributions for the groups not specified in the \code{free.group}
-argument are fixed to match the scale defined by the provided quadrature points
-and weights. The weights and points can be conveniently generated using
-the function \code{\link[=gen.weight]{gen.weight()}}.
+column) that define the initial latent ability distribution of every group.
+The weights and points can be conveniently generated using the function
+\code{\link[=gen.weight]{gen.weight()}}. The weights should sum to 1; weights that do not sum
+to 1 are rescaled to sum to 1 with a warning. The number of points may
+differ from \code{Quadrature[1]}. If supplied, \code{Quadrature}, \code{group.mean}, and
+\code{group.var} are not used. For the groups not specified in \code{free.group}, the
+mean and variance of this distribution fix the scale: the distribution is
+used as it is when \code{EmpHist = FALSE}, and its shape is updated but
+rescaled to this mean and variance when \code{EmpHist = TRUE}, in which case the
+quadrature points must be equally spaced, because the histogram is rescaled
+by interpolation on an equally spaced grid. For the groups in \code{free.group},
+it is only the initial distribution.
 
 If \code{NULL}, a normal prior density is used instead, based on the
 information provided in the \code{Quadrature}, \code{group.mean}, and \code{group.var}
 arguments. Default is \code{NULL}.}
 
-\item{group.mean}{A numeric value specifying the mean of the latent variable
-prior distribution when \code{weights = NULL}. Default is 0. For groups not
-specified in the \code{free.group} argument, their distribution means are fixed
-to this value in order to resolve the indeterminacy of the item parameter
-scale.}
+\item{group.mean}{A numeric value specifying the mean of the normal latent
+ability distribution when \code{weights = NULL}. Default is 0. The means of the
+groups not specified in the \code{free.group} argument are fixed at this value
+to resolve the indeterminacy of the item parameter scale, also when
+\code{EmpHist = TRUE}. For the groups in \code{free.group}, it is the mean of the
+initial distribution.}
 
 \item{group.var}{A positive numeric value specifying the variance of the
-latent variable prior distribution when \code{weights = NULL}. Default is 1.
-For groups not specified in the \code{free.group} argument, their distribution
-variances are fixed to this value in order to resolve the indeterminacy of
-the item parameter scale.}
+normal latent ability distribution when \code{weights = NULL}. Default is 1.
+The variances of the groups not specified in the \code{free.group} argument are
+fixed at this value to resolve the indeterminacy of the item parameter
+scale, also when \code{EmpHist = TRUE}. For the groups in \code{free.group}, it is
+the variance of the initial distribution.}
 
-\item{EmpHist}{Logical. If \code{TRUE}, the empirical histograms of the latent
-ability prior distributions across all groups are estimated simultaneously
-with the item parameters using the approach proposed by Woods (2007).
-Item calibration is then performed relative to the estimated empirical priors.}
+\item{EmpHist}{Logical. If \code{TRUE}, the latent ability distribution of each
+group is estimated as an empirical histogram on the quadrature points
+together with the item parameters, using the approach proposed by Woods
+(2007). The histograms of the groups not in \code{free.group} are rescaled to
+the fixed mean and variance in every EM cycle, and those of the groups in
+\code{free.group} are not rescaled. If \code{FALSE}, the distribution of each group
+in \code{free.group} is a normal distribution whose mean and variance are
+updated in every EM cycle. Default is \code{FALSE}.}
 
 \item{use.startval}{Logical. If \code{TRUE}, the item parameters provided in the
-item metadata (i.e., the \code{x} argument) are used as starting values for item
-parameter estimation. Otherwise, internally generated starting values are
-used. Default is \code{FALSE}.}
+item metadata (i.e., the \code{x} argument) are used as starting values for the
+items whose parameters are estimated; \code{x} must then be supplied.
+Otherwise, internally generated starting values are used. Default is
+\code{FALSE}.}
 
-\item{Etol}{A positive numeric value specifying the convergence criterion for
-the E-step of the EM algorithm. Default is 1e-3.
-Specifically, the EM algorithm terminates when the largest absolute difference
-in item parameter estimates between consecutive iterations is less than or
-equal to this value. When MG-FIPC is used and all items are fixed, so that
-only the latent ability distributions are estimated, the criterion is
-applied to the largest absolute change in the means and variances of the
-prior distributions.}
+\item{Etol}{A positive numeric value specifying the convergence criterion
+of the EM algorithm. The EM cycles stop when the largest absolute change
+in the estimated item parameters between two consecutive cycles is less
+than or equal to \code{Etol}. With MG-FIPC, only the parameters of the items
+that are not fixed are compared. The means and variances of the latent
+ability distributions of the groups in \code{free.group}, and the weights of
+the empirical histograms (\code{EmpHist = TRUE}), are not part of the
+criterion, so they can be less converged than the item parameters; a
+smaller \code{Etol} gives more precise estimates of them. In particular, an
+estimated histogram can keep changing very slowly over many cycles
+(toward a spiky distribution) while the log-likelihood barely changes, so
+\code{group.par} and \code{weights} then depend on \code{Etol}; with small samples, the
+item parameters can then also need many cycles, or more than \code{MaxE}, to
+meet \code{Etol}. When all items are fixed, the criterion is applied to the
+largest absolute change in the means and variances of the latent ability
+distributions of all groups; those of the groups not in \code{free.group} stay
+at their fixed values, apart from small changes due to the rescaling of
+their histograms when \code{EmpHist = TRUE}. \code{Etol} is not used when
+\code{fipc.method = "OEM"} with items to calibrate. The printed output of the
+fitted object refers to this criterion as the convergence criterion of the
+E-step. Default is \code{1e-3}, which is larger than the default of
+\code{\link[=est_irt]{est_irt()}}.}
 
-\item{MaxE}{A positive integer specifying the maximum number of iterations
-for the E-step in the EM algorithm. Default is \code{500}.}
+\item{MaxE}{A positive integer specifying the maximum number of EM cycles. It
+is set to 1 when \code{fipc.method = "OEM"}. The printed output of the fitted
+object refers to the cycles as E-step cycles. Default is \code{500}.}
 
-\item{control}{A named list of options passed directly to \code{\link[stats:nlminb]{stats::nlminb()}}
-in each M-step optimization of the EM algorithm. By default:
-\code{control = list(eval.max = 500, iter.max = 200, x.tol = 1e-4)}, where
+\item{control}{A named list of options passed directly to \code{\link[stats:nlminb]{stats::nlminb()}},
+which maximizes the M-step objective of each item. The default is
+\code{list(eval.max = 500, iter.max = 200, x.tol = 1e-4)}, where
 \itemize{
-\item \code{eval.max} = 500 limits the number of function evaluations
-\item \code{iter.max} = 200 caps the number of internal optimizer iterations
-\item \code{x.tol} = 1e-4 sets the absolute change threshold in parameter values
-below which \code{\link[stats:nlminb]{stats::nlminb()}} considers the solution to have converged
-Users may additionally supply other \code{nlminb()} control options
-(such as \code{abs.tol}, \code{rel.tol}, \code{trace}, etc.) as needed.
-}}
+\item \code{eval.max} is the maximum number of objective function evaluations,
+\item \code{iter.max} is the maximum number of optimizer iterations, and
+\item \code{x.tol} is the X-convergence tolerance of \code{\link[stats:nlminb]{stats::nlminb()}}.
+}
+
+A partial list may be supplied; options that are not supplied keep their
+default values. Other options of \code{\link[stats:nlminb]{stats::nlminb()}}, such as \code{rel.tol} or
+\code{trace}, can also be supplied.}
 
 \item{fipc}{Logical. If \code{TRUE}, multiple-group fixed item parameter
 calibration (MG-FIPC) is applied during item parameter estimation.
 When \code{fipc = TRUE}, the information on which items are fixed
-must be provided via either \code{fix.loc} or \code{fix.id}. See below for details.}
+must be provided via either \code{fix.loc} or \code{fix.id}. See Details.}
 
-\item{fipc.method}{A character string specifying the FIPC method. Available
-options are:
+\item{fipc.method}{A character string specifying the FIPC method, used only
+when \code{fipc = TRUE}. Available options are:
 \itemize{
 \item \code{"OEM"}: No Prior Weights Updating and One EM Cycle (NWU-OEM; Wainer &
-Mislevy, 1990)
+Mislevy, 1990).
 \item \code{"MEM"}: Multiple Prior Weights Updating and Multiple EM Cycles
-(MWU-MEM; Kim, 2006) When \code{fipc.method = "OEM"}, the maximum number of
-E-steps is automatically set to 1, regardless of the value specified in
-\code{MaxE}.
-}}
+(MWU-MEM; Kim, 2006).
+}
 
-\item{fix.loc}{A list of positive integer vectors. Each internal vector specifies
-the positions of the items to be fixed in the item metadata (i.e., \code{x})
-for each group when MG-FIPC is implemented (i.e., \code{fipc = TRUE}).
-The internal objects in the list must follow the same order as the group names
-provided in the \code{group.name} argument.
+When \code{fipc.method = "OEM"}, a single EM cycle is run regardless of \code{MaxE}.
+See Details. Default is \code{"MEM"}.}
+
+\item{fix.loc}{A list of positive integer vectors. Each internal vector
+specifies the positions of the items to be fixed in the item metadata
+(i.e., \code{x}) for each group when MG-FIPC is implemented (i.e.,
+\code{fipc = TRUE}). The internal objects in the list must follow the same order
+as the group names provided in the \code{group.name} argument. Use \code{NULL} for a
+group without fixed items. An item fixed in one group is fixed in every
+group that includes it.
 
 For example, suppose three groups are analyzed. In the first group,
 the 1st, 3rd, and 5th items are fixed; in the second group, the 2nd, 3rd,
 4th, and 7th items are fixed; and in the third group, the 1st, 2nd, and
 6th items are fixed. Then
 \code{fix.loc = list(c(1, 3, 5), c(2, 3, 4, 7), c(1, 2, 6))}.
-Note that if the \code{fix.id} argument is not NULL, the information in \code{fix.loc}
-will be ignored. See below for details.}
+Note that if the \code{fix.id} argument is not NULL, the information in
+\code{fix.loc} will be ignored. See Details.}
 
 \item{fix.id}{A vector of character strings specifying the IDs of items to be
-fixed when MG-FIPC is implemented (i.e., \code{fipc = TRUE}).
+fixed when MG-FIPC is implemented (i.e., \code{fipc = TRUE}). It is a single
+character vector for all groups, not a list.
 
 For example, suppose that three groups are analyzed. In the first group,
 three items with IDs G1I1, C1I1, and C1I2 are fixed. In the second group,
 four items with IDs C1I1, C1I2, C2I1, and C2I2 are fixed. In the third
 group, three items with IDs C2I1, C2I2, and G3I1 are fixed.
 
-In this case, there are six unique items fixed across the groups - namely,
-G1I1, C1I1, C1I2, C2I1, C2I2, and G3I1, because C1I1 and C1I2 appear in
+In this case, there are six unique items fixed across the groups
+(G1I1, C1I1, C1I2, C2I1, C2I2, and G3I1), because C1I1 and C1I2 appear in
 both the first and second groups, while C2I1 and C2I2 appear in both the
 second and third groups. Thus, you should specify
 \code{fix.id = c("G1I1", "C1I1", "C1I2", "C2I1", "C2I2", "G3I1")}.
 Note that if the \code{fix.id} argument is not NULL, the information provided in
-\code{fix.loc} is ignored. See below for details.}
+\code{fix.loc} is ignored. See Details.}
 
-\item{se}{Logical. If \code{FALSE}, standard errors of the item parameter
-estimates are not computed. Default is \code{TRUE}.}
+\item{se}{Logical. If \code{FALSE}, the standard errors and the
+variance-covariance matrix of the item parameter estimates are not
+computed; \code{se.est} is then filled with \code{NA} and \code{covariance} is \code{NULL}.
+Default is \code{TRUE}.}
 
 \item{verbose}{Logical. If \code{FALSE}, all progress messages, including
 information about the EM algorithm process, are suppressed. Default is
@@ -314,94 +382,134 @@ information about the EM algorithm process, are suppressed. Default is
 This function returns an object of class \code{est_mg}. The returned
 object contains the following components:
 
-\item{estimates}{A list containing two internal elements: \code{overall} and \code{group}.
-The \code{overall} element is a data frame with item parameter estimates and their
-standard errors, computed from the combined data across all groups. This data
-frame includes only the unique items across all groups. The \code{group} element is
-a list of group-specific data frames, each containing item parameter estimates
-and standard errors for that particular group.}
+\item{estimates}{A list containing two internal elements: \code{overall} and
+\code{group}. The \code{overall} element is a data frame with item parameter
+estimates and their standard errors, computed from the combined data across
+all groups. This data frame includes only the unique items across all
+groups. The \code{group} element is a list of group-specific data frames, each
+containing item parameter estimates and standard errors for that particular
+group.}
 
 \item{par.est}{A list with the same structure as \code{estimates}, containing only
-the item parameter estimates (excluding standard errors), formatted according to
-the item metadata structure.}
+the item parameter estimates (excluding standard errors), formatted
+according to the item metadata structure.}
 
-\item{se.est}{A list with the same structure as \code{estimates}, but containing only
-the standard errors of the item parameter estimates. Note that the standard
-errors are calculated using the cross-product approximation method
-(Meilijson, 1989).}
+\item{se.est}{A list with the same structure as \code{estimates}, but containing
+only the standard errors of the item parameter estimates. Note that the
+standard errors are computed from the inverse of the information matrix,
+which is the cross-product (empirical) information matrix of the marginal
+log-likelihood evaluated at the final estimates (Meilijson, 1989), plus
+the prior information (the negative second derivatives of the log prior
+densities) for the parameters that have prior distributions. The latent
+ability distributions of the groups are treated as known in this matrix,
+so the uncertainty of the estimated distributions is not reflected in
+these standard errors. Parameters that are not estimated, including those
+of the items fixed in FIPC, have \code{NA} standard errors, and all are \code{NA}
+when \code{se = FALSE}.}
 
-\item{pos.par}{A data frame indicating the position index of each estimated
-item parameter. This index is based on the combined data set across all groups
-(i.e., the first internal object of \code{estimates}). The position information is
-useful for interpreting the variance-covariance matrix of item parameter
-estimates.}
+\item{pos.par}{A data frame of the positions of the estimated item
+parameters in \code{covariance}, for the unique items across all groups (the
+\code{overall} element of \code{estimates}). Parameters that are not estimated,
+including those of the items fixed in FIPC, are \code{NA}. It is \code{NULL} when
+all items are fixed in FIPC.}
 
-\item{covariance}{A variance-covariance matrix of the item parameter
-estimates, based on the combined data set across all groups
-(i.e., the first internal object of \code{estimates}).}
+\item{covariance}{The variance-covariance matrix of the estimated item
+parameters of the unique items across all groups, in the order given by
+\code{pos.par}. It is \code{NULL} when \code{se = FALSE} or when all items are fixed in
+FIPC.}
 
-\item{loglikelihood}{A list containing two internal objects (i.e., overall
-and group) of marginal log-likelihood values based on the observed data.
-The structure of the list matches that of \code{estimates}. Specifically,
-the \code{overall} component contains the total log-likelihood summed across
-all unique items from all groups, while the \code{group} component provides
-group-specific log-likelihood values.}
+\item{loglikelihood}{A list with two elements. \code{overall} is the marginal
+log-likelihood of the response data at the final estimates: the sum over
+all examinees of the logarithm of the probability of each examinee's
+response pattern, integrated over the latent ability distribution of the
+examinee's group. \code{group} is a named list of the same sums within the
+groups, which add up to \code{overall}. The log prior densities of the item
+parameters are not included.}
 
-\item{aic}{A model fit statistic based on the Akaike Information Criterion (AIC),
-calculated from the log-likelihood of all unique items.}
+\item{aic}{Akaike information criterion,
+\code{-2 * loglikelihood$overall + 2 * npar.est},
+calculated from the overall log-likelihood.}
 
-\item{bic}{A model fit statistic based on the Bayesian Information Criterion (BIC),
-calculated from the log-likelihood of all unique items.}
+\item{bic}{Bayesian information criterion,
+\code{-2 * loglikelihood$overall + npar.est * log(ncase$overall)}, calculated
+from the overall log-likelihood and the overall number of examinees.}
 
-\item{group.par}{A list containing summary statistics (i.e., mean, variance,
-and standard deviation) of the latent variable prior distributions across
-all groups.}
+\item{group.par}{A named list with one data frame per group, with rows
+\code{estimates} and \code{se} and columns \code{mu}, \code{sigma2}, and \code{sigma} (the mean,
+variance, and standard deviation of the latent ability distribution). For
+a group not in \code{free.group}, the estimates are the fixed values given by
+\code{group.mean} and \code{group.var} (or by \code{weights}), and the standard errors
+are \code{NA}; with \code{EmpHist = TRUE}, the histogram of such a group is
+rescaled in each cycle to have this mean and variance, but because the
+rescaling interpolates on the quadrature points, the mean and variance
+computed from the returned \code{weights} can differ slightly from the
+reported values. For a group in \code{free.group}, the estimates are the mean
+and variance of the final distribution (the same as those computed from
+the returned \code{weights}), and the standard errors are approximations that
+treat the abilities as observed and are therefore usually too small:
+\code{sigma / sqrt(N)}, \code{sigma2 * sqrt(2 / (N - 1))}, and
+\code{se(sigma2) / (2 * sigma)}, where \code{N} is the number of examinees in the
+group.}
 
 \item{weights}{A list of two-column data frames, where the first column
-contains quadrature points and the second column contains the corresponding
-weights of the (updated) latent variable prior distributions for each group.}
+contains quadrature points and the second column contains the
+corresponding weights of the (updated) latent variable prior distributions
+for each group.}
 
-\item{posterior.dist}{A matrix of normalized posterior densities for all
-response patterns at each quadrature point. Rows and columns represent
-response patterns and quadrature points, respectively.}
+\item{posterior.dist}{A matrix of the posterior probabilities of the
+quadrature points for each examinee, computed with the final estimates and
+the latent distribution of the examinee's group. Rows represent the
+examinees of all groups, stacked in the order of \code{group.name}, and columns
+represent quadrature points; each row sums to 1.}
 
-\item{data}{A list containing two internal objects (i.e., overall and group)
-representing the examinees' response data sets. The structure of this
-list matches that of the \code{estimates} component.}
+\item{data}{A list with two elements. \code{overall} is a matrix of the
+responses of all examinees to all unique items, with \code{NA} for the items
+not in a group's form and for missing responses. \code{group} is the list of
+response data sets named by \code{group.name}, in which the missing responses
+are also recoded as \code{NA}.}
 
 \item{scale.D}{The scaling factor used in the IRT model.}
 
-\item{ncase}{A list containing two internal objects (i.e., overall and group)
-representing the total number of response patterns. The structure of this
-list matches that of the \code{estimates} component.}
+\item{ncase}{A list with two elements: \code{overall}, the total number of
+examinees, and \code{group}, a named vector of the numbers of examinees in the
+groups.}
 
-\item{nitem}{A list containing two internal objects (i.e., overall and group)
-representing the total number of items included in the response data.
-The structure of this list matches that of the \code{estimates} component.}
+\item{nitem}{A list with two elements: \code{overall}, the number of unique items
+across all groups, and \code{group}, a named vector of the numbers of items in
+the groups.}
 
-\item{Etol}{The convergence criterion for the E-step of the EM algorithm.}
+\item{Etol}{The convergence criterion of the EM algorithm; see \code{Etol} in
+Arguments.}
 
-\item{MaxE}{The maximum number of E-steps allowed in the EM algorithm.}
+\item{MaxE}{The maximum number of EM cycles (1 when
+\code{fipc.method = "OEM"}).}
 
-\item{aprior}{A list describing the prior distribution used for discrimination
-parameters.}
+\item{aprior}{A list describing the prior distribution used for
+discrimination parameters. It is \code{NULL} when \code{use.aprior = FALSE}.}
 
 \item{bprior}{A list describing the prior distribution used for difficulty
-parameters.}
+parameters. It is \code{NULL} when \code{use.bprior = FALSE}.}
 
 \item{gprior}{A list describing the prior distribution used for guessing
-parameters.}
+parameters. It is \code{NULL} when \code{use.gprior = FALSE}.}
 
-\item{npar.est}{The total number of parameters estimated across all unique items.}
+\item{npar.est}{The number of freely estimated parameters used for \code{aic} and
+\code{bic}: the estimated item parameters of all unique items, the means and
+variances of the free groups when they have normal distributions, and the
+weights of the empirical histograms when \code{EmpHist = TRUE}. See Details.}
 
 \item{niter}{The number of completed EM cycles.}
 
-\item{maxpar.diff}{The largest absolute change in the estimates in
-the last EM cycle.}
+\item{maxpar.diff}{The largest absolute change in the estimated item
+parameters in the last EM cycle (for MG-FIPC with all items fixed, in the
+means and variances of the latent ability distributions of all groups; see
+\code{Etol}). With \code{fipc.method = "OEM"}, it is the change from the starting
+values.}
 
 \item{EMtime}{Time (in seconds) spent on EM cycles.}
 
-\item{SEtime}{Time (in seconds) spent computing standard errors.}
+\item{SEtime}{Time (in seconds) spent computing standard errors; \code{NULL}
+when they are not computed.}
 
 \item{TotalTime}{Total computation time (in seconds).}
 
@@ -412,31 +520,49 @@ cycles was less than or equal to \code{Etol}. When \code{fipc.method = "OEM"} wi
 new items to calibrate, the single EM cycle is not judged by \code{Etol} and
 only the M-step check applies. For FIPC with all items fixed, see \code{Etol}.}
 
-\item{test.2}{Second-order test result indicating whether the information matrix
-is positive definite, a necessary condition for identifying a local maximum.
-The message reports a possible local maximum only when the first-order test
-is also satisfied.}
+\item{test.2}{A message indicating whether the information matrix used
+for the standard errors (see \code{se.est}) is positive definite. Printed
+results label it "Second-order test", but because the cross-product
+information matrix is positive semidefinite by construction, this check
+mainly detects a singular (rank-deficient) information matrix, for
+example due to unidentified parameters; it is not a second-order test of
+the log-likelihood surface. The message reports a possible local maximum
+only when the first-order test is also satisfied. When FIPC is used with
+all items fixed, no information matrix is computed, and the message says
+so.}
 
 \item{var.note}{A note indicating whether the variance-covariance matrix
 was successfully obtained from the information matrix.}
 
 \item{fipc}{Logical. Indicates whether FIPC was used.}
 
-\item{fipc.method}{The method used for FIPC.}
+\item{fipc.method}{The method used for FIPC, or \code{NULL} when \code{fipc = FALSE}.}
 
-\item{fix.loc}{A list containing two internal objects (i.e., overall and group)
-indicating the locations of fixed items when FIPC is applied. The structure
-of the list matches that of the 'estimates' component.}
+\item{fix.loc}{A list with two elements: \code{overall}, the positions of the
+fixed items among the unique items across all groups (the rows of
+\code{par.est$overall}), and \code{group}, a named list of the positions of the
+fixed items in each group's form. Both are \code{NULL} when \code{fipc = FALSE}.}
+
+\item{call}{The matched call.}
+
+\item{npar.detail}{An integer vector with the elements \code{item} (free item
+parameters), \code{dist} (means and variances of the latent distributions of
+all groups), and \code{weight} (weights of the empirical histograms of all
+groups), whose sum is \code{npar.est}. It is the last element of the object;
+when it is absent, \code{summary()} shows the total only.}
 
 Note that you can easily extract components from the output using the
 \code{\link[=getirt]{getirt()}} function.
 }
 \description{
-This function performs multiple-group item calibration (Bock & Zimowski, 1997)
-using marginal maximum likelihood estimation via the expectation-maximization
-(MMLE-EM) algorithm (Bock & Aitkin, 1981). It also supports multiple-group
-fixed item parameter calibration (MG-FIPC; e.g., Kim & Kolen, 2016), which
-extends the single-group FIPC method (Kim, 2006) to multiple-group settings.
+This function performs multiple-group item calibration (Bock & Zimowski,
+1997) using marginal maximum likelihood estimation via the
+expectation-maximization (MMLE-EM) algorithm (Bock & Aitkin, 1981). When
+prior distributions are specified for item parameters, the estimates are the
+modes of the marginal posterior distribution (Bayes modal estimates). It also
+supports multiple-group fixed item parameter calibration (MG-FIPC; e.g., Kim
+& Kolen, 2016), which extends the single-group FIPC method (Kim, 2006) to
+multiple-group settings.
 For dichotomous items, the function supports one-, two-, and three-parameter
 logistic IRT models. For polytomous items, the graded response model (GRM)
 and the (generalized) partial credit model (GPCM) are available.
@@ -450,41 +576,39 @@ applications, examinees from different groups typically respond to either
 the same test form or to different forms that share common (anchor) items.
 
 The goal of MG item calibration is to estimate both item parameters and
-latent ability distributions for all groups simultaneously (Bock & Zimowski, 1997).
-The \pkg{irtQ} package implements MG calibration via the \code{\link[=est_mg]{est_mg()}} function,
-which uses marginal maximum likelihood estimation through the
-expectation-maximization (MMLE-EM) algorithm (Bock & Aitkin, 1981).
+latent ability distributions for all groups simultaneously (Bock & Zimowski,
+1997). The \pkg{irtQ} package implements MG calibration via the
+\code{\link[=est_mg]{est_mg()}} function, which uses marginal maximum likelihood estimation
+through the expectation-maximization (MMLE-EM) algorithm (Bock & Aitkin,
+1981).
 In addition, the function supports multiple-group fixed item parameter
 calibration (MG-FIPC; e.g., Kim & Kolen, 2016), which allows the parameters
 of specific items to be fixed across groups.
 
 In MG IRT analyses, it is common for multiple groups' test forms to share
-some common (anchor) items. By default, the \code{\link[=est_mg]{est_mg()}} function
-automatically constrains items with identical item IDs across groups
-to share the same parameter estimates.
+some common (anchor) items. The \code{\link[=est_mg]{est_mg()}} function treats items with
+the same item ID in different groups as common items and constrains them to
+have the same parameter estimates.
 
-Most of the features of the \code{\link[=est_mg]{est_mg()}} function are similar to those of the
-\code{\link[=est_irt]{est_irt()}} function. The main difference is that several arguments in
-\code{\link[=est_mg]{est_mg()}} accept list objects containing elements for each group to be
-analyzed. These arguments include \code{x}, \code{data}, \code{model}, \code{cats},
-\code{item.id}, \code{fix.loc} and \code{fix.id}.
+Most of the features of the \code{\link[=est_mg]{est_mg()}} function are similar to those of
+the \code{\link[=est_irt]{est_irt()}} function. The main difference is that the arguments
+\code{x}, \code{data}, \code{model}, \code{cats}, \code{item.id}, and \code{fix.loc} accept list objects
+containing elements for each group to be analyzed, in the order of the group
+names in \code{group.name}. In contrast, \code{fix.id} is a single character vector of
+the IDs of the fixed items across all groups.
 
 Additionally, \code{\link[=est_mg]{est_mg()}} introduces two new arguments: \code{group.name}
-and \code{free.group}. The \code{group.name} argument is required to assign a unique
-identifier to each group. The order of the list elements provided in
-\code{x}, \code{data}, \code{model}, \code{cats}, \code{item.id}, \code{fix.loc} and \code{fix.id}
-must match the order of group names specified in the \code{group.name} argument.
+and \code{free.group}. The \code{group.name} argument assigns a unique identifier to
+each group.
 
-The \code{free.group} argument is required to indicate which groups have their
-latent ability distribution scales (i.e., mean and standard deviation)
-freely estimated. When no item parameters are fixed (i.e., \code{fipc = FALSE}),
-at least one group must have a fixed latent ability scale (e.g., mean = 0 and
-variance = 1) among the multiple groups sharing common items, in order to
-resolve the scale indeterminacy inherent in IRT estimation. By specifying
-the groups in the \code{free.group} argument, the scales for those groups will be
-freely estimated, while the scales for all other groups not included in
-\code{free.group} will be fixed using the values provided in the \code{group.mean} and
-\code{group.var} arguments or from the \code{weights} argument.
+The \code{free.group} argument indicates the groups whose latent ability
+distributions are freely estimated; the distributions of the other groups
+are fixed using the values provided in the \code{group.mean} and \code{group.var}
+arguments or from the \code{weights} argument. When no item parameters are fixed
+(i.e., \code{fipc = FALSE}), at least one group must have a fixed latent ability
+distribution (e.g., mean = 0 and variance = 1) among the multiple groups
+sharing common items, in order to resolve the scale indeterminacy inherent
+in IRT estimation.
 
 Situations requiring the implementation of MG-FIPC typically arise when
 new latent ability scales from multiple-group (MG) test data need to be
@@ -494,8 +618,8 @@ In a single run of the MG-FIPC procedure, the parameters of non-fixed
 distributions for multiple groups, can be estimated on the same scale
 as the fixed items (Kim & Kolen, 2016).
 
-For example, suppose that three different test forms - Form 1, Form 2, and
-Form 3 - are administered to three nonequivalent groups: Group1, Group2,
+For example, suppose that three different test forms (Form 1, Form 2, and
+Form 3) are administered to three nonequivalent groups: Group1, Group2,
 and Group3. Form 1 and Form 2 share 12 common items (C1I1 to C1I12),
 while Form 2 and Form 3 share 10 common items (C2I1 to C2I10). There are
 no common items between Form 1 and Form 3. Also, assume that all unique
@@ -503,7 +627,7 @@ items in Form 1 are from an existing item bank and have already been
 calibrated on the item bank's scale.
 
 In this case, the goal of MG-FIPC is to estimate the parameters of all
-items across the three test forms - except the unique items in Form 1 -
+items across the three test forms, except the unique items in Form 1,
 and the latent ability distributions of the three groups, all on the
 same scale as the item bank. To achieve this, the unique items in Form 1
 must be fixed during MG-FIPC to link the current MG test data to the
@@ -531,6 +655,63 @@ then specify:
 
 Note that when both \code{fix.loc} and \code{fix.id} are provided, the information
 in \code{fix.id} takes precedence and overrides \code{fix.loc}.
+
+Two methods are available for MG-FIPC through the \code{fipc.method} argument,
+as in \code{\link[=est_irt]{est_irt()}}. The method \code{"MEM"} runs multiple EM cycles. The
+posterior distributions of the first EM cycle are computed from the
+responses to the fixed items only, and those of the later cycles from the
+responses to all items, as in Kim and Kolen (2016, Equations 13 to 20). The
+latent ability distribution of each group in \code{free.group} is updated in
+every EM cycle without rescaling, so that the item parameters and the
+distributions are placed on the scale of the fixed items. With
+\code{EmpHist = TRUE}, the distribution is the histogram of the expected numbers
+of examinees at the quadrature points, as in Kim and Kolen (2016); with
+\code{EmpHist = FALSE}, it is a normal distribution with the mean and variance of
+that histogram. The distributions of the groups not in \code{free.group} remain
+fixed also in MG-FIPC, whereas Kim and Kolen (2016) estimate the
+distributions of all groups; to follow their method, include all groups in
+\code{free.group}. The method \code{"OEM"} (Wainer & Mislevy, 1990) runs a single EM
+cycle: the posterior distributions are computed from the fixed items and the
+initial distributions, the parameters of the other items are estimated once,
+and the returned distributions are updated once afterward.
+
+A maximum likelihood estimate does not exist for an item with a score
+category that has no responses, which includes an item whose responses are
+all the same. The estimates of such an item can be extreme or remain near
+their starting values, and their standard errors are unreliable (a standard
+error of 99999 means that it could not be obtained). Before the estimation,
+one warning lists the IDs of these items. Because the parameters of an item
+are common to all the groups that include it, the responses of an item are
+pooled over these groups; an item that is constant in one group but varies in
+another is not flagged. The items fixed in MG-FIPC are not checked. A
+parameter with a prior distribution, such as the guessing parameter of a
+3PLM item with \code{use.gprior = TRUE}, can still be stable.
+
+When prior distributions are used, the item parameters are Bayes modal
+estimates, and \code{loglikelihood} is the log-likelihood at these estimates
+without the log prior densities.
+
+The information criteria are computed as
+\code{aic = -2 * loglikelihood$overall + 2 * npar.est} and
+\code{bic = -2 * loglikelihood$overall + npar.est * log(ncase$overall)},
+where \code{loglikelihood$overall} is the overall marginal log-likelihood
+without the prior densities of the item parameters and \code{ncase$overall}
+is the overall number of examinees. \code{npar.est} is the number
+of freely estimated parameters, which consists of (a) the item parameters
+that are estimated across all unique items (a slope shared by 1PLM items is
+counted once; fixed parameters and the items fixed in FIPC are not counted),
+(b) the mean and variance of each group in \code{free.group} when
+\code{EmpHist = FALSE} (2 values per group), and (c) the weights of the empirical
+histograms when \code{EmpHist = TRUE}. The histogram of a group in \code{free.group}
+is not rescaled, so its Q weights, where Q is the number of quadrature
+points, have Q - 1 free values (the sum of the weights is fixed). The
+histogram of any other group is rescaled to a fixed mean and variance, so
+its weights have Q - 3 free values. The counts by type are returned in
+\code{npar.detail}.
+
+The print method of this class has an argument \code{digits} that is not used.
+It prints the log-likelihood with the number of significant digits given
+by \code{getOption("digits")} (7 by default).
 }
 \examples{
 \donttest{
@@ -772,13 +953,19 @@ Linden & R. K. Hambleton (Eds.), \emph{Handbook of modern item response theory}
 Kim, S. (2006). A comparative study of IRT fixed parameter calibration
 methods. \emph{Journal of Educational Measurement, 43}(4), 355-381.
 
-Kim, S., & Kolen, M. J. (2016). Multiple group IRT fixed-parameter estimation
-for maintaining an established ability scale. \emph{Center for Advanced
-Studies in Measurement and Assessment Report, 49.}
+Kim, S., & Kolen, M. J. (2016). \emph{Multiple group IRT fixed-parameter
+estimation for maintaining an established ability scale} (CASMA Research
+Report No. 49). Center for Advanced Studies in Measurement and Assessment,
+University of Iowa.
 
 Meilijson, I. (1989). A fast improvement to the EM algorithm on its own
 terms. \emph{Journal of the Royal Statistical Society: Series B
 (Methodological), 51}, 127-138.
+
+Wainer, H., & Mislevy, R. J. (1990). Item response theory, item
+calibration, and proficiency estimation. In H. Wainer (Ed.), \emph{Computer
+adaptive testing: A primer} (Chap. 4, pp. 65-102). Hillsdale, NJ: Lawrence
+Erlbaum.
 
 Woods, C. M. (2007). Empirical histograms in item response theory with
 ordinal data. \emph{Educational and Psychological Measurement, 67}(1), 73-87.

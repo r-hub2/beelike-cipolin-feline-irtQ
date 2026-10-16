@@ -1,4 +1,7 @@
-# This function assigns numbers to the item parameters to be estimated
+# This function assigns numbers to the item parameters to be estimated. It returns
+# 'loc.par' (the number of each parameter in the layout of the item metadata) and
+# 'reloc.par' (the numbers listed in the order of the M-step: the 1PLM items with a
+# common slope first, then the other items)
 parloc <- function(x, loc_1p_const, loc_else, fix.a.1pl, fix.a.gpcm, fix.g) {
   par_order <- vector("list", nrow(x))
   for (i in 1:nrow(x)) {

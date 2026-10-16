@@ -18,7 +18,8 @@
 \code{\link{find_cut}}.}
 
 \item{theta_range}{A numeric vector of length 2 specifying the theta range
-shown on the x-axis. Defaults to the full range stored in
+shown on the x-axis. The TIF curves, the vertical lines, and the dots
+outside this range are cut off. Defaults to the full range stored in
 \code{x$tif_data}.}
 
 \item{show_anomalous}{Logical. If \code{TRUE} (default), anomalous TIF
@@ -37,12 +38,12 @@ stage in its own column (one row of panels, stage 1 at the left).}
 }
 \value{
 A \code{ggplot} object. The object is printed automatically when
-called interactively. It can be further customised with standard
+called interactively. It can be further customized with standard
 \pkg{ggplot2} functions such as \code{ggplot2::theme()},
 \code{ggplot2::scale_color_manual()}, etc.
 }
 \description{
-Produces a \pkg{ggplot2} visualisation of the Test Information Function
+Produces a \pkg{ggplot2} visualization of the Test Information Function
 (TIF) curves for each module, faceted by stage, with vertical lines marking
 the selected cut scores (proper TIF crossings) and, optionally, any
 anomalous crossings detected by \code{\link{find_cut}}.

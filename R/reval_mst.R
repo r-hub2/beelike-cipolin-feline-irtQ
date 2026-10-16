@@ -1,4 +1,4 @@
-#' Recursion-based MST evaluation method
+#' Recursion-Based Analytical Evaluation of an MST Panel
 #'
 #' This function evaluates the measurement precision and bias in
 #' Multistage-Adaptive Test (MST) panels using a recursion-based evaluation
@@ -7,56 +7,53 @@
 #' ability levels, facilitating efficient and accurate MST panel assessments
 #' without extensive simulations.
 #'
-#' @param x A data frame containing the metadata for the item bank, which
-#'   includes important information for each item such as the number of score
-#'   categories and the IRT model applied. This metadata is essential for
-#'   evaluating the MST panel, with items selected based on the specifications
-#'   in the `module` argument. To construct this item metadata efficiently, the
-#'   [irtQ::shape_df()] function is recommended. Further details on utilizing
-#'   item bank metadata along with `module` for MST panel evaluation are
-#'   provided below.
+#' @param x A data frame containing the item metadata of the item bank (e.g.,
+#'   item parameters, number of categories, and IRT models). Each row is one
+#'   item, and the rows correspond to the rows of `module`. See
+#'   [irtQ::shape_df()] for creating item metadata.
 #' @param D A scaling constant used in IRT models to make the logistic function
-#'   closely approximate the normal ogive function. A value of 1.7 is commonly
+#'   closely approximate the normal ogive function. A value of 1.702 is commonly
 #'   used for this purpose. Default is 1.
-#' @param route_map A binary square matrix that defines the MST structure,
-#'   illustrating transitions between modules and stages. This concept and
-#'   structure are inspired by the `transMatrix` argument in the `randomMST()`
-#'   function from the \pkg{mstR} package (Magis et al., 2017), which provides a
-#'   framework for representing MST pathways. For comprehensive understanding
-#'   and examples of constructing `route_map`, refer to the \pkg{mstR} package
-#'   (Magis et al., 2017) documentation. Also see below for details.
-#' @param module A binary matrix that maps items from the item bank specified in
-#'   `x` to modules within the MST framework. This parameter's structure is
-#'   analogous to the `modules` argument in the `randomMST()`  function of the
-#'   \pkg{mstR} package, enabling precise item-to-module assignments for MST
-#'   configurations. For detailed instructions on creating and utilizing the
-#'   `module` matrix effectively, consult the documentation of the \pkg{mstR}
-#'   package (Magis et al., 2017). Also see below for details.
-#' @param cut_score A list defining cut scores for routing test takers through
-#'   MST stages. Each list element is a vector of cut scores for advancing
-#'   participants to subsequent stage modules. In a 1-3-3 MST configuration, for
-#'   example, `cut_score` might be defined as `cut_score = list(c(-0.5, 0.5),
-#'   c(-0.6, 0.6))`, where `c(-0.5, 0.5)` are thresholds for routing from the
-#'   first to the second stage, and `c(-0.6, 0.6)` for routing from the second
-#'   to the third stage. This setup facilitates tailored test progression based
-#'   on performance. Further examples and explanations are available below.
+#' @param route_map A binary square matrix defining the MST structure. A value
+#'   of 1 at row *i* and column *j* means that test takers can be routed from
+#'   module *i* to module *j*. This is the same convention as the `transMatrix`
+#'   argument of `randomMST()` in the \pkg{mstR} package (Magis et al., 2017).
+#'   The stages are found from the transitions (see [irtQ::panel_info()]), and
+#'   the first stage must contain a single routing module.
+#' @param module A binary matrix that assigns the items in `x` to modules. It
+#'   has one row per item (in the order of `x`) and one column per module, and a
+#'   value of 1 at row *j* and column *m* means that item *j* belongs to module
+#'   *m*. This is the same convention as the `modules` argument of `randomMST()`
+#'   in the \pkg{mstR} package (Magis et al., 2017).
+#' @param cut_score A list with one numeric vector per stage transition (the
+#'   number of stages minus one). Element *s* holds the cut scores on the
+#'   ability (theta) metric for routing from stage *s* to stage *s* + 1, finite
+#'   and in strictly ascending order, with one fewer value than the number of
+#'   modules in stage *s* + 1; cut score *k* separates the *k*-th and the
+#'   (*k* + 1)-th module of that stage in the order of the module indices. A
+#'   `NULL` element is read as an empty vector for a stage with a single
+#'   module. For example, in a 1-3-3 panel,
+#'   `cut_score = list(c(-0.5, 0.5), c(-0.6, 0.6))`. See **Details**.
 #' @param theta A vector of ability levels (theta) at which the MST panel's
 #'   performance is assessed. This allows for the evaluation of measurement
 #'   precision and bias across a continuum of ability levels. The default is
 #'   `theta = seq(-5, 5, 1)`.
-#' @param intpol A logical value to enable linear interpolation in the inverse
-#'   test characteristic curve (TCC) scoring, facilitating ability estimate
-#'   approximation for observed sum scores not directly obtainable from the TCC,
-#'   such as those below the sum of item guessing parameters. Default is TRUE,
-#'   applying interpolation to bridge gaps in the TCC. Refer to
-#'   [irtQ::est_score()] for more details and consult Lim et al. (2021) for
-#'   insights into the interpolation technique within inverse TCC scoring.
-#' @param range.tcc A vector to define the range of ability estimates for
-#'   inverse TCC scoring, expressed as the two numeric values for lower and
-#'   upper bounds. Default is to c(-7, 7).
-#' @param tol A numeric value of the convergent tolerance for the  inverse TCC
-#'   scoring. For the inverse TCC scoring, the bisection method is used for
-#'   optimization. Default is 1e-4.
+#' @param intpol Logical. If `TRUE`, inverse TCC scoring assigns ability
+#'   estimates to the sum scores that cannot be mapped through the TCC (sum
+#'   scores less than or equal to the sum of the guessing parameters, and the
+#'   maximum possible sum score), as in [irtQ::est_score()]. The low scores are
+#'   mapped by linear interpolation (Lim et al., 2021), and the maximum sum
+#'   score receives the second value of `range.tcc`. With `intpol = FALSE`,
+#'   some sum scores have no ability estimate, and the function stops with an
+#'   error. Default is `TRUE`.
+#' @param range.tcc A numeric vector of length two giving the ability estimates
+#'   assigned to the lowest and the maximum possible sum scores when
+#'   `intpol = TRUE` (see [irtQ::est_score()]). The range must be wide enough
+#'   to cover the ability estimates of the sum scores, or the function stops
+#'   with an error. Default is `c(-7, 7)`.
+#' @param tol A positive number giving the tolerance of the bisection search
+#'   used by inverse TCC scoring; the search stops when the search interval is
+#'   no wider than `tol`. Default is 1e-4.
 #'
 #' @details The [irtQ::reval_mst()] function evaluates an MST panel by
 #'   implementing a recursion-based method to assess measurement precision
@@ -77,6 +74,11 @@
 #'   `route_score = list(method = "INV.TCC")`, [irtQ::run_mst()] follows the
 #'   same design that this function evaluates analytically.
 #'
+#'   The first stage must have a single routing module, whatever its module
+#'   index, and the function stops with an error when stage 1 has more than one
+#'   module. [irtQ::run_mst()] also runs panels with several stage-1 modules, so
+#'   the two functions differ in the panels they support.
+#'
 #'   All modules in the same stage must have the same maximum sum score (the
 #'   sum of the maximum item scores), for example the same number of items when
 #'   all items are dichotomous. The function stops with an error when this
@@ -92,110 +94,67 @@
 #'   within each module contribute to measurement precision and bias, reflecting
 #'   the tailored progression logic inherent in MST designs.
 #'
-#'   The `route_map` argument is essential for defining the MST's structure by
-#'   indicating possible transitions between modules. Similar to the
-#'   `transMatrix()` in the \pkg{mstR} package (Magis et al., 2017), `route_map`
-#'   is a binary matrix that outlines which module transitions are possible
-#'   within an MST design. Each "1" in the matrix represents a feasible
-#'   transition from one module (row) to another (column), effectively mapping
-#'   the flow of test takers through the MST based on their performance. For
-#'   instance, a "1" at the intersection of row *i* and column *j* indicates the
-#'   possibility for test takers to progress from the module corresponding to
-#'   row *i* directly to the module denoted by column *j*. This structure allows
-#'   [irtQ::reval_mst()] to simulate and evaluate the dynamic routing of test
-#'   takers through various stages and modules of the MST panel.
+#'   The `route_map` argument defines the possible transitions between
+#'   modules, following the `transMatrix` argument of `randomMST()` in the
+#'   \pkg{mstR} package (Magis et al., 2017). A value of 1 at row *i* and column
+#'   *j* means that test takers can move from module *i* directly to module *j*.
+#'   [irtQ::panel_info()] uses this matrix to enumerate all pathways, and
+#'   [irtQ::reval_mst()] evaluates the routing along these pathways
+#'   analytically, without simulation.
 #'
 #'   To further detail the `cut_score` argument with an illustration: In a 1-3-3
 #'   MST configuration, the list `cut_score = list(c(-0.5, 0.5), c(-0.6, 0.6))`
 #'   operates as a decision guide at each stage. Initially, all test takers
-#'   start in the first module. Upon completion, their scores determine their
-#'   next stage module: scores below -0.5 route to the first module of the next
-#'   stage, scores from -0.5 up to but not including 0.5 to the second, and
-#'   scores of 0.5 or above to the third. This pattern allows for dynamic
-#'   adaptation, tailoring the test path to individual performance levels.
+#'   start in the routing module. Upon completion, the inverse TCC ability
+#'   estimate of the sum score over all modules taken so far determines the next
+#'   module: estimates below -0.5 route to the first module of the next stage,
+#'   estimates from -0.5 up to but not including 0.5 to the second, and
+#'   estimates of 0.5 or above to the third. When a module can reach only some
+#'   modules of the next stage, only the cut scores that separate the reachable
+#'   modules are used. For example, a test taker in a stage-2 module that can
+#'   reach only the second and third stage-3 modules is routed by the second
+#'   cut score alone.
 #'
-#' @return This function returns a list of seven internal objects. These are:
+#' @return A list with the following seven elements:
 #'
-#' \item{panel.info}{A list of several sub-objects containing detailed information
-#' about the MST panel configuration, including:
-#'     \describe{
-#'       \item{config}{A nested list indicating the arrangement of modules across
-#'       stages, showing which modules are included in each stage. For example,
-#'       the first stage includes module 1, the second stage includes
-#'       modules 2 to 4, and so forth.}
-#'       \item{pathway}{A matrix detailing all possible pathways through the MST panel.
-#'       Each row represents a unique path a test taker might take, based on their
-#'       performance and the cut scores defined.}
-#'       \item{n.module}{A named vector indicating the number of modules available
-#'       at each stage.}
-#'       \item{n.stage}{A single numeric value representing the total number of
-#'       stages in the MST panel.}
-#'    }
-#' }
+#' \item{panel.info}{The output of [irtQ::panel_info()]: `config`, `pathway`,
+#' `n.module`, and `n.stage`.}
 #'
-#' \item{item.by.mod}{A list where each entry represents a module
-#' in the MST panel, detailing the item metadata within that module. Each module's
-#' metadata includes item IDs, the number of categories, the IRT model
-#' used (model), and the item parameters (e.g., par.1, par.2, par.3).}
+#' \item{item.by.mod}{A list of item metadata data frames, one per module, named
+#' `m.1`, `m.2`, etc. The item metadata are checked and completed as in
+#' [irtQ::run_mst()], so these are plain data frames with upper-case model names
+#' and without parameter columns that are all `NA`, whatever the class of `x`.
+#' The same holds for `item.by.path`.}
 #'
-#' \item{item.by.path}{A list containing item metadata arranged
-#' according to the paths through the MST structure. This detailed
-#' breakdown allows for an analysis of item characteristics along specific
-#' MST paths. Each list entry corresponds to a testing stage and path,
-#' providing item metadata. This structure facilitates the examination of
-#' how items function within the context of each unique path through the MST.}
+#' \item{item.by.path}{A list with one element per stage (`stage.1`, `stage.2`,
+#' ...). Each element is a list of item metadata data frames, one per distinct
+#' partial pathway up to that stage (`path.1`, `path.2`, ...), holding the items
+#' of all modules on the partial pathway.}
 #'
-#' \item{eq.theta}{
-#' Estimated ability levels (\eqn{\theta}) corresponding to the observed
-#' scores, derived from the inverse TCC scoring method. This provides the
-#' estimated \eqn{\theta} values for each potential pathway through the
-#' MST stages. For each stage, \eqn{\theta} values are calculated for each
-#' path, indicating the range of ability levels across the test takers.
-#' For instance, in a three-stage MST, the `eq.theta` list may contain
-#' \eqn{\theta} estimates for multiple paths within each stage, reflecting
-#' the progression of ability estimates as participants move through the test.
-#' The example below illustrates the structure of `eq.theta` output for a
-#' 1-3-3 MST panel with varying paths:
-#'      \describe{
-#'        \item{stage.1}{`path.1` shows \eqn{\theta} estimates ranging from -7 to +7,
-#'        demonstrating the initial spread of abilities.}
-#'        \item{stage.2}{Multiple paths (`path.1`, `path.2`, ...) each with
-#'        their own \eqn{\theta} estimates, indicating divergence in ability levels
-#'        based on test performance.}
-#'        \item{stage.3}{Further refinement of \eqn{\theta} estimates across paths,
-#'        illustrating the final estimation of abilities after the last stage.}
-#'   }
-#' }
+#' \item{eq.theta}{A list with one element per stage. Each element is a matrix
+#' with one row per possible cumulative sum score (0 to the maximum) and one
+#' column per partial pathway up to that stage (`path.1`, `path.2`, ...),
+#' holding the inverse TCC ability estimates. The columns of the last stage
+#' correspond to the complete pathways.}
 #'
-#' \item{cdist.by.mod}{A list where each entry contains the conditional distributions
-#' of the observed scores for each module given the ability levels.}
+#' \item{cdist.by.mod}{A list with one element per value of `theta` (named by
+#' the values). Each element is a matrix with one row per sum score and one
+#' column per module (`m.1`, `m.2`, ...), holding the conditional sum score
+#' distribution of each module; rows beyond a module's maximum score are 0.}
 #'
-#' \item{jdist.by.path}{Joint distributions of observed scores for different paths
-#' at each stage in a MST panel. The example below outlines the organization of
-#' `jdist.by.path` data in a hypothetical 1-3-3 MST panel:
-#'      \describe{
-#'        \item{stage.1}{Represents the distribution at the initial stage, indicating
-#'        the broad spread of test-taker abilities at the outset.}
-#'        \item{stage.2}{Represents the conditional joint distributions of the observed
-#'        scores as test-takers move through different paths at the stage 2, based on
-#'        their performance in earlier stages.}
-#'        \item{stage.3}{Represents a further refinement of joint distribution of
-#'        observed scores as test-takers move through different paths at the final
-#'        stage 3, based on their performance in earlier stages.}
-#'  }
-#' }
+#' \item{jdist.by.path}{A list with one element per stage. Each element is a
+#' list with one element per value of `theta`, holding a matrix with one row per
+#' cumulative sum score and one column per partial pathway, which gives the
+#' joint probability of the sum score and the pathway.}
 #'
-#' \item{eval.tb}{
-#' A table summarizing the measurement precision of the MST panel. It contains the true
-#' ability levels (`theta`) with the mean ability estimates (`mu`), variance
-#' (`sigma2`), bias, and conditional standard error of measurement (CSEM) given
-#' the true ability levels. This table highlights the MST panel's accuracy and
-#' precision across different ability levels, providing insights into its effectiveness
-#' in estimating test-taker abilities.}
+#' \item{eval.tb}{A data frame with the columns `theta` (true ability), `mu` and
+#' `sigma2` (conditional mean and variance of the final ability estimate), `bias`
+#' (`mu - theta`), and `csem` (square root of `sigma2`).}
 #'
 #' @author Hwanggyu Lim \email{hglim83@@gmail.com}
 #'
-#' @seealso [irtQ::shape_df()], [irtQ::est_score()]
+#' @seealso [irtQ::run_mst()], [irtQ::panel_info()], [irtQ::find_cut()],
+#'   [irtQ::shape_df()], [irtQ::est_score()]
 #'
 #' @references Lim, H., Davey, T., & Wells, C. S. (2021). A recursion-based
 #'   analytical approach to evaluate the performance of MST. *Journal of
@@ -208,14 +167,14 @@
 #' @examples
 #' \donttest{
 #' ## ------------------------------------------------------------------------------
-#' # Evaluation of a 1-3-3 MST panel using simMST data.
-#' # This panel was assembled using module-level target TIFs and design
-#' # constraints similar to those used in Lim et al.'s (2021) simulation study
-#' # (it is not the identical dataset from that study).
-#' # Details:
-#' #    (a) Panel configuration: 1-3-3 MST panel
-#' #    (b) Test length: 24 items (each module contains 8 items across all stages)
-#' #    (c) IRT model: 3-parameter logistic model (3PLM)
+#' ## Evaluation of a 1-3-3 MST panel using simMST data.
+#' ## This panel was assembled using module-level target TIFs and design
+#' ## constraints similar to those used in Lim et al.'s (2021) simulation study
+#' ## (it is not the identical dataset from that study).
+#' ## Details:
+#' ##    (a) Panel configuration: 1-3-3 MST panel
+#' ##    (b) Test length: 24 items (each module contains 8 items across all stages)
+#' ##    (c) IRT model: 3-parameter logistic model (3PLM)
 #' ## ------------------------------------------------------------------------------
 #' # Load the necessary library
 #' library(dplyr)
@@ -267,7 +226,6 @@
 #'     linewidth = 1.5
 #'   ) +
 #'   ggplot2::labs(x = expression(theta), y = NULL) +
-#'   ggplot2::theme_classic() +
 #'   ggplot2::theme_bw() +
 #'   ggplot2::theme(legend.key.width = unit(1.5, "cm"))
 #' print(p_eval)
@@ -285,6 +243,10 @@ reval_mst <- function(x,
                       range.tcc = c(-7, 7),
                       tol = 1e-4) {
 
+  # Validate and normalize the item metadata (e.g., a missing guessing
+  # parameter of 1PLM and 2PLM items is set to 0)
+  x <- confirm_df(x)
+
   ## -----------------------------------------------------
   # Extract all the panel information from the route map
   ## -----------------------------------------------------
@@ -300,8 +262,45 @@ reval_mst <- function(x,
   # Total number of modules across all stages
   tn.mod <- sum(n.mod)
 
+  # Stop when the module matrix does not have one column per module of the panel
+  if (ncol(module) != tn.mod) {
+    stop("'module' must have one column per module in 'route_map'.", call. = FALSE)
+  }
+
   # Number of stages
   n.stg <- panel_data$n.stage
+
+  # Stop when stage 1 has more than one module
+  if (n.mod[1] != 1L) {
+    stop("The first stage must have a single routing module.", call. = FALSE)
+  }
+
+  # Stop when cut_score does not have one vector per stage transition
+  if (length(cut_score) != (n.stg - 1)) {
+    stop(sprintf(
+      "'cut_score' must be a list of length %d (one vector per stage transition).",
+      n.stg - 1), call. = FALSE)
+  }
+
+  # Stop when a cut score vector does not separate the modules of the next stage
+  for (s in seq_len(n.stg - 1)) {
+    # treat a NULL element as an empty vector of cut scores
+    if (is.null(cut_score[[s]])) cut_score[s] <- list(numeric(0))
+    cut_s <- cut_score[[s]]
+    if (!is.numeric(cut_s) || length(cut_s) != (n.mod[s + 1] - 1) ||
+        !all(is.finite(cut_s)) || is.unsorted(cut_s, strictly = TRUE)) {
+      # name the empty vector when the next stage has a single module
+      if (n.mod[s + 1] == 1) {
+        stop(sprintf(paste0(
+          "'cut_score[[%d]]' must be empty (numeric(0) or NULL) because ",
+          "stage %d has a single module."), s, s + 1), call. = FALSE)
+      }
+      stop(sprintf(paste0(
+        "'cut_score[[%d]]' must contain %d finite value(s) in strictly ascending ",
+        "order, one fewer than the number of modules in stage %d."),
+        s, n.mod[s + 1] - 1, s + 1), call. = FALSE)
+    }
+  }
 
   ## -----------------------------------------------------
   # Create List of item metadata for modules and paths
@@ -342,7 +341,7 @@ reval_mst <- function(x,
     purrr::map(
       .x = 1:n.stg,
       .f = ~ {
-        # Unique pathways upto the current stage
+        # Unique pathways up to the current stage
         path_uni <- unique(pathway[, 1:.x, drop = FALSE])
 
         # Item metadata for the unique pathways
@@ -369,8 +368,8 @@ reval_mst <- function(x,
   ## -----------------------------------------------------
   # Estimate the IRT theta scores using the Inverse-TCC method
   ## -----------------------------------------------------
-  # Compute the IRT thetas corresponding to the all observed scores using
-  # the Inverse-TCC scoring method for the all (sub) pathways
+  # Compute the IRT thetas corresponding to all observed sum scores using
+  # the Inverse-TCC scoring method for all (sub) pathways
   eq_theta <-
     purrr::map(
       .x = meta_path,
@@ -392,11 +391,20 @@ reval_mst <- function(x,
       }
     )
 
+  # Stop when a sum score has no inverse TCC estimate, which happens when
+  # intpol = FALSE or range.tcc does not cover the estimates
+  if (anyNA(unlist(eq_theta))) {
+    stop(paste0(
+      "Inverse TCC estimates are not available for some sum scores. ",
+      "Use 'intpol = TRUE' and a 'range.tcc' wide enough to cover the estimates."),
+      call. = FALSE)
+  }
+
   ## -----------------------------------------------------
   # Compute the conditional distributions of modules at each theta
   ## -----------------------------------------------------
-  # List containing the conditional distributions of the modules given the ability levels across all modules.
-  # Each element of the list includes the conditional distributions across all ability levels for each module.
+  # List of the conditional sum score distributions of each module,
+  # one column per ability level
   cdist_by_mod <-
     purrr::map(
       .x = meta_mod,
@@ -405,10 +413,8 @@ reval_mst <- function(x,
       }
     )
 
-  # Let's restructure the list above.
-  # We need a list of conditional distributions of the modules across all ability levels.
-  # Thus, each element of the list includes the conditional distributions for all
-  # modules given each ability level.
+  # Rearrange the list by ability level: each element holds the
+  # conditional distributions of all modules at one ability level
   cdist_by_th <-
     purrr::map(
       .x = 1:length(theta),
@@ -463,7 +469,7 @@ reval_mst <- function(x,
     purrr::map(
       .x = cdist_by_th,
       .f = ~ {
-        .x[, 1, drop = FALSE] %>%
+        .x[, panel_data$config[[1]], drop = FALSE] %>%
           unname()
       }
     )
@@ -478,8 +484,8 @@ reval_mst <- function(x,
     # Empty list to contain the cut scores used to route a test taker to next module
     cut4route[[s - 1]] <- vector("list", n_path)
 
-    # A data.frame with the pathway by the current stage (first column)
-    # and the modules (the current stage (second column)
+    # A data frame with the partial pathway up to the previous stage
+    # (first column) and the module of the current stage (second column)
     path_pre <-
       data.frame(pathway[, 1:s]) %>%
       tidyr::unite(col = "path", 1:(s - 1), sep = "_")
@@ -487,10 +493,10 @@ reval_mst <- function(x,
     # Unique pathways by the current stage
     uni_path_pre <- unique(path_pre$path)
 
-    # Empty to contain the conditional joint distributions at the current stage
+    # Empty list to contain the conditional joint distributions at the current stage
     jdist_temp <- vector("list", n_path)
 
-    # Loop over the all possible (sub) pathways
+    # Loop over all possible (sub) pathways
     for (i in 1:n_path) {
       # Find cut scores for routing a next module
       # Firstly, find all unique next modules that will be assigned at the current pathway
@@ -500,8 +506,9 @@ reval_mst <- function(x,
         dplyr::pull(2) %>%
         unique()
 
-      # Secondly, find the indices which modules will be actually used among the all possible next modules
-      idx_next <- match(nmod_next, unique(pathway[, s]))
+      # Secondly, find the positions of the reachable modules among the modules
+      # of the next stage in ascending order of module index
+      idx_next <- match(nmod_next, panel_data$config[[s]])
 
       # Lastly, find the cut scores to be used to assign the next modules
       cut4route[[s - 1]][[i]] <- cut_score[[s - 1]][dplyr::lag(idx_next)[-1]]
@@ -517,7 +524,7 @@ reval_mst <- function(x,
       # Cumulative maximum sum scores by the current stages
       max_score <- score_maxcum[s]
 
-      # Number of all unique next modules (a.k.a. all unique possible routing numbers)
+      # Number of all unique next modules
       n_route <- length(nmod_next)
 
       # All possible observed scores by the current stage
@@ -630,7 +637,7 @@ jdist <- function(cbind_dist, path_lb, n_route, max_score, score_cur,
     cj_dist <- array(0, c(max_score + 1, n_route))
     rownames(cj_dist) <- 0:max_score
 
-    # Loop over the observed scores of the (sub) pathway by the the current stage
+    # Loop over the observed scores of the (sub) pathway up to the current stage
     for (i in 1:length(score_cur)) {
       # Compute the conditional joint distribution
       cj_dist[i:(i + max(score_next)), path_lb[i]] <-

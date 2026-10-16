@@ -13,10 +13,11 @@ drm(theta, a, b, g = NULL, D = 1)
 
 \item{b}{A numeric vector of item difficulty parameters.}
 
-\item{g}{A numeric vector of item guessing parameters. Not required for 1PL or 2PL models.}
+\item{g}{A numeric vector of item guessing parameters. Not required for 1PL
+or 2PL models. \code{NA} values are treated as 0.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 }
 \value{

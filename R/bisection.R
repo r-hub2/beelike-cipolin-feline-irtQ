@@ -12,17 +12,18 @@
 #' @param tol A numeric value specifying the tolerance for convergence. Default is 1e-4.
 #' @param max.it An integer specifying the maximum number of iterations. Default is 100.
 #'
-#' @details The bisection method is a well-known root-finding numerical algorithm
-#' that applies to any continuous function, provided that the function values at the lower (`lb`)
-#' and upper (`ub`) bounds have opposite signs. The method repeatedly bisects the interval until
-#' the absolute difference between successive estimates is smaller than the error tolerance
-#' (`tol`) or the maximum number of iterations (`max.it`) is reached.
+#' @details The bisection method is a root-finding algorithm for a continuous
+#' function whose values at the lower (`lb`) and upper (`ub`) bounds have
+#' opposite signs. The method repeatedly halves the interval until its width
+#' is no greater than `tol` or the maximum number of iterations (`max.it`) is
+#' reached, and returns the midpoint of the final interval. A warning is issued
+#' when the function values at the bounds do not have opposite signs or when
+#' `max.it` is reached before the interval is no wider than `tol`.
 #'
 #' @return A list with the following components:
 #' - `root`: The estimated root of the function.
 #' - `iter`: The number of iterations performed.
-#' - `accuracy`: The final absolute difference between the last two interval
-#'  points with opposite signs.
+#' - `delta`: The width of the final search interval.
 #'
 #' @seealso [irtQ::est_score()]
 #'
@@ -49,7 +50,18 @@
 bisection <- function(.fun, ..., lb, ub, tol = 1e-4, max.it = 100) {
   iter <- 0
   f.ub <- .fun(ub, ...)
+
+  # warn when the function values at the two bounds do not have opposite signs
+  if (isTRUE(.fun(lb, ...) * f.ub > 0)) {
+    warning("The function values at 'lb' and 'ub' must have opposite signs.", call. = FALSE)
+  }
+
   while (abs(lb - ub) > tol) {
+    # stop at the maximum number of iterations when the interval is still wider than tol
+    if (iter >= max.it) {
+      warning("The maximum number of iterations is reached.", call. = FALSE)
+      break
+    }
     mb <- (lb + ub) / 2
     f.mb <- .fun(mb, ...)
     if (f.mb == 0) {
@@ -62,10 +74,6 @@ bisection <- function(.fun, ..., lb, ub, tol = 1e-4, max.it = 100) {
       f.ub <- f.mb
     }
     iter <- iter + 1
-    if (iter > max.it) {
-      warning("The maximum number of iteration is reached. \n", call. = FALSE)
-      break
-    }
   }
   root <- (lb + ub) / 2
   list(root = root, iter = iter, delta = abs(lb - ub))

@@ -2,7 +2,7 @@
 % Please edit documentation in R/reval_mst.R
 \name{reval_mst}
 \alias{reval_mst}
-\title{Recursion-based MST evaluation method}
+\title{Recursion-Based Analytical Evaluation of an MST Panel}
 \usage{
 reval_mst(
   x,
@@ -17,143 +17,98 @@ reval_mst(
 )
 }
 \arguments{
-\item{x}{A data frame containing the metadata for the item bank, which
-includes important information for each item such as the number of score
-categories and the IRT model applied. This metadata is essential for
-evaluating the MST panel, with items selected based on the specifications
-in the \code{module} argument. To construct this item metadata efficiently, the
-\code{\link[=shape_df]{shape_df()}} function is recommended. Further details on utilizing
-item bank metadata along with \code{module} for MST panel evaluation are
-provided below.}
+\item{x}{A data frame containing the item metadata of the item bank (e.g.,
+item parameters, number of categories, and IRT models). Each row is one
+item, and the rows correspond to the rows of \code{module}. See
+\code{\link[=shape_df]{shape_df()}} for creating item metadata.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 
-\item{route_map}{A binary square matrix that defines the MST structure,
-illustrating transitions between modules and stages. This concept and
-structure are inspired by the \code{transMatrix} argument in the \code{randomMST()}
-function from the \pkg{mstR} package (Magis et al., 2017), which provides a
-framework for representing MST pathways. For comprehensive understanding
-and examples of constructing \code{route_map}, refer to the \pkg{mstR} package
-(Magis et al., 2017) documentation. Also see below for details.}
+\item{route_map}{A binary square matrix defining the MST structure. A value
+of 1 at row \emph{i} and column \emph{j} means that test takers can be routed from
+module \emph{i} to module \emph{j}. This is the same convention as the \code{transMatrix}
+argument of \code{randomMST()} in the \pkg{mstR} package (Magis et al., 2017).
+The stages are found from the transitions (see \code{\link[=panel_info]{panel_info()}}), and
+the first stage must contain a single routing module.}
 
-\item{module}{A binary matrix that maps items from the item bank specified in
-\code{x} to modules within the MST framework. This parameter's structure is
-analogous to the \code{modules} argument in the \code{randomMST()}  function of the
-\pkg{mstR} package, enabling precise item-to-module assignments for MST
-configurations. For detailed instructions on creating and utilizing the
-\code{module} matrix effectively, consult the documentation of the \pkg{mstR}
-package (Magis et al., 2017). Also see below for details.}
+\item{module}{A binary matrix that assigns the items in \code{x} to modules. It
+has one row per item (in the order of \code{x}) and one column per module, and a
+value of 1 at row \emph{j} and column \emph{m} means that item \emph{j} belongs to module
+\emph{m}. This is the same convention as the \code{modules} argument of \code{randomMST()}
+in the \pkg{mstR} package (Magis et al., 2017).}
 
-\item{cut_score}{A list defining cut scores for routing test takers through
-MST stages. Each list element is a vector of cut scores for advancing
-participants to subsequent stage modules. In a 1-3-3 MST configuration, for
-example, \code{cut_score} might be defined as \code{cut_score = list(c(-0.5, 0.5), c(-0.6, 0.6))}, where \code{c(-0.5, 0.5)} are thresholds for routing from the
-first to the second stage, and \code{c(-0.6, 0.6)} for routing from the second
-to the third stage. This setup facilitates tailored test progression based
-on performance. Further examples and explanations are available below.}
+\item{cut_score}{A list with one numeric vector per stage transition (the
+number of stages minus one). Element \emph{s} holds the cut scores on the
+ability (theta) metric for routing from stage \emph{s} to stage \emph{s} + 1, finite
+and in strictly ascending order, with one fewer value than the number of
+modules in stage \emph{s} + 1; cut score \emph{k} separates the \emph{k}-th and the
+(\emph{k} + 1)-th module of that stage in the order of the module indices. A
+\code{NULL} element is read as an empty vector for a stage with a single
+module. For example, in a 1-3-3 panel,
+\code{cut_score = list(c(-0.5, 0.5), c(-0.6, 0.6))}. See \strong{Details}.}
 
 \item{theta}{A vector of ability levels (theta) at which the MST panel's
 performance is assessed. This allows for the evaluation of measurement
 precision and bias across a continuum of ability levels. The default is
 \code{theta = seq(-5, 5, 1)}.}
 
-\item{intpol}{A logical value to enable linear interpolation in the inverse
-test characteristic curve (TCC) scoring, facilitating ability estimate
-approximation for observed sum scores not directly obtainable from the TCC,
-such as those below the sum of item guessing parameters. Default is TRUE,
-applying interpolation to bridge gaps in the TCC. Refer to
-\code{\link[=est_score]{est_score()}} for more details and consult Lim et al. (2021) for
-insights into the interpolation technique within inverse TCC scoring.}
+\item{intpol}{Logical. If \code{TRUE}, inverse TCC scoring assigns ability
+estimates to the sum scores that cannot be mapped through the TCC (sum
+scores less than or equal to the sum of the guessing parameters, and the
+maximum possible sum score), as in \code{\link[=est_score]{est_score()}}. The low scores are
+mapped by linear interpolation (Lim et al., 2021), and the maximum sum
+score receives the second value of \code{range.tcc}. With \code{intpol = FALSE},
+some sum scores have no ability estimate, and the function stops with an
+error. Default is \code{TRUE}.}
 
-\item{range.tcc}{A vector to define the range of ability estimates for
-inverse TCC scoring, expressed as the two numeric values for lower and
-upper bounds. Default is to c(-7, 7).}
+\item{range.tcc}{A numeric vector of length two giving the ability estimates
+assigned to the lowest and the maximum possible sum scores when
+\code{intpol = TRUE} (see \code{\link[=est_score]{est_score()}}). The range must be wide enough
+to cover the ability estimates of the sum scores, or the function stops
+with an error. Default is \code{c(-7, 7)}.}
 
-\item{tol}{A numeric value of the convergent tolerance for the  inverse TCC
-scoring. For the inverse TCC scoring, the bisection method is used for
-optimization. Default is 1e-4.}
+\item{tol}{A positive number giving the tolerance of the bisection search
+used by inverse TCC scoring; the search stops when the search interval is
+no wider than \code{tol}. Default is 1e-4.}
 }
 \value{
-This function returns a list of seven internal objects. These are:
+A list with the following seven elements:
 
-\item{panel.info}{A list of several sub-objects containing detailed information
-about the MST panel configuration, including:
-\describe{
-\item{config}{A nested list indicating the arrangement of modules across
-stages, showing which modules are included in each stage. For example,
-the first stage includes module 1, the second stage includes
-modules 2 to 4, and so forth.}
-\item{pathway}{A matrix detailing all possible pathways through the MST panel.
-Each row represents a unique path a test taker might take, based on their
-performance and the cut scores defined.}
-\item{n.module}{A named vector indicating the number of modules available
-at each stage.}
-\item{n.stage}{A single numeric value representing the total number of
-stages in the MST panel.}
-}
-}
+\item{panel.info}{The output of \code{\link[=panel_info]{panel_info()}}: \code{config}, \code{pathway},
+\code{n.module}, and \code{n.stage}.}
 
-\item{item.by.mod}{A list where each entry represents a module
-in the MST panel, detailing the item metadata within that module. Each module's
-metadata includes item IDs, the number of categories, the IRT model
-used (model), and the item parameters (e.g., par.1, par.2, par.3).}
+\item{item.by.mod}{A list of item metadata data frames, one per module, named
+\code{m.1}, \code{m.2}, etc. The item metadata are checked and completed as in
+\code{\link[=run_mst]{run_mst()}}, so these are plain data frames with upper-case model names
+and without parameter columns that are all \code{NA}, whatever the class of \code{x}.
+The same holds for \code{item.by.path}.}
 
-\item{item.by.path}{A list containing item metadata arranged
-according to the paths through the MST structure. This detailed
-breakdown allows for an analysis of item characteristics along specific
-MST paths. Each list entry corresponds to a testing stage and path,
-providing item metadata. This structure facilitates the examination of
-how items function within the context of each unique path through the MST.}
+\item{item.by.path}{A list with one element per stage (\code{stage.1}, \code{stage.2},
+...). Each element is a list of item metadata data frames, one per distinct
+partial pathway up to that stage (\code{path.1}, \code{path.2}, ...), holding the items
+of all modules on the partial pathway.}
 
-\item{eq.theta}{
-Estimated ability levels (\eqn{\theta}) corresponding to the observed
-scores, derived from the inverse TCC scoring method. This provides the
-estimated \eqn{\theta} values for each potential pathway through the
-MST stages. For each stage, \eqn{\theta} values are calculated for each
-path, indicating the range of ability levels across the test takers.
-For instance, in a three-stage MST, the \code{eq.theta} list may contain
-\eqn{\theta} estimates for multiple paths within each stage, reflecting
-the progression of ability estimates as participants move through the test.
-The example below illustrates the structure of \code{eq.theta} output for a
-1-3-3 MST panel with varying paths:
-\describe{
-\item{stage.1}{\code{path.1} shows \eqn{\theta} estimates ranging from -7 to +7,
-demonstrating the initial spread of abilities.}
-\item{stage.2}{Multiple paths (\code{path.1}, \code{path.2}, ...) each with
-their own \eqn{\theta} estimates, indicating divergence in ability levels
-based on test performance.}
-\item{stage.3}{Further refinement of \eqn{\theta} estimates across paths,
-illustrating the final estimation of abilities after the last stage.}
-}
-}
+\item{eq.theta}{A list with one element per stage. Each element is a matrix
+with one row per possible cumulative sum score (0 to the maximum) and one
+column per partial pathway up to that stage (\code{path.1}, \code{path.2}, ...),
+holding the inverse TCC ability estimates. The columns of the last stage
+correspond to the complete pathways.}
 
-\item{cdist.by.mod}{A list where each entry contains the conditional distributions
-of the observed scores for each module given the ability levels.}
+\item{cdist.by.mod}{A list with one element per value of \code{theta} (named by
+the values). Each element is a matrix with one row per sum score and one
+column per module (\code{m.1}, \code{m.2}, ...), holding the conditional sum score
+distribution of each module; rows beyond a module's maximum score are 0.}
 
-\item{jdist.by.path}{Joint distributions of observed scores for different paths
-at each stage in a MST panel. The example below outlines the organization of
-\code{jdist.by.path} data in a hypothetical 1-3-3 MST panel:
-\describe{
-\item{stage.1}{Represents the distribution at the initial stage, indicating
-the broad spread of test-taker abilities at the outset.}
-\item{stage.2}{Represents the conditional joint distributions of the observed
-scores as test-takers move through different paths at the stage 2, based on
-their performance in earlier stages.}
-\item{stage.3}{Represents a further refinement of joint distribution of
-observed scores as test-takers move through different paths at the final
-stage 3, based on their performance in earlier stages.}
-}
-}
+\item{jdist.by.path}{A list with one element per stage. Each element is a
+list with one element per value of \code{theta}, holding a matrix with one row per
+cumulative sum score and one column per partial pathway, which gives the
+joint probability of the sum score and the pathway.}
 
-\item{eval.tb}{
-A table summarizing the measurement precision of the MST panel. It contains the true
-ability levels (\code{theta}) with the mean ability estimates (\code{mu}), variance
-(\code{sigma2}), bias, and conditional standard error of measurement (CSEM) given
-the true ability levels. This table highlights the MST panel's accuracy and
-precision across different ability levels, providing insights into its effectiveness
-in estimating test-taker abilities.}
+\item{eval.tb}{A data frame with the columns \code{theta} (true ability), \code{mu} and
+\code{sigma2} (conditional mean and variance of the final ability estimate), \code{bias}
+(\code{mu - theta}), and \code{csem} (square root of \code{sigma2}).}
 }
 \description{
 This function evaluates the measurement precision and bias in
@@ -183,6 +138,11 @@ Monte Carlo simulation. With \code{route_method = NULL}, a \code{cut_score} list
 \code{route_score = list(method = "INV.TCC")}, \code{\link[=run_mst]{run_mst()}} follows the
 same design that this function evaluates analytically.
 
+The first stage must have a single routing module, whatever its module
+index, and the function stops with an error when stage 1 has more than one
+module. \code{\link[=run_mst]{run_mst()}} also runs panels with several stage-1 modules, so
+the two functions differ in the panels they support.
+
 All modules in the same stage must have the same maximum sum score (the
 sum of the maximum item scores), for example the same number of items when
 all items are dichotomous. The function stops with an error when this
@@ -198,39 +158,38 @@ function to evaluate the MST panel's performance by analyzing how items
 within each module contribute to measurement precision and bias, reflecting
 the tailored progression logic inherent in MST designs.
 
-The \code{route_map} argument is essential for defining the MST's structure by
-indicating possible transitions between modules. Similar to the
-\code{transMatrix()} in the \pkg{mstR} package (Magis et al., 2017), \code{route_map}
-is a binary matrix that outlines which module transitions are possible
-within an MST design. Each "1" in the matrix represents a feasible
-transition from one module (row) to another (column), effectively mapping
-the flow of test takers through the MST based on their performance. For
-instance, a "1" at the intersection of row \emph{i} and column \emph{j} indicates the
-possibility for test takers to progress from the module corresponding to
-row \emph{i} directly to the module denoted by column \emph{j}. This structure allows
-\code{\link[=reval_mst]{reval_mst()}} to simulate and evaluate the dynamic routing of test
-takers through various stages and modules of the MST panel.
+The \code{route_map} argument defines the possible transitions between
+modules, following the \code{transMatrix} argument of \code{randomMST()} in the
+\pkg{mstR} package (Magis et al., 2017). A value of 1 at row \emph{i} and column
+\emph{j} means that test takers can move from module \emph{i} directly to module \emph{j}.
+\code{\link[=panel_info]{panel_info()}} uses this matrix to enumerate all pathways, and
+\code{\link[=reval_mst]{reval_mst()}} evaluates the routing along these pathways
+analytically, without simulation.
 
 To further detail the \code{cut_score} argument with an illustration: In a 1-3-3
 MST configuration, the list \code{cut_score = list(c(-0.5, 0.5), c(-0.6, 0.6))}
 operates as a decision guide at each stage. Initially, all test takers
-start in the first module. Upon completion, their scores determine their
-next stage module: scores below -0.5 route to the first module of the next
-stage, scores from -0.5 up to but not including 0.5 to the second, and
-scores of 0.5 or above to the third. This pattern allows for dynamic
-adaptation, tailoring the test path to individual performance levels.
+start in the routing module. Upon completion, the inverse TCC ability
+estimate of the sum score over all modules taken so far determines the next
+module: estimates below -0.5 route to the first module of the next stage,
+estimates from -0.5 up to but not including 0.5 to the second, and
+estimates of 0.5 or above to the third. When a module can reach only some
+modules of the next stage, only the cut scores that separate the reachable
+modules are used. For example, a test taker in a stage-2 module that can
+reach only the second and third stage-3 modules is routed by the second
+cut score alone.
 }
 \examples{
 \donttest{
 ## ------------------------------------------------------------------------------
-# Evaluation of a 1-3-3 MST panel using simMST data.
-# This panel was assembled using module-level target TIFs and design
-# constraints similar to those used in Lim et al.'s (2021) simulation study
-# (it is not the identical dataset from that study).
-# Details:
-#    (a) Panel configuration: 1-3-3 MST panel
-#    (b) Test length: 24 items (each module contains 8 items across all stages)
-#    (c) IRT model: 3-parameter logistic model (3PLM)
+## Evaluation of a 1-3-3 MST panel using simMST data.
+## This panel was assembled using module-level target TIFs and design
+## constraints similar to those used in Lim et al.'s (2021) simulation study
+## (it is not the identical dataset from that study).
+## Details:
+##    (a) Panel configuration: 1-3-3 MST panel
+##    (b) Test length: 24 items (each module contains 8 items across all stages)
+##    (c) IRT model: 3-parameter logistic model (3PLM)
 ## ------------------------------------------------------------------------------
 # Load the necessary library
 library(dplyr)
@@ -282,7 +241,6 @@ p_eval <-
     linewidth = 1.5
   ) +
   ggplot2::labs(x = expression(theta), y = NULL) +
-  ggplot2::theme_classic() +
   ggplot2::theme_bw() +
   ggplot2::theme(legend.key.width = unit(1.5, "cm"))
 print(p_eval)
@@ -299,6 +257,7 @@ multistage testing with R: Using packages catR and mstR}. Springer.
 \doi{10.1007/978-3-319-69218-0}.
 }
 \seealso{
+\code{\link[=run_mst]{run_mst()}}, \code{\link[=panel_info]{panel_info()}}, \code{\link[=find_cut]{find_cut()}},
 \code{\link[=shape_df]{shape_df()}}, \code{\link[=est_score]{est_score()}}
 }
 \author{

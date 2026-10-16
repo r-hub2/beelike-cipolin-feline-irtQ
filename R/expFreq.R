@@ -8,7 +8,7 @@ expFreq <- function(t.score, cats, prob.cats, lkhd_noitem, lkhd, wts, score.freq
   # one BLAS DGEMM computes all K column sums at once
   joint <- crossprod(lkhd_noitem, prob.cats * wts[, 2])  # (t_noitem x cats)
 
-  # fill the (t.score+1) x cats staircase matrix in one vectorised assignment:
+  # fill the (t.score+1) x cats staircase matrix in one vectorized assignment:
   # category j occupies rows j:(j + t_noitem - 1) of column j
   row_idx <- rep(seq_len(t_noitem), cats) + rep(seq_len(cats) - 1L, each = t_noitem)
   col_idx <- rep(seq_len(cats), each = t_noitem)
@@ -23,20 +23,11 @@ expFreq <- function(t.score, cats, prob.cats, lkhd_noitem, lkhd, wts, score.freq
   colnames(tmp2) <- paste0("score.", 0:(cats - 1))
   rownames(tmp2) <- paste0("score.", 0:t.score)
 
+  # convert the conditional proportions to expected frequencies
   tmp2 <- score.freq * tmp2
-  tmp2 <- tmp2[c(-1, -nrow(tmp2)), ]
 
-  row.first <- purrr::map_dbl(1:cats, .f = function(i) sum(tmp2[1:(cats - 1), i]))
-  row.end <- purrr::map_dbl(1:cats, .f = function(i) sum(tmp2[nrow(tmp2):(nrow(tmp2) - cats + 2), i]))
-
-  first.name <- rownames(tmp2)[cats - 1]
-  last.name <- rownames(tmp2)[nrow(tmp2) - cats + 2]
-
-  tmp2 <- tmp2[-c(1:(cats - 1), nrow(tmp2):(nrow(tmp2) - cats + 2)), ]
-  tmp3 <- rbind(row.first, tmp2, row.end)
-  rownames(tmp3) <- c(first.name, rownames(tmp2), last.name)
-
-  data.frame(tmp3)
+  # drop the extreme summed scores and merge the sparse score groups at both ends
+  merge_end_scores(tmp2, cats)
 }
 
 # This function returns a contingency table of the observed frequencies
@@ -52,17 +43,39 @@ obsFreq <- function(rawscore, response, t.score, cats) {
   colnames(tmp2) <- paste0("score.", 0:(cats - 1))
   rownames(tmp2) <- paste0("score.", 0:t.score)
 
-  tmp2 <- tmp2[c(-1, -nrow(tmp2)), ]
+  # drop the extreme summed scores and merge the sparse score groups at both ends
+  merge_end_scores(tmp2, cats)
+}
 
-  row.first <- purrr::map_dbl(1:cats, .f = function(i) sum(tmp2[1:(cats - 1), i]))
-  row.end <- purrr::map_dbl(1:cats, .f = function(i) sum(tmp2[nrow(tmp2):(nrow(tmp2) - cats + 2), i]))
+# This function drops the lowest and highest summed scores and pools the first and
+# last (cats - 1) remaining summed scores without counting any score twice
+merge_end_scores <- function(tab, cats) {
+  # remove the lowest and highest summed scores and keep the matrix form
+  tab <- tab[-c(1, nrow(tab)), , drop = FALSE]
+  n <- nrow(tab)
 
-  first.name <- rownames(tmp2)[cats - 1]
-  last.name <- rownames(tmp2)[nrow(tmp2) - cats + 2]
+  # find the rows pooled into the first score group
+  first.idx <- seq_len(min(cats - 1, n))
 
-  tmp2 <- tmp2[-c(1:(cats - 1), nrow(tmp2):(nrow(tmp2) - cats + 2)), ]
-  tmp3 <- rbind(row.first, tmp2, row.end)
-  rownames(tmp3) <- c(first.name, rownames(tmp2), last.name)
+  # find the rows pooled into the last score group, excluding rows of the first group
+  last.idx <- setdiff(seq(max(1, n - cats + 2), n), first.idx)
 
-  data.frame(tmp3)
+  # find the rows kept as separate score groups
+  mid.idx <- setdiff(seq_len(n), c(first.idx, last.idx))
+
+  # sum the frequencies within the first group
+  row.first <- colSums(tab[first.idx, , drop = FALSE])
+
+  # combine the first group with the middle groups
+  out <- rbind(row.first, tab[mid.idx, , drop = FALSE])
+  rownames(out) <- c(rownames(tab)[max(first.idx)], rownames(tab)[mid.idx])
+
+  # add the last group when it holds any row
+  if (length(last.idx) > 0L) {
+    row.end <- colSums(tab[last.idx, , drop = FALSE])
+    out <- rbind(out, row.end)
+    rownames(out)[nrow(out)] <- rownames(tab)[min(last.idx)]
+  }
+
+  data.frame(out)
 }

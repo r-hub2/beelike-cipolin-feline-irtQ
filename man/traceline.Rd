@@ -23,7 +23,9 @@ number of categories, IRT model types, etc.); or an object of class
 
 See \code{\link[=est_irt]{est_irt()}} or \code{\link[=simdat]{simdat()}} for more details about the item
 metadata. This data frame can be easily created using the
-\code{\link[=shape_df]{shape_df()}} function.}
+\code{\link[=shape_df]{shape_df()}} function. An item with \code{cats = 2} under the \code{"GRM"} or
+\code{"GPCM"} model has one threshold in \code{par.2}, must have \code{NA} in \code{par.3},
+and is computed as a 2PLM item.}
 
 \item{...}{Further arguments passed to or from other methods.}
 
@@ -31,17 +33,17 @@ metadata. This data frame can be easily created using the
 characteristic curves are computed.}
 
 \item{D}{A scaling constant used in IRT models to make the logistic function
-closely approximate the normal ogive function. A value of 1.7 is commonly
+closely approximate the normal ogive function. A value of 1.702 is commonly
 used for this purpose. Default is 1.}
 }
 \value{
 This function returns an object of class \code{traceline}, which is a list
 containing the following components:
 
-\item{prob.cats}{A list of matrices containing the category response
-probabilities for each item across the specified theta values. Each
-matrix corresponds to an item, with rows representing theta values and
-columns representing response categories (e.g., \code{"resp.0"}, \code{"resp.1"}, ...).}
+\item{prob.cats}{A list of matrices of category response probabilities,
+one per item and named by item ID. Each matrix has one row per theta
+value and one column per score category of the item (\code{"resp.0"},
+\code{"resp.1"}, ...).}
 
 \item{icc}{A numeric matrix representing ICCs. Each column corresponds to
 an item, and each row represents the expected item score at a given theta value.
@@ -51,7 +53,7 @@ The column names are the item IDs.}
 expected item scores across all items at each theta value.}
 
 \item{theta}{A numeric vector of theta values at which the item and test
-information functions are evaluated. This matches the user-supplied
+characteristic functions are evaluated. This matches the user-supplied
 \code{theta} argument.}
 }
 \description{
@@ -72,14 +74,14 @@ of each item as a function of theta.
 scores at each theta value.
 }
 
-The output object can be visualized using the \link{plot.traceline} to
+The output object can be visualized using \code{\link[=plot.traceline]{plot.traceline()}} to
 inspect the relationship between ability levels (theta) and expected
 item/test scores.
 
 If the input \code{x} is an object of class \code{est_item} or \code{est_irt}, the function
 automatically extracts item parameter estimates and the scaling constant
-\code{D} from the object. Otherwise, a properly formatted item metadata data frame
-must be provided.
+\code{D} from the object, and a \code{D} supplied through \code{...} is ignored. Otherwise,
+a properly formatted item metadata data frame must be provided.
 }
 \section{Methods (by class)}{
 \itemize{

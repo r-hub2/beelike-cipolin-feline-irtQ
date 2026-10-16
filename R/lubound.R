@@ -1,4 +1,6 @@
-# This function sets the lower and upper bounds of the item parameters during the estimation
+# This function sets the lower and upper bounds of the item parameters during the estimation.
+# The slopes of dichotomous items are unbounded, the slopes of GRM and GPCM items have a lower
+# bound of 1e-8, and the guessing parameters lie in [1e-8, 1 - 1e-8].
 lubound <- function(model, cats, n.1PLM, idx4est = NULL, fix.a.1pl, fix.g, fix.a.gpcm) {
   bound.par <- list()
 
@@ -15,28 +17,24 @@ lubound <- function(model, cats, n.1PLM, idx4est = NULL, fix.a.1pl, fix.g, fix.a
     for (i in 1:length(idx4est$drm.else)) {
       if (model[idx4est$drm.else[i]] == "1PLM") {
         lower <- -Inf
-        # lower <- 1e-8
         upper <- Inf
         bound.par$drm.else[[i]] <- list(lower = lower, upper = upper)
       } else if (model[idx4est$drm.else[i]] == "2PLM") {
         lower <- c(-Inf, -Inf)
-        # lower <- c(1e-8, -Inf)
         upper <- c(Inf, Inf)
         bound.par$drm.else[[i]] <- list(lower = lower, upper = upper)
       } else if (model[idx4est$drm.else[i]] == "3PLM" & fix.g) {
         lower <- c(-Inf, -Inf)
-        # lower <- c(1e-8, -Inf)
         upper <- c(Inf, Inf)
         bound.par$drm.else[[i]] <- list(lower = lower, upper = upper)
       } else if (model[idx4est$drm.else[i]] == "3PLM" & !fix.g) {
         lower <- c(-Inf, -Inf, 1e-8)
-        # lower <- c(1e-8, -Inf, 1e-8)
         upper <- c(Inf, Inf, 1 - (1e-8))
         bound.par$drm.else[[i]] <- list(lower = lower, upper = upper)
       }
     }
   } else {
-    bound.par$drm.else < NULL
+    bound.par$drm.else <- NULL
   }
 
   if (!is.null(idx4est$prm)) {
