@@ -1119,7 +1119,8 @@ catsib_one <- function(data,
         crscore_ref = crscore_ref, crscore_foc = crscore_foc,
         resp.ref = resp_ref[, i], resp.foc = resp_foc[, i],
         max.bin = max.bin, min.bin = min.bin, min.binsize = min.binsize,
-        max.del = max.del, weight.group = weight.group
+        max.del = max.del, weight.group = weight.group,
+        skip = i %in% item.skip
       )
     }
   )
@@ -1169,18 +1170,65 @@ catsib_one <- function(data,
 }
 
 
-# This function computes the beta statistic and its SE for an item
+# This function finds the number of bins for an item: starting from max.bin, the
+# number of bins decreases until the bins with at least min.binsize examinees of
+# both groups keep at least 1 - max.del of the examinees of each group who
+# responded to the item, or until min.bin is reached
+catsib_nbin <- function(crscore_ref, crscore_foc, resp.ref, resp.foc,
+                        max.bin, min.bin, min.binsize, max.del) {
+
+  # set the range of the ability scale using the corrected scores of all examinees
+  crscore <- c(crscore_ref, crscore_foc)
+  min.crscore <- min(crscore, na.rm = TRUE)
+  max.crscore <- max(crscore, na.rm = TRUE)
+
+  # keep the corrected scores of the examinees who responded to the item
+  x_ref <- crscore_ref[!is.na(resp.ref)]
+  x_foc <- crscore_foc[!is.na(resp.foc)]
+
+  # decide the number of bins
+  for (num.bin in max.bin:min.bin) {
+    # compute the cut-scores to divide the theta scale into the bins
+    cutscore <- seq(from = min.crscore, to = max.crscore, length.out = num.bin + 1)
+
+    # stop as cut() does when the cut-scores are not unique
+    if (anyDuplicated(cutscore)) stop("'breaks' are not unique")
+
+    # count the examinees in each bin; the bin codes are those of
+    # cut(..., include.lowest = TRUE), and missing codes are not counted
+    n_ref <- tabulate(.bincode(x_ref, cutscore, TRUE, TRUE), nbins = num.bin)
+    n_foc <- tabulate(.bincode(x_foc, cutscore, TRUE, TRUE), nbins = num.bin)
+
+    # find the bins with at least min.binsize examinees of both groups
+    keep <- n_ref >= min.binsize & n_foc >= min.binsize
+
+    # check if the proportion of retained examinees is at least 1 - max.del in each group
+    isok_ref <- (sum(n_ref[keep]) / sum(n_ref)) >= 1 - max.del
+    isok_foc <- (sum(n_foc[keep]) / sum(n_foc)) >= 1 - max.del
+
+    # if the criterion is met, then break out the loop
+    if (all(isok_ref, isok_foc)) {
+      break
+    }
+  }
+
+  # return the number of bins, the cut-scores, and the numbers of retained examinees
+  list(num.bin = num.bin, cutscore = cutscore,
+       n.ref = sum(n_ref[keep]), n.foc = sum(n_foc[keep]))
+}
+
+
+# This function computes the beta statistic and its SE for an item; for a skipped
+# item, only the numbers of retained examinees are computed because catsib_one()
+# replaces its other statistics and its contingency table with NA
 catsib_item <- function(crscore_ref, crscore_foc, resp.ref, resp.foc,
                         max.bin, min.bin, min.binsize = 3, max.del = 0.075,
-                        weight.group) {
+                        weight.group, skip = FALSE) {
 
-  # check if all responses are NAs
-  all.na.ref <- all(is.na(resp.ref))
-  all.na.foc <- all(is.na(resp.foc))
-  
-  # when all responses are NAs for either group, return NAs
-  if(all.na.ref | all.na.foc) {
-    list(dif_stat = data.frame(
+  # create the results of an item without statistics, used when a group has no
+  # responses or when no bin is retained
+  na_out <- list(
+    dif_stat = data.frame(
       beta = NA, se = NA, z.beta = NA, p = NA,
       n.ref = 0, n.foc = 0, n.total = 0
     ),
@@ -1188,134 +1236,139 @@ catsib_item <- function(crscore_ref, crscore_foc, resp.ref, resp.foc,
       bin = NA, n.ref = 0, prop.ref = NA, var.ref = NA,
       n.foc = 0, prop.foc = NA, var.foc = NA,
       n.total = 0, beta = NA, var.beta = NA
-    ))
-    
-  } else {
-    
-    # when not all responses are NAs, proceed to compute the beta statistic
-  
-    # combine all corrected theta scores
-    crscore <- c(crscore_ref, crscore_foc)
-    
-    # set the range of the ability scale
-    min.crscore <- min(crscore, na.rm = TRUE)
-    max.crscore <- max(crscore, na.rm = TRUE)
-    
-    # decide the number of bins and create an initial frequency table
-    for (num.bin in max.bin:min.bin) {
-      # compute the cut-scores to divide the theta scale into the bins
-      cutscore <- seq(from = min.crscore, to = max.crscore, length.out = num.bin + 1)
-      
-      # assign a group variable to each score
-      bin_ref <- cut(crscore_ref, breaks = cutscore, include.lowest = TRUE, dig.lab = 7)
-      bin_foc <- cut(crscore_foc, breaks = cutscore, include.lowest = TRUE, dig.lab = 7)
-      
-      # keep the bins of the examinees who responded to the item
-      non.na.ref <- !is.na(resp.ref)
-      non.na.foc <- !is.na(resp.foc)
-      bin_ref <- bin_ref[non.na.ref]
-      bin_foc <- bin_foc[non.na.foc]
-      
-      # create a temporary data frame of bin frequency for both groups
-      bin.n.ref <- stats::xtabs(~bin_ref, drop.unused.levels = FALSE)
-      bin.n.foc <- stats::xtabs(~bin_foc, drop.unused.levels = FALSE)
-      
-      # check if the proportion of retained examinees is at least 1 - max.del in each group
-      isok_ref <- (sum(bin.n.ref[bin.n.ref >= min.binsize & bin.n.foc >= min.binsize]) /
-                     sum(bin.n.ref)) >= 1 - max.del
-      isok_foc <- (sum(bin.n.foc[bin.n.ref >= min.binsize & bin.n.foc >= min.binsize]) /
-                     sum(bin.n.foc)) >= 1 - max.del
-      
-      # if the criterion is met, then break out the loop
-      if (all(isok_ref, isok_foc)) {
-        break
-      }
-    }
-    
-    # final data frame containing all components to compute the beta statistic
-    prop.ref <- 
-      as.numeric(table(bin_ref, 
-                       factor(resp.ref[non.na.ref], levels = c(0, 1)))[, 2] / bin.n.ref)
-    prop.foc <- 
-      as.numeric(table(bin_foc, 
-                       factor(resp.foc[non.na.foc], levels = c(0, 1)))[, 2] / bin.n.foc)
-    var.ref <- as.numeric(by(
-      data = resp.ref[non.na.ref],
-      INDICES = bin_ref,
-      FUN = stats::var, na.rm = TRUE
-    ))
-    var.foc <- as.numeric(by(
-      data = resp.foc[non.na.foc],
-      INDICES = bin_foc,
-      FUN = stats::var, na.rm = TRUE
-    ))
-    ref.df <-
-      as.data.frame(bin.n.ref, stringsAsFactors = FALSE) %>%
-      stats::setNames(nm = c("bin", "n.ref")) %>%
-      data.frame(prop.ref = prop.ref, var.ref = var.ref)
-    foc.df <-
-      as.data.frame(bin.n.foc, stringsAsFactors = FALSE) %>%
-      stats::setNames(nm = c("bin", "n.foc")) %>%
-      data.frame(prop.foc = prop.foc, var.foc = var.foc)
-    n.ref <- n.foc <- weight <- NULL
-    item_df <-
-      merge(x = ref.df, y = foc.df, by = "bin", all = TRUE, sort = FALSE) %>%
-      # keep only bins with at least 'min.binsize' examinees in BOTH groups,
-      # consistent with the bin-count selection loop above
-      subset(n.ref >= min.binsize & n.foc >= min.binsize) %>%
-      transform(n.total = n.ref + n.foc) %>%
-      dplyr::mutate(
-        # weight each bin by the group whose ability distribution is the target
-        weight = switch(weight.group,
-          comb = .data$n.total / sum(.data$n.total),
-          foc = .data$n.foc / sum(.data$n.foc),
-          ref = .data$n.ref / sum(.data$n.ref)
-        )
-      ) %>%
-      transform(
-        beta = ((prop.ref - prop.foc) * weight),
-        var.beta = ((var.ref / n.ref + var.foc / n.foc) * weight^2)
-      )
-    
-    # when no bin contains enough examinees of both groups, return NAs and mark the item
-    if (nrow(item_df) == 0L) {
-      return(list(
-        dif_stat = data.frame(
-          beta = NA, se = NA, z.beta = NA, p = NA,
-          n.ref = 0, n.foc = 0, n.total = 0
-        ),
-        contingency = data.frame(
-          bin = NA, n.ref = 0, prop.ref = NA, var.ref = NA,
-          n.foc = 0, prop.foc = NA, var.foc = NA,
-          n.total = 0, beta = NA, var.beta = NA
-        ),
-        no_bin = TRUE
-      ))
-    }
-
-    # compute the beta statistic and its SE
-    beta <- sum(item_df$beta)
-    se_beta <- sqrt(sum(item_df$var.beta))
-    z_beta <- beta / se_beta
-    pval_beta <- 2 * stats::pnorm(q = abs(z_beta), mean = 0, sd = 1, lower.tail = FALSE)
-    n.ref <- sum(item_df$n.ref)
-    n.foc <- sum(item_df$n.foc)
-    stat_df <- data.frame(
-      beta = beta, se = se_beta, z.beta = z_beta, p = pval_beta,
-      n.ref = n.ref, n.foc = n.foc, n.total = n.ref + n.foc
     )
-    
-    # round the numbers of the data frame
-    item_df2 <-
-      janitor::adorn_totals(
-        dat = item_df, where = "row", fill = NA, , , "n.ref", "n.foc", "n.total",
-        "beta", "var.beta"
-      ) %>%
-      dplyr::mutate_at(.vars = c(3, 4, 6, 7), "round", digits = 4)
-    
-    # return the results
-    list(dif_stat = stat_df, contingency = item_df2)
-  
+  )
+
+  # when all responses are NAs for either group, return NAs
+  if (all(is.na(resp.ref)) | all(is.na(resp.foc))) {
+    return(na_out)
   }
-  
+
+  # decide the number of bins and count the retained examinees
+  nb <- catsib_nbin(
+    crscore_ref = crscore_ref, crscore_foc = crscore_foc,
+    resp.ref = resp.ref, resp.foc = resp.foc, max.bin = max.bin,
+    min.bin = min.bin, min.binsize = min.binsize, max.del = max.del
+  )
+
+  # for a skipped item, return only the numbers of retained examinees
+  if (skip) {
+    # mark the item when no bin contains enough examinees of both groups
+    if (nb$n.ref == 0 && nb$n.foc == 0) {
+      na_out$no_bin <- TRUE
+      return(na_out)
+    }
+    return(list(
+      dif_stat = data.frame(
+        beta = NA_real_, se = NA_real_, z.beta = NA_real_, p = NA_real_,
+        n.ref = nb$n.ref, n.foc = nb$n.foc, n.total = nb$n.ref + nb$n.foc
+      ),
+      contingency = NA
+    ))
+  }
+
+  # extract the number of bins and the cut-scores
+  num.bin <- nb$num.bin
+  cutscore <- nb$cutscore
+
+  # keep the responses of the examinees who responded to the item
+  non.na.ref <- !is.na(resp.ref)
+  non.na.foc <- !is.na(resp.foc)
+  resp_ref <- resp.ref[non.na.ref]
+  resp_foc <- resp.foc[non.na.foc]
+
+  # assign a bin to each examinee who responded to the item
+  bin_ref <- .bincode(crscore_ref[non.na.ref], cutscore, TRUE, TRUE)
+  bin_foc <- .bincode(crscore_foc[non.na.foc], cutscore, TRUE, TRUE)
+
+  # count the examinees in each bin
+  bin.n.ref <- tabulate(bin_ref, nbins = num.bin)
+  bin.n.foc <- tabulate(bin_foc, nbins = num.bin)
+
+  # keep only bins with at least 'min.binsize' examinees in BOTH groups,
+  # consistent with the bin-count selection above
+  keep <- which(bin.n.ref >= min.binsize & bin.n.foc >= min.binsize)
+
+  # when no bin contains enough examinees of both groups, return NAs and mark the item
+  if (length(keep) == 0L) {
+    na_out$no_bin <- TRUE
+    return(na_out)
+  }
+
+  # extract the numbers of examinees in the retained bins
+  n.ref <- bin.n.ref[keep]
+  n.foc <- bin.n.foc[keep]
+  n.total <- n.ref + n.foc
+
+  # compute the proportion of correct responses in each retained bin
+  prop.ref <- tabulate(bin_ref[resp_ref == 1], nbins = num.bin)[keep] / n.ref
+  prop.foc <- tabulate(bin_foc[resp_foc == 1], nbins = num.bin)[keep] / n.foc
+
+  # compute the variance of the responses in each retained bin
+  bin_var <- function(resp, bin) {
+    vapply(split(resp, factor(bin, levels = keep)), stats::var, numeric(1),
+           USE.NAMES = FALSE)
+  }
+  var.ref <- bin_var(resp = resp_ref, bin = bin_ref)
+  var.foc <- bin_var(resp = resp_foc, bin = bin_foc)
+
+  # weight each bin by the group whose ability distribution is the target
+  weight <- switch(weight.group,
+    comb = n.total / sum(n.total),
+    foc = n.foc / sum(n.foc),
+    ref = n.ref / sum(n.ref)
+  )
+
+  # compute the beta statistic and its variance in each retained bin
+  beta_bin <- (prop.ref - prop.foc) * weight
+  var_beta_bin <- (var.ref / n.ref + var.foc / n.foc) * weight^2
+
+  # compute the beta statistic and its SE
+  beta <- sum(beta_bin)
+  se_beta <- sqrt(sum(var_beta_bin))
+  z_beta <- beta / se_beta
+  pval_beta <- 2 * stats::pnorm(q = abs(z_beta), mean = 0, sd = 1, lower.tail = FALSE)
+  stat_df <- data.frame(
+    beta = beta, se = se_beta, z.beta = z_beta, p = pval_beta,
+    n.ref = sum(n.ref), n.foc = sum(n.foc), n.total = sum(n.ref) + sum(n.foc)
+  )
+
+  # label the retained bins in the same way as cut(..., include.lowest = TRUE)
+  bin_label <- levels(cut(numeric(0), breaks = cutscore, include.lowest = TRUE, dig.lab = 7))
+
+  # create the contingency table with a row of totals, rounding the proportions and variances;
+  # the totals skip missing values as janitor::adorn_totals() does
+  item_df2 <- data.frame(
+    bin = c(bin_label[keep], "Total"),
+    n.ref = c(n.ref, sum(n.ref, na.rm = TRUE)),
+    prop.ref = c(round(prop.ref, digits = 4), NA),
+    var.ref = c(round(var.ref, digits = 4), NA),
+    n.foc = c(n.foc, sum(n.foc, na.rm = TRUE)),
+    prop.foc = c(round(prop.foc, digits = 4), NA),
+    var.foc = c(round(var.foc, digits = 4), NA),
+    n.total = c(n.total, sum(n.total, na.rm = TRUE)),
+    weight = c(weight, NA),
+    beta = c(beta_bin, sum(beta_bin, na.rm = TRUE)),
+    var.beta = c(var_beta_bin, sum(var_beta_bin, na.rm = TRUE)),
+    stringsAsFactors = FALSE
+  )
+
+  # name the rows as janitor::adorn_totals() does: the retained bin numbers,
+  # and "1" for the row of totals; when bin 1 is retained, the row of totals is
+  # named after the number of rows, made unique if needed, so the names are
+  # taken from janitor::adorn_totals() itself
+  if (1L %in% keep) {
+    tmp_df <- data.frame(bin = bin_label[keep], n = n.ref, stringsAsFactors = FALSE)
+    attr(tmp_df, "row.names") <- keep
+    attr(item_df2, "row.names") <-
+      attr(janitor::adorn_totals(tmp_df, where = "row", fill = NA, , , "n"), "row.names")
+  } else {
+    attr(item_df2, "row.names") <- c(keep, 1L)
+  }
+
+  # set the class of the contingency table as a tabyl
+  class(item_df2) <- c("tabyl", "data.frame")
+
+  # return the results
+  list(dif_stat = stat_df, contingency = item_df2)
 }

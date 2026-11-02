@@ -840,6 +840,11 @@
   who responded to the removed item are rescored when `ncore = 1` and
   `method` is a pattern scoring method. Results are unchanged.
 
+- `catsib()` is faster: the number of bins is searched only among the
+  examinees who responded to an item, the items in `item.skip` are not
+  fully analyzed, and the contingency tables are built directly. Results
+  are unchanged.
+
 - The purification of `rdif()`, `crdif()`, `ripd()`, `grdif()`, and
   `catsib()` gives the warning of `est_score()` about `ncore > 1` once
   instead of at every iteration.

@@ -394,3 +394,30 @@ test_that("catsib() does not name skipped items in the warning about missing sta
   expect_match(warned, "item(s) item.1, item.3, item.4,", fixed = TRUE)
   expect_false(grepl("item.2", warned, fixed = TRUE))
 })
+
+test_that("catsib() keeps numeric statistics when every item is skipped", {
+  set.seed(22)
+  n <- 200
+  group <- rep(0:1, each = n)
+  score <- rnorm(2 * n)
+  se <- rep(0.3, 2 * n)
+  resp <- matrix(rbinom(2 * n * 3, 1, 0.5), ncol = 3)
+  out <- suppressWarnings(catsib(NULL, resp, score = score, se = se, group = group,
+                                 focal.name = 1, item.skip = 1:3))
+  # the statistic columns stay double although every value is missing
+  expect_type(out$no_purify$dif_stat$beta, "double")
+  expect_type(out$no_purify$dif_stat$p, "double")
+  expect_true(all(is.na(out$no_purify$dif_stat$beta)))
+})
+
+test_that("catsib() stops when the corrected abilities are all equal", {
+  n <- 100
+  group <- rep(0:1, each = n)
+  resp <- matrix(rep(0:1, length.out = 2 * n * 3), ncol = 3)
+  # skipped items are binned as well, so the error also appears when every item is skipped
+  for (skip in list(NULL, 1:3)) {
+    expect_error(suppressWarnings(catsib(NULL, resp, score = rep(0, 2 * n), se = rep(0.3, 2 * n),
+                                         group = group, focal.name = 1, item.skip = skip)),
+                 "'breaks' are not unique", fixed = TRUE)
+  }
+})
