@@ -2,7 +2,7 @@ Package: irtQ
 Type: Package
 Title: Unidimensional Item Response Theory Modeling
 Version: 1.4.0
-Date: 2026-10-16
+Date: 2026-11-14
 Description: Fits unidimensional item response theory (IRT) models to test
     data that include dichotomous and polytomous items, calibrates pretest
     items with fixed item and fixed ability parameter calibration, performs
@@ -47,7 +47,7 @@ URL: https://hwangQ.github.io/irtQ/, https://github.com/hwangQ/irtQ
 BugReports: https://github.com/hwangQ/irtQ/issues
 Config/roxygen2/version: 8.0.0
 NeedsCompilation: no
-Packaged: 2026-11-02 22:34:07 UTC; kijja
+Packaged: 2026-11-14 09:10:59 UTC; kijja
 Author: Hwanggyu Lim [aut, cre],
   Craig S. Wells [ctb],
   James Howard [ctb],

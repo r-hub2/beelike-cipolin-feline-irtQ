@@ -69,7 +69,7 @@ test-level statistics and for scoring selected-response item data.
 \tabular{ll}{
 Package: \tab irtQ\cr
 Version: \tab 1.4.0\cr
-Date: \tab 2026-10-16\cr
+Date: \tab 2026-11-14\cr
 Depends: \tab R (>= 4.5)\cr
 License: \tab GPL (>= 2)\cr
 }
